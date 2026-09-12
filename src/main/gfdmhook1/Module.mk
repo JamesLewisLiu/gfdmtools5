@@ -10,6 +10,7 @@ ldflags_gfdmhook1 := \
 libs_gfdmhook1 := \
     cconfig \
     hook \
+    p3io \
     p3ioemu \
     security \
     util \

@@ -23,6 +23,18 @@ static bool gfdm_is_eamuse_host(const char *host)
         (strstr(host, "eamuse") != NULL || strstr(host, "konami.") != NULL);
 }
 
+static void gfdm_copy_server_host(const char *host)
+{
+    size_t len = strlen(host);
+
+    if (len >= sizeof(gfdm_server_host)) {
+        len = sizeof(gfdm_server_host) - 1;
+    }
+
+    memcpy(gfdm_server_host, host, len);
+    gfdm_server_host[len] = '\0';
+}
+
 static int STDCALL gfdm_getaddrinfo(
     PCSTR node,
     PCSTR service,
@@ -108,10 +120,7 @@ void gfdmhook1_network_init(const struct net_addr *server)
     }
 
     if (server->type == NET_ADDR_TYPE_HOSTNAME) {
-        strncpy(
-            gfdm_server_host,
-            server->hostname.host,
-            sizeof(gfdm_server_host) - 1);
+        gfdm_copy_server_host(server->hostname.host);
     } else if (server->type == NET_ADDR_TYPE_IPV4) {
         snprintf(
             gfdm_server_host,
@@ -123,10 +132,7 @@ void gfdmhook1_network_init(const struct net_addr *server)
             (unsigned) ((server->ipv4.addr >> 24) & 0xFF));
     } else if (server->type == NET_ADDR_TYPE_URL) {
         if (server->url.type == NET_ADDR_TYPE_HOSTNAME) {
-            strncpy(
-                gfdm_server_host,
-                server->url.hostname.host,
-                sizeof(gfdm_server_host) - 1);
+            gfdm_copy_server_host(server->url.hostname.host);
         } else if (server->url.type == NET_ADDR_TYPE_IPV4) {
             snprintf(
                 gfdm_server_host,
