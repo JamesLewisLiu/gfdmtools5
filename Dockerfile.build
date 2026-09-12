@@ -1,4 +1,4 @@
-FROM --platform=amd64 debian:11.6-slim@sha256:f7d141c1ec6af549958a7a2543365a7829c2cdc4476308ec2e182f8a7c59b519
+FROM debian:bookworm-slim
 
 LABEL description="Build environment for bemanitools"
 

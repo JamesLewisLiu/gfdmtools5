@@ -17,6 +17,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y runc containerd docker.io
+          sudo systemctl enable --now docker
+          sudo docker info
 
       - name: Build bemanitools
         run: make build-docker
