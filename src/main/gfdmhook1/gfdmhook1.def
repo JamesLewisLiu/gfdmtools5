@@ -1,0 +1,4 @@
+LIBRARY gfdmhook1
+
+EXPORTS
+    DllMain@12 @1 NONAME

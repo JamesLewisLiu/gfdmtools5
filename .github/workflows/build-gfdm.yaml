@@ -1,0 +1,35 @@
+name: "Build GFDM V4 support"
+
+on:
+  push:
+    branches:
+      - gfdm
+  workflow_dispatch:
+
+jobs:
+  build-gfdm:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y runc containerd docker.io
+
+      - name: Build bemanitools
+        run: make build-docker
+
+      - name: Extract GFDM V4 package
+        run: |
+          mkdir -p artifact
+          cp build/zip/gfdm-v4.zip artifact/
+
+      - name: Upload GFDM V4 package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gfdm-v4-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: artifact/gfdm-v4.zip
