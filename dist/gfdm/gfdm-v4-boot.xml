@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="shift-jis"?>
 <config>
+    <ea3_conf>
+        <identity>
+            <pcbid __type="str">0101020304050607086F</pcbid>
+            <autoconf __type="bool">1</autoconf>
+        </identity>
+        <network>
+            <services __type="str">https://eamuse.konami.fun/service/services/</services>
+            <url_slash __type="bool">0</url_slash>
+        </network>
+    </ea3_conf>
     <avs_conf>
         <nvram>
             <!-- Store the V4 backup area as regular files in the game tree. -->

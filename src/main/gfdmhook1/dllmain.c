@@ -35,6 +35,8 @@ static bool gfdm_is_gf;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
+static int(__cdecl *real_device_get_jamma_history)(
+    void *history, int max_entries);
 
 /*
  * GFDM V4's original gfdmhook exposes the libdevice security entry points
@@ -84,6 +86,9 @@ static void __cdecl gfdm_device_update_secplug(void)
 {
 }
 
+static int __cdecl gfdm_device_get_jamma_history(
+    void *history, int max_entries);
+
 static const struct hook_symbol gfdm_secplug_syms[] = {
     {
         .name = "?device_check_secplug@@YAHH@Z",
@@ -100,6 +105,11 @@ static const struct hook_symbol gfdm_secplug_syms[] = {
     {
         .name = "?device_update_secplug@@YAXXZ",
         .patch = gfdm_device_update_secplug,
+    },
+    {
+        .name = "?device_get_jamma_history@@YAHPAUT_JAMMA_HISTORY_INFO@@H@Z",
+        .patch = gfdm_device_get_jamma_history,
+        .link = (void **) &real_device_get_jamma_history,
     },
 };
 
@@ -141,15 +151,62 @@ static void gfdm_read_keys(uint32_t *state)
     }
 }
 
+static uint32_t gfdm_read_input_state(void)
+{
+    uint32_t state;
+
+    if (gfdm_mapper_loaded) {
+        return (uint32_t) mapper_update();
+    }
+
+    gfdm_read_keys(&state);
+
+    return state;
+}
+
+static int __cdecl gfdm_device_get_jamma_history(
+    void *history, int max_entries)
+{
+    uint32_t state;
+    uint8_t *entry;
+    uint32_t tick;
+    int result;
+
+    result = real_device_get_jamma_history != NULL
+        ? real_device_get_jamma_history(history, max_entries)
+        : 0;
+
+    if (result > 0 || history == NULL || max_entries <= 0) {
+        return result;
+    }
+
+    state = gfdm_read_input_state();
+
+    if ((state & ((1u << 0) | (1u << 1))) == 0) {
+        return result;
+    }
+
+    entry = (uint8_t *) history;
+    memset(entry, 0, 12);
+    tick = GetTickCount();
+    memcpy(entry, &tick, sizeof(tick));
+    memcpy(entry + 4, &tick, sizeof(tick));
+
+    /* History bit 5 is V4's TEST edge; bit 6 is SERVICE. */
+    *(uint16_t *) (entry + 8) = state & (1u << 1) ? 0x20 : 0x40;
+
+    log_misc(
+        "Synthesized V4 JAMMA history for %s",
+        state & (1u << 1) ? "TEST" : "SERVICE");
+
+    return 1;
+}
+
 static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
 {
     (void) ctx;
 
-    if (gfdm_mapper_loaded) {
-        *state = (uint32_t) mapper_update();
-    } else {
-        gfdm_read_keys(state);
-    }
+    *state = gfdm_read_input_state();
 
     return S_OK;
 }

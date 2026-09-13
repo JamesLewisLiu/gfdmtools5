@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="shift-jis"?>
+<ea3_conf>
+    <soft>
+        <model __type="str">G33</model>
+        <dest __type="str">J</dest>
+        <spec __type="str">A</spec>
+        <rev __type="str">A</rev>
+        <ext __type="str"></ext>
+    </soft>
+</ea3_conf>
