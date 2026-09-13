@@ -41,6 +41,7 @@ static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
 static HMODULE(STDCALL *real_LoadLibraryA)(LPCSTR name);
+static int(__cdecl *real_movie_is_ready)(void);
 #if AVS_VERSION >= 1600
 static void (*real_avs_boot)(
     struct property_node *config,
@@ -63,6 +64,91 @@ static void (*real_avs_boot)(
 static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
+static void gfdm_apply_movie_hooks(HMODULE target);
+
+/*
+ * V4's libmovie has no null check for the decoder object in its exported
+ * movie_is_ready() path.  When video setup fails part-way through, the
+ * object field at +0x264 can contain a small error value (the crash dump had
+ * 0x4); libmovie then treats it as a pointer and enters a critical section
+ * at object + 0x1c2950.  Keep the original implementation for valid objects,
+ * but report "not ready" while the object is absent or clearly invalid so
+ * the game can continue without dereferencing the bad state.
+ */
+static bool gfdm_movie_readable(const void *address, size_t size)
+{
+    MEMORY_BASIC_INFORMATION mbi;
+    uintptr_t start;
+    uintptr_t end;
+
+    if (address == NULL || size == 0) {
+        return false;
+    }
+
+    start = (uintptr_t) address;
+    end = start + size;
+    if (end < start) {
+        return false;
+    }
+
+    if (VirtualQuery(address, &mbi, sizeof(mbi)) != sizeof(mbi) ||
+        mbi.State != MEM_COMMIT) {
+        return false;
+    }
+
+    return end <= (uintptr_t) mbi.BaseAddress + mbi.RegionSize;
+}
+
+static int __cdecl gfdm_movie_is_ready(void)
+{
+    HMODULE movie;
+    uintptr_t movie_base;
+    uintptr_t object;
+    uintptr_t decoder;
+
+    movie = GetModuleHandleA("libmovie.dll");
+    movie_base = (uintptr_t) movie;
+
+    if (movie_base == 0 ||
+        !gfdm_movie_readable((const void *) (movie_base + 0x1a81a0),
+                             sizeof(uintptr_t))) {
+        return 0;
+    }
+
+    object = *(const uintptr_t *) (movie_base + 0x1a81a0);
+    if (object == 0) {
+        return 0;
+    }
+
+    if (!gfdm_movie_readable((const void *) object, 0x268)) {
+        return 0;
+    }
+
+    decoder = *(const uintptr_t *) (object + 0x264);
+
+    /* The invalid state seen in gdv4.exe.39856.dmp was exactly 0x4. */
+    if (decoder < 0x10000 ||
+        !gfdm_movie_readable((const void *) decoder, 1) ||
+        !gfdm_movie_readable((const void *) (decoder + 0x1c296d), 1)) {
+        log_warning("V4 movie decoder state is invalid (%p); reporting not ready",
+                    (void *) decoder);
+        return 0;
+    }
+
+    if (real_movie_is_ready == NULL) {
+        return 0;
+    }
+
+    return real_movie_is_ready();
+}
+
+static const struct hook_symbol gfdm_movie_syms[] = {
+    {
+        .name = "?movie_is_ready@@YAHXZ",
+        .patch = gfdm_movie_is_ready,
+        .link = (void **) &real_movie_is_ready,
+    },
+};
 
 /* V4's libextio expects the physical IC-card unit to be present during the
    boot-time CARDUNIT_CHECK pass.  The PC launch has no such serial device.
@@ -353,6 +439,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
         gfdm_apply_device_hooks(module);
         gfdm_apply_extio_hooks(module);
         gfdm_apply_avs_hooks(NULL);
+        gfdm_apply_movie_hooks(module);
     }
 
     return module;
@@ -473,6 +560,12 @@ static void gfdm_apply_avs_hooks(HMODULE target)
 {
     hook_table_apply(target, "libavs-win32.dll", gfdm_avs_syms,
                      lengthof(gfdm_avs_syms));
+}
+
+static void gfdm_apply_movie_hooks(HMODULE target)
+{
+    hook_table_apply(target, "libmovie.dll", gfdm_movie_syms,
+                     lengthof(gfdm_movie_syms));
 }
 
 static void gfdm_read_keys(uint32_t *state)
@@ -774,6 +867,7 @@ static void gfdm_init(void)
     gfdm_apply_device_hooks(NULL);
     gfdm_apply_extio_hooks(NULL);
     gfdm_apply_avs_hooks(NULL);
+    gfdm_apply_movie_hooks(NULL);
     hook_table_apply(NULL, "kernel32.dll", gfdm_loader_syms,
                      lengthof(gfdm_loader_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);
