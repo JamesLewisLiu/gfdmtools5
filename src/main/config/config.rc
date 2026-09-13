@@ -180,6 +180,20 @@ FONT 8, "Ms Shell Dlg"
     AUTOCHECKBOX    "Use top keyboard row for PIN pad input", IDC_ALT_10K, 5, 185, 141, 8
 }
 
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+IDD_TAB_GFDM_NETWORK DIALOG 0, 0, 260, 110
+STYLE DS_3DLOOK | DS_SHELLFONT | WS_VISIBLE | WS_CHILDWINDOW
+EXSTYLE WS_EX_CONTROLPARENT
+FONT 8, "Ms Shell Dlg"
+{
+    GROUPBOX        "GFDM Network", IDC_STATIC, 5, 5, 250, 100
+    LTEXT           "e-amusement server", IDC_STATIC, 15, 23, 75, 8, SS_LEFT
+    EDITTEXT        IDC_GFDM_SERVER, 95, 20, 145, 14, ES_AUTOHSCROLL
+    LTEXT           "Adapter IPv4 (optional)", IDC_STATIC, 15, 48, 75, 8, SS_LEFT
+    EDITTEXT        IDC_GFDM_ADAPTER, 95, 45, 145, 14, ES_AUTOHSCROLL
+    LTEXT           "Leave adapter empty to use the Windows default route.", IDC_STATIC, 15, 73, 225, 8, SS_LEFT
+}
+
 
 
 //

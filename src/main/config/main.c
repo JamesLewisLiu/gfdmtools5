@@ -33,6 +33,8 @@ eam_ui_tab_create(
     HINSTANCE inst,
     const struct schema *schema,
     const struct eam_io_config_api *eam_io_config_api);
+HPROPSHEETPAGE gfdm_network_tab_create(
+    HINSTANCE inst, const struct schema *schema);
 
 static void my_fatal(const char *module, const char *fmt, ...)
 {
@@ -53,7 +55,7 @@ int main(int argc, char **argv)
 {
     INITCOMMONCONTROLSEX iccx;
     HINSTANCE inst;
-    HPROPSHEETPAGE psp[4];
+    HPROPSHEETPAGE psp[5];
     PROPSHEETHEADER psh;
     intptr_t result;
     const struct eam_io_config_api *eam_io_config_api;
@@ -151,6 +153,10 @@ int main(int argc, char **argv)
 
     if (eam_io_config_api != NULL) {
         psp[psh.nPages++] = eam_ui_tab_create(inst, schema, eam_io_config_api);
+    }
+
+    if (strcmp(schema->name, "gf") == 0 || strcmp(schema->name, "dm") == 0) {
+        psp[psh.nPages++] = gfdm_network_tab_create(inst, schema);
     }
 
     /* Run GUI */

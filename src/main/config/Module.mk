@@ -20,6 +20,7 @@ src_config      := \
     bind-light.c \
     buttons.c \
     eam.c \
+    gfdm-network.c \
     gametype.c \
     lights.c \
     main.c \
