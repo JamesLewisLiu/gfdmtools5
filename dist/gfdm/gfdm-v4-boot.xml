@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="shift-jis"?>
+<config>
+    <avs_conf>
+        <nvram>
+            <!-- Store the V4 backup area as regular files in the game tree. -->
+            <enable_win32fs __type="bool">1</enable_win32fs>
+        </nvram>
+        <rootfs>
+            <!-- V4 data paths are case-insensitive on Windows. -->
+            <case_sensitive __type="bool">0</case_sensitive>
+        </rootfs>
+        <sntp>
+            <enable_ntp __type="bool">1</enable_ntp>
+        </sntp>
+        <log>
+            <level __type="str">misc</level>
+            <enable_file __type="bool">1</enable_file>
+            <enable_console __type="bool">1</enable_console>
+        </log>
+    </avs_conf>
+</config>

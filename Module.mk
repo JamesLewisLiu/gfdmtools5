@@ -275,6 +275,7 @@ $(zipdir)/gfdm-v4.zip: \
 		dist/gfdm/config-dm.bat \
 		dist/gfdm/gamestart-v4-gf.bat \
 		dist/gfdm/gamestart-v4-dm.bat \
+		dist/gfdm/gfdm-v4-boot.xml \
 		dist/gfdm/gfdm-v4.conf \
 		dist/gfdm/gfdm-v4-gf.conf \
 		dist/gfdm/gfdm-v4-dm.conf \

@@ -1,8 +1,8 @@
 @echo off
 
 cd /d %~dp0
-if not exist CONF mkdir CONF
-if not exist CONF\NVRAM mkdir CONF\NVRAM
-if not exist CONF\RAW mkdir CONF\RAW
+if not exist dev mkdir dev
+if not exist dev\nvram mkdir dev\nvram
+if not exist dev\raw mkdir dev\raw
 
-inject gfdmhook1.dll gdv4.exe -d --config gfdm-v4-dm.conf %*
+inject gfdmhook1.dll gdv4.exe -d -b gfdm-v4-boot.xml --config gfdm-v4-dm.conf %*
