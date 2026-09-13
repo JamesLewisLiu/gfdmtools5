@@ -197,12 +197,18 @@ static void gfdm_read_keys(uint32_t *state)
 static uint32_t gfdm_read_input_state(void)
 {
     uint32_t state;
+    uint32_t keyboard_state;
 
-    if (gfdm_mapper_loaded) {
-        return (uint32_t) mapper_update();
+    state = gfdm_mapper_loaded ? (uint32_t) mapper_update() : 0;
+
+    /* Keep the F1/F2 fallback active even when an incomplete mapper file was
+       found. A stale/empty per-user mapper must not make TEST unreachable. */
+    gfdm_read_keys(&keyboard_state);
+    state |= keyboard_state;
+
+    if (!gfdm_mapper_loaded) {
+        return state;
     }
-
-    gfdm_read_keys(&state);
 
     return state;
 }
@@ -277,13 +283,28 @@ static int __cdecl gfdm_device_get_jamma_history(
         ? real_device_get_jamma_history(history, max_entries)
         : 0;
 
-    if (result > 0 || history == NULL || max_entries <= 0) {
+    if (history == NULL || max_entries <= 0) {
         return result;
     }
 
     state = gfdm_read_input_state();
 
-    if ((state & ((1u << 0) | (1u << 1))) == 0) {
+    /* The V4 error screen consumes the TEST edge from JAMMA history. If the
+       real device queue contains unrelated entries, replace it while TEST is
+       held so the screen cannot discard the mapped key as stale input. */
+    if ((state & (1u << 1)) != 0) {
+        entry = (uint8_t *) history;
+        memset(entry, 0, 12);
+        tick = GetTickCount();
+        memcpy(entry, &tick, sizeof(tick));
+        memcpy(entry + 4, &tick, sizeof(tick));
+        entry[8] = 0x20;
+
+        log_misc("Synthesized V4 JAMMA history for TEST");
+        return 1;
+    }
+
+    if (result > 0 || (state & (1u << 0)) == 0) {
         return result;
     }
 
