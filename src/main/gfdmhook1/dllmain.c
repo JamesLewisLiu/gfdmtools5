@@ -32,6 +32,73 @@ static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
 
+/*
+ * GFDM V4's original gfdmhook exposes the libdevice security entry points
+ * directly.  In particular, device_check_secplug() returns the status word
+ * expected by the game (0x101 for the black plug and 0x100 for the white
+ * plug).  V4 does not treat a boolean "present" value as a connected plug;
+ * returning 1 here therefore still produces the 5-1503-0001 error before the
+ * P3IO roundplug data is examined.
+ *
+ * Keep the P3IO emulation below as the source of the ROM/EEPROM data, but
+ * provide the same compatibility entry points as the known-good Gitadora
+ * hook.  This also makes the result independent of whether a particular V4
+ * libdevice build performs the check through its P3IO worker or through the
+ * exported game-facing API.
+ */
+static int __cdecl gfdm_device_check_secplug(int plug_id)
+{
+    int status;
+
+    status = plug_id == 0 ? 0x101 : 0x100;
+    log_misc("Security plug check %d -> 0x%03X", plug_id, status);
+
+    return status;
+}
+
+static int __cdecl gfdm_device_get_secplug(
+    int plug_id, uint8_t *rom, uint8_t *eeprom)
+{
+    (void) plug_id;
+    (void) rom;
+    (void) eeprom;
+
+    return 1;
+}
+
+static int __cdecl gfdm_device_read_secplug(
+    int plug_id, uint8_t *rom, uint8_t *eeprom)
+{
+    (void) plug_id;
+    (void) rom;
+    (void) eeprom;
+
+    return 1;
+}
+
+static void __cdecl gfdm_device_update_secplug(void)
+{
+}
+
+static const struct hook_symbol gfdm_secplug_syms[] = {
+    {
+        .name = "?device_check_secplug@@YAHH@Z",
+        .patch = gfdm_device_check_secplug,
+    },
+    {
+        .name = "?device_get_secplug@@YAHHQAE0@Z",
+        .patch = gfdm_device_get_secplug,
+    },
+    {
+        .name = "?device_read_secplug@@YAHHQAE0@Z",
+        .patch = gfdm_device_read_secplug,
+    },
+    {
+        .name = "?device_update_secplug@@YAXXZ",
+        .patch = gfdm_device_update_secplug,
+    },
+};
+
 static void gfdm_read_keys(uint32_t *state)
 {
     *state = 0;
@@ -169,6 +236,9 @@ static void gfdm_init(void)
     adapter_hook_init();
     adapter_hook_override(gfdm_config.adapter.override_ip);
 
+    /* Match the security status contract used by the known-good V4 hook. */
+    hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
+                     lengthof(gfdm_secplug_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);
     p3io_setupapi_insert_hooks(NULL);
     p3io_emu_init(&gfdm_p3io_ops, NULL);

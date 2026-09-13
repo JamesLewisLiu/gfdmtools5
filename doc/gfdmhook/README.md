@@ -39,3 +39,9 @@ V4 uses the AVS boot implementation shipped with the game, so this hook is built
 as an AVS-independent 32-bit DLL. That allows the same binary to be used with
 the V4 `libavs-win32.dll` without copying a newer AVS import shim into the game
 directory.
+
+The hook also installs the V4 `libdevice` security-status compatibility layer.
+The original Gitadora V4 hook reports status `0x101` for the black roundplug
+and `0x100` for the white roundplug; V4 rejects a boolean “present” response
+(`1`) with `5-1503-0001`. The P3IO emulator still supplies the ROM and signed
+EEPROM bytes, while these status values preserve the game-facing contract.
