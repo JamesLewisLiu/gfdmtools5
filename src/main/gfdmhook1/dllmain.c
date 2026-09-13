@@ -8,6 +8,7 @@
 
 #include "bemanitools/input.h"
 #include "cconfig/cconfig-hook.h"
+#include "geninput/input-config.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "hook/iohook.h"
@@ -35,6 +36,7 @@ static bool gfdm_keyboard;
 static bool gfdm_mapper_loaded;
 static bool gfdm_is_gf;
 static FILE *gfdm_log_file;
+static HMODULE gfdm_module;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -67,6 +69,30 @@ static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
+
+static void gfdm_open_log_file(void)
+{
+    char module_path[MAX_PATH];
+    char *separator;
+    char log_path[MAX_PATH];
+
+    if (gfdm_log_file != NULL) {
+        return;
+    }
+
+    if (GetModuleFileNameA(gfdm_module, module_path,
+                           lengthof(module_path)) > 0 &&
+        (separator = strrchr(module_path, '\\')) != NULL) {
+        separator[1] = '\0';
+        str_format(log_path, sizeof(log_path),
+                   "%sgfdm-v4-hook.log", module_path);
+        gfdm_log_file = fopen(log_path, "a");
+    }
+
+    if (gfdm_log_file == NULL) {
+        gfdm_log_file = fopen("gfdm-v4-hook.log", "a");
+    }
+}
 
 static void gfdm_log_writer(void *ctx, const char *chars, size_t nchars)
 {
@@ -884,7 +910,7 @@ static void gfdm_init(void)
     }
     gfdm_initialized = true;
 
-    gfdm_log_file = fopen("gfdm-v4-hook.log", "a");
+    gfdm_open_log_file();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V4 hook initialization started");
 
@@ -916,6 +942,29 @@ static void gfdm_init(void)
         "GFDM %s input mapping %s",
         gfdm_is_gf ? "GF" : "DM",
         gfdm_mapper_loaded ? "loaded" : "not configured; using keyboard fallback");
+
+    if (gfdm_mapper_loaded) {
+        action_iter_t iter;
+
+        for (iter = mapper_iterate_actions(); action_iter_is_valid(iter);
+             action_iter_next(iter)) {
+            struct mapped_action ma;
+            const char *dev_node;
+
+            action_iter_get_mapping(iter, &ma);
+            dev_node = ma.hid != NULL ? hid_stub_get_dev_node(ma.hid) : "<null>";
+            log_info(
+                "GFDM mapper action=%u page=%u bit=%u dev=%s control=%u attached=%d",
+                action_iter_get_action(iter),
+                action_iter_get_page(iter),
+                action_iter_get_bit(iter),
+                dev_node != NULL ? dev_node : "<none>",
+                (unsigned int) ma.control_no,
+                ma.hid != NULL && hid_stub_is_attached(ma.hid));
+        }
+
+        action_iter_free(iter);
+    }
 
     adapter_hook_init();
     adapter_hook_override(gfdm_config.adapter.override_ip);
@@ -956,6 +1005,8 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
     (void) ctx;
 
     if (reason == DLL_PROCESS_ATTACH) {
+        gfdm_module = mod;
+        gfdm_open_log_file();
         log_to_writer(gfdm_log_writer, NULL);
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
     }
