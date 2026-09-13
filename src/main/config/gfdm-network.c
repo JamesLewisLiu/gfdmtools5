@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <commctrl.h>
 
 #include <stdio.h>
 #include <stdbool.h>
