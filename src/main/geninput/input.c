@@ -24,6 +24,8 @@ static volatile long input_init_count;
 
 static FILE *mapper_config_open(const char *game_type, const char *mode)
 {
+    char module_path[MAX_PATH];
+    char *separator;
     char path[MAX_PATH];
     FILE *f;
 
@@ -32,6 +34,21 @@ static FILE *mapper_config_open(const char *game_type, const char *mode)
        or separate Windows accounts, cannot silently use different AppData
        copies. Other games retain the historical AppData behaviour. */
     if (strcmp(game_type, "gf") == 0 || strcmp(game_type, "dm") == 0) {
+        /* Resolve the package-local file from the generic input DLL as well
+           as from the current directory.  The latter changes when a game is
+           launched through a desktop shortcut, while config.exe and the
+           injected hook still belong to the same distribution directory. */
+        if (GetModuleFileNameA(input_hinst, module_path,
+                               lengthof(module_path)) > 0 &&
+            (separator = strrchr(module_path, '\\')) != NULL) {
+            separator[1] = '\0';
+            str_format(path, sizeof(path), "%s%s.bin", module_path, game_type);
+            f = fopen(path, mode);
+            if (f != NULL) {
+                return f;
+            }
+        }
+
         str_format(path, sizeof(path), "%s.bin", game_type);
         f = fopen(path, mode);
         if (f != NULL) {

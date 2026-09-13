@@ -627,15 +627,28 @@ static void gfdm_read_keys(uint32_t *state)
 
 static uint32_t gfdm_read_input_state(void)
 {
+    static uint32_t last_state;
     uint32_t state;
     uint32_t keyboard_state;
 
     state = gfdm_mapper_loaded ? (uint32_t) mapper_update() : 0;
 
-    /* Keep the F1/F2 fallback active even when an incomplete mapper file was
-       found. A stale/empty per-user mapper must not make TEST unreachable. */
-    gfdm_read_keys(&keyboard_state);
-    state |= keyboard_state;
+    /* The keyboard mapping is an explicit fallback.  In particular, do not
+       merge it into the mapper state when input.keyboard=false: doing so made
+       it impossible to tell whether a configured HID action was reaching the
+       game. */
+    if (gfdm_keyboard) {
+        gfdm_read_keys(&keyboard_state);
+        state |= keyboard_state;
+    }
+
+    if (state != last_state) {
+        log_misc(
+            "GFDM input state: %08x (%s mapper)",
+            state,
+            gfdm_mapper_loaded ? "configured" : "keyboard");
+        last_state = state;
+    }
 
     if (!gfdm_mapper_loaded) {
         return state;
@@ -666,34 +679,40 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
     if (gfdm_is_gf) {
         if (player != 1) {
             if (state & (1u << 8)) result |= 0x0004;  /* START */
-            if (state & (1u << 12)) result |= 0x0200; /* WAIL */
-            if (state & (1u << 18)) result |= 0x0400; /* RED */
-            if (state & (1u << 20)) result |= 0x0800; /* GREEN */
-            if (state & (1u << 22)) result |= 0x1000; /* BLUE */
-            if (state & (1u << 24)) result |= 0x4000; /* PICK A */
-            if (state & (1u << 25)) result |= 0x8000; /* PICK B */
-            if (state & (1u << 28)) result |= 0x2000; /* EFFECTOR */
+            if (state & (1u << 12)) result |= 0x0040; /* WAIL (DOWN) */
+            if (state & (1u << 18)) result |= 0x0200; /* RED (BUTTON0) */
+            if (state & (1u << 20)) result |= 0x0400; /* GREEN (BUTTON1) */
+            if (state & (1u << 22)) result |= 0x0800; /* BLUE (BUTTON2) */
+            if (state & (1u << 24)) result |= 0x0020; /* PICK A (UP) */
+            if (state & (1u << 25)) result |= 0x0040; /* PICK B (DOWN) */
+            if (state & (1u << 28)) result |= 0x8000; /* EFFECTOR (LEFT) */
         } else {
             if (state & (1u << 9)) result |= 0x0004;
-            if (state & (1u << 13)) result |= 0x0200;
-            if (state & (1u << 19)) result |= 0x0400;
-            if (state & (1u << 21)) result |= 0x0800;
-            if (state & (1u << 23)) result |= 0x1000;
-            if (state & (1u << 26)) result |= 0x4000;
-            if (state & (1u << 27)) result |= 0x8000;
-            if (state & (1u << 29)) result |= 0x2000;
+            if (state & (1u << 13)) result |= 0x0040;
+            if (state & (1u << 19)) result |= 0x0200;
+            if (state & (1u << 21)) result |= 0x0400;
+            if (state & (1u << 23)) result |= 0x0800;
+            if (state & (1u << 26)) result |= 0x0020;
+            if (state & (1u << 27)) result |= 0x0040;
+            if (state & (1u << 29)) result |= 0x8000;
         }
     } else {
         if (state & (1u << 8)) result |= 0x0004;  /* START */
         if (state & (1u << 15)) result |= 0x0080; /* MENU LEFT */
         if (state & (1u << 17)) result |= 0x0100; /* MENU RIGHT */
-        if (state & (1u << 10)) result |= 0x0020; /* HI-HAT */
-        if (state & (1u << 12)) result |= 0x0040; /* SNARE */
+        if (state & (1u << 10)) result |= 0x0020; /* HI-HAT (UP) */
+        if (state & (1u << 12)) result |= 0x0040; /* SNARE (DOWN) */
         if (state & (1u << 14)) result |= 0x0080; /* HIGH TOM */
         if (state & (1u << 16)) result |= 0x0100; /* LOW TOM */
-        if (state & (1u << 18)) result |= 0x0200; /* CYMBAL */
-        if (state & (1u << 22)) result |= 0x0400; /* BASS */
+        if (state & (1u << 18)) result |= 0x0200; /* CYMBAL (BUTTON0) */
+        if (state & (1u << 22)) result |= 0x0800; /* BASS (BUTTON2) */
     }
+
+    /* V4 exposes the two debug switches as global input bits rather than as
+       player buttons.  They are nevertheless returned by device_get_input,
+       so both player queries see the same configured switch state. */
+    if (state & (1u << 30)) result |= 0x00020000; /* DEBUG MENU SELECT */
+    if (state & (1u << 31)) result |= 0x00040000; /* DEBUG MENU DECIDE */
 
     if (result != 0) {
         log_misc("V4 device input player %d: %08x", player, result);
