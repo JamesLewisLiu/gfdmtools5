@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bemanitools/input.h"
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
@@ -18,6 +19,7 @@
 #include "security/rp3.h"
 #include "util/defs.h"
 #include "util/log.h"
+#include "util/thread.h"
 
 #define GFDMHOOK1_INFO_HEADER \
     "gfdmhook1 for GFDM V4, build " __DATE__ " " __TIME__ \
@@ -28,6 +30,8 @@
 static struct gfdmhook1_config gfdm_config;
 static bool gfdm_initialized;
 static bool gfdm_keyboard;
+static bool gfdm_mapper_loaded;
+static bool gfdm_is_gf;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -107,27 +111,46 @@ static void gfdm_read_keys(uint32_t *state)
         return;
     }
 
-    /* P3IO input is active-high. These bindings cover the service controls,
-       both starts and the common GF/DM play controls. */
-    if (GetAsyncKeyState(VK_F1) & 0x8000) *state |= 1u << 6; /* service */
-    if (GetAsyncKeyState(VK_F2) & 0x8000) *state |= 1u << 4; /* test */
-    if (GetAsyncKeyState('5') & 0x8000) *state |= 1u << 5; /* coin */
-    if (GetAsyncKeyState(VK_RETURN) & 0x8000) *state |= 1u << 0;
-    if (GetAsyncKeyState(VK_RETURN) & 0x8000) *state |= 1u << 2;
-    if (GetAsyncKeyState('Z') & 0x8000) *state |= 1u << 9;
-    if (GetAsyncKeyState('X') & 0x8000) *state |= 1u << 10;
-    if (GetAsyncKeyState('C') & 0x8000) *state |= 1u << 11;
-    if (GetAsyncKeyState('A') & 0x8000) *state |= 1u << 13;
-    if (GetAsyncKeyState('S') & 0x8000) *state |= 1u << 14;
-    if (GetAsyncKeyState('D') & 0x8000) *state |= 1u << 15;
-    if (GetAsyncKeyState('F') & 0x8000) *state |= 1u << 17;
-    if (GetAsyncKeyState('G') & 0x8000) *state |= 1u << 18;
+    /* P3IO input is active-high. This fallback keeps the hook usable before
+       the optional generic-input mapping has been configured. */
+    if (GetAsyncKeyState(VK_F1) & 0x8000) *state |= 1u << 0; /* service */
+    if (GetAsyncKeyState(VK_F2) & 0x8000) *state |= 1u << 1; /* test */
+
+    if (gfdm_is_gf) {
+        if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
+            *state |= 1u << 8;
+            *state |= 1u << 9;
+        }
+        if (GetAsyncKeyState('Z') & 0x8000) *state |= 1u << 18;
+        if (GetAsyncKeyState('X') & 0x8000) *state |= 1u << 20;
+        if (GetAsyncKeyState('C') & 0x8000) *state |= 1u << 22;
+        if (GetAsyncKeyState('A') & 0x8000) *state |= 1u << 24;
+        if (GetAsyncKeyState('S') & 0x8000) *state |= 1u << 25;
+        if (GetAsyncKeyState('Q') & 0x8000) *state |= 1u << 12;
+        if (GetAsyncKeyState('W') & 0x8000) *state |= 1u << 28;
+    } else {
+        if (GetAsyncKeyState(VK_RETURN) & 0x8000) *state |= 1u << 8;
+        if (GetAsyncKeyState(VK_LEFT) & 0x8000) *state |= 1u << 15;
+        if (GetAsyncKeyState(VK_RIGHT) & 0x8000) *state |= 1u << 17;
+        if (GetAsyncKeyState('Z') & 0x8000) *state |= 1u << 10;
+        if (GetAsyncKeyState('X') & 0x8000) *state |= 1u << 12;
+        if (GetAsyncKeyState('C') & 0x8000) *state |= 1u << 14;
+        if (GetAsyncKeyState('V') & 0x8000) *state |= 1u << 16;
+        if (GetAsyncKeyState('B') & 0x8000) *state |= 1u << 18;
+        if (GetAsyncKeyState('N') & 0x8000) *state |= 1u << 22;
+    }
 }
 
 static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
 {
     (void) ctx;
-    gfdm_read_keys(state);
+
+    if (gfdm_mapper_loaded) {
+        *state = (uint32_t) mapper_update();
+    } else {
+        gfdm_read_keys(state);
+    }
+
     return S_OK;
 }
 
@@ -210,6 +233,7 @@ static const struct p3io_ops gfdm_p3io_ops = {
 static void gfdm_init(void)
 {
     struct cconfig *config;
+    const char *cmdline;
 
     if (gfdm_initialized) {
         return;
@@ -232,6 +256,18 @@ static void gfdm_init(void)
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
+
+    cmdline = GetCommandLineA();
+    gfdm_is_gf = strstr(cmdline, " -g") != NULL;
+
+    input_set_loggers(
+        log_impl_misc, log_impl_info, log_impl_warning, log_impl_fatal);
+    input_init(crt_thread_create, crt_thread_join, crt_thread_destroy);
+    gfdm_mapper_loaded = mapper_config_load(gfdm_is_gf ? "gf" : "dm");
+    log_info(
+        "GFDM %s input mapping %s",
+        gfdm_is_gf ? "GF" : "DM",
+        gfdm_mapper_loaded ? "loaded" : "not configured; using keyboard fallback");
 
     adapter_hook_init();
     adapter_hook_override(gfdm_config.adapter.override_ip);

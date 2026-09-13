@@ -16,8 +16,13 @@ gamestart-v4-gf.bat   Guitar Freaks mode (-g)
 gamestart-v4-dm.bat   DrumMania mode (-d)
 ```
 
+The same package includes the generic bemanitools mapper UI. Run
+`config-gf.bat` or `config-dm.bat` to configure the requested Buttons list and
+the Network/card-reader tab; the hook loads the matching `gf.bin` or `dm.bin`
+mapping from the normal `%APPDATA%\\DJHACKERS` location at startup.
+
 Edit `gfdm-v4-gf.conf` or `gfdm-v4-dm.conf` before the first run. `eamuse.server`
-should point at the Asphyxia CORE endpoint. GF V4 uses game code G32 and DM V4
+should point at the Asphyxia CORE endpoint. DM V4 uses game code G32 and GF V4
 uses G33, so the launchers select different default security mcodes. The
 default IDs are the same valid test IDs used by the other BT5 hooks. V4
 security codes differ between PCB images; if the game shows a roundplug error,

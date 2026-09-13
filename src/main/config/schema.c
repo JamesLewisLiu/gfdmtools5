@@ -8,15 +8,16 @@ static const struct action_def dm_actions[] = {
     {0x00, IDS_GENERIC_SERVICE},
 
     {0x08, IDS_DM_START},
-    {0x0F, IDS_DM_MENU_LEFT},
-    {0x11, IDS_DM_MENU_RIGHT},
-
     {0x0A, IDS_DM_HI_HAT},
     {0x0C, IDS_DM_SNARE},
     {0x0E, IDS_DM_HIGH_TOM},
     {0x10, IDS_DM_LOW_TOM},
     {0x12, IDS_DM_CYMBAL},
-    {0x16, IDS_DM_BASS}};
+    {0x16, IDS_DM_BASS},
+    {0x0F, IDS_DM_MENU_LEFT},
+    {0x11, IDS_DM_MENU_RIGHT},
+    {0x1E, IDS_DM_DEBUG_AUTO},
+    {0x1F, IDS_DM_DEBUG_MENU_TIMER}};
 
 static const struct light_def dm_lights[] = {
     {0x00, IDS_DM_HI_HAT},
@@ -33,17 +34,26 @@ static const struct light_def dm_lights[] = {
 static const struct action_def gf_actions[] = {
     {0x01, IDS_GENERIC_TEST}, {0x00, IDS_GENERIC_SERVICE},
 
-    {0x08, IDS_GF_P1_START},  {0x0A, IDS_GF_P1_PICK},
-    {0x18, IDS_GF_P1_PICK_A}, {0x19, IDS_GF_P1_PICK_B},
-    {0x1C, IDS_GF_P1_EFFECT}, {0x0C, IDS_GF_P1_WAIL},
-    {0x12, IDS_GF_P1_RED},    {0x14, IDS_GF_P1_GREEN},
+    {0x08, IDS_GF_P1_START},
+    {0x12, IDS_GF_P1_RED},
+    {0x14, IDS_GF_P1_GREEN},
     {0x16, IDS_GF_P1_BLUE},
+    {0x18, IDS_GF_P1_PICK_A},
+    {0x19, IDS_GF_P1_PICK_B},
+    {0x0C, IDS_GF_P1_WAIL},
+    {0x1C, IDS_GF_P1_EFFECT},
 
-    {0x09, IDS_GF_P2_START},  {0x0B, IDS_GF_P2_PICK},
-    {0x1A, IDS_GF_P2_PICK_A}, {0x1B, IDS_GF_P2_PICK_B},
-    {0x1D, IDS_GF_P2_EFFECT}, {0x0D, IDS_GF_P2_WAIL},
-    {0x13, IDS_GF_P2_RED},    {0x15, IDS_GF_P2_GREEN},
-    {0x17, IDS_GF_P2_BLUE}};
+    {0x09, IDS_GF_P2_START},
+    {0x13, IDS_GF_P2_RED},
+    {0x15, IDS_GF_P2_GREEN},
+    {0x17, IDS_GF_P2_BLUE},
+    {0x1A, IDS_GF_P2_PICK_A},
+    {0x1B, IDS_GF_P2_PICK_B},
+    {0x0D, IDS_GF_P2_WAIL},
+    {0x1D, IDS_GF_P2_EFFECT},
+
+    {0x1E, IDS_GF_DEBUG_AUTO},
+    {0x1F, IDS_GF_DEBUG_MENU_TIMER}};
 
 static const struct light_def gf_lights[] = {
     {0x08, IDS_GF_P1_SPOT_LIGHT},

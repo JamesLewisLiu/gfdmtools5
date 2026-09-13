@@ -267,7 +267,12 @@ $(zipdir)/tools-x64.zip: \
 
 $(zipdir)/gfdm-v4.zip: \
 		build/bin/indep-32/gfdmhook1.dll \
+		build/bin/indep-32/config.exe \
+		build/bin/indep-32/eamio.dll \
+		build/bin/indep-32/geninput.dll \
 		build/bin/indep-32/inject.exe \
+		dist/gfdm/config-gf.bat \
+		dist/gfdm/config-dm.bat \
 		dist/gfdm/gamestart-v4-gf.bat \
 		dist/gfdm/gamestart-v4-dm.bat \
 		dist/gfdm/gfdm-v4.conf \

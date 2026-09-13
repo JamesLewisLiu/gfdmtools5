@@ -9,6 +9,7 @@ ldflags_gfdmhook1 := \
 
 libs_gfdmhook1 := \
     cconfig \
+    geninput \
     hook \
     hooklib \
     p3io \
