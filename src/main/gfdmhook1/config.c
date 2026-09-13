@@ -23,6 +23,7 @@ void gfdmhook1_config_init(struct cconfig *config)
         SERVER_KEY,
         "localhost:80",
         "e-amusement server URL or host:port");
+    hooklib_config_adapter_init(config);
     cconfig_util_set_data(
         config,
         PCBID_KEY,
@@ -55,6 +56,7 @@ void gfdmhook1_config_get(
 
     memset(out, 0, sizeof(*out));
     out->server = default_server;
+    memset(&out->adapter, 0, sizeof(out->adapter));
     out->pcbid = security_id_default;
     out->eamid = security_id_default;
     out->keyboard = true;
@@ -65,6 +67,8 @@ void gfdmhook1_config_get(
             out->server = default_server;
         }
     }
+
+    hooklib_config_adapter_get(&out->adapter, config);
 
     cconfig_util_get_data(
         config, PCBID_KEY, (uint8_t *) &out->pcbid, sizeof(out->pcbid),

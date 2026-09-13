@@ -9,6 +9,7 @@
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "hook/iohook.h"
+#include "hooklib/adapter.h"
 #include "hook/table.h"
 #include "p3io/cmd.h"
 #include "p3ioemu/devmgr.h"
@@ -109,7 +110,13 @@ static HRESULT gfdm_get_roundplug(
     id = plug_id == 0 ? &gfdm_pcbid : &gfdm_eamid;
     mcode = plug_id == 0 ? &gfdm_mcode : &security_mcode_eamuse;
 
-    memcpy(rom, id->id, sizeof(id->id));
+    if (plug_id == 0) {
+        memcpy(rom, id->id, sizeof(id->id));
+    } else {
+        /* GFDM checks the white plug's ROM for the eight '@' bytes. The
+           EAMID is carried in the signed EEPROM payload instead. */
+        memset(rom, '@', sizeof(id->id));
+    }
     security_rp3_generate_signed_eeprom_data(
         plug_id == 0 ? SECURITY_RP_UTIL_RP_TYPE_BLACK
                      : SECURITY_RP_UTIL_RP_TYPE_WHITE,
@@ -158,6 +165,9 @@ static void gfdm_init(void)
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
+
+    adapter_hook_init();
+    adapter_hook_override(gfdm_config.adapter.override_ip);
 
     iohook_push_handler(p3io_emu_dispatch_irp);
     p3io_setupapi_insert_hooks(NULL);

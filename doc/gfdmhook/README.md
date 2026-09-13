@@ -25,6 +25,11 @@ set `security.mcode` to the eight-character code reported by that image.
 If Asphyxia is bound to a non-loopback address, change `eamuse.server` in both
 files to that address and port (for example `10.9.0.156:80`).
 
+The hook exposes one network adapter to the game. By default it selects the
+adapter used by Windows' default route. On systems with multiple active
+adapters, set `adapter.override_ip` to the IPv4 address of the adapter that
+should be visible to GFDM; the other adapters are hidden from the game.
+
 The default keyboard mapping is intentionally small and deterministic: Enter is
 start, F1/F2 are service/test, 5 is coin, Z/X/C are the GF fret buttons, and
 A/S/D/F/G cover the DM pads. Set `input.keyboard=false` when a separate input

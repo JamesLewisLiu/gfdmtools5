@@ -4,12 +4,14 @@
 #include <stdbool.h>
 
 #include "cconfig/cconfig.h"
+#include "hooklib/config-adapter.h"
 #include "security/id.h"
 #include "security/mcode.h"
 #include "util/net.h"
 
 struct gfdmhook1_config {
     struct net_addr server;
+    struct hooklib_config_adapter adapter;
     struct security_id pcbid;
     struct security_id eamid;
     struct security_mcode mcode;
