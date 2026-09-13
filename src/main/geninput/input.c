@@ -24,40 +24,31 @@ static volatile long input_init_count;
 
 static FILE *mapper_config_open(const char *game_type, const char *mode)
 {
-    char module_path[MAX_PATH];
-    char *separator;
     char path[MAX_PATH];
     FILE *f;
 
-    /* GFDM is distributed as a self-contained package. Prefer a mapper file
-       beside config.exe/game binaries so elevated and non-elevated launches,
-       or separate Windows accounts, cannot silently use different AppData
-       copies. Other games retain the historical AppData behaviour. */
-    if (strcmp(game_type, "gf") == 0 || strcmp(game_type, "dm") == 0) {
-        /* Resolve the package-local file from the generic input DLL as well
-           as from the current directory.  The latter changes when a game is
-           launched through a desktop shortcut, while config.exe and the
-           injected hook still belong to the same distribution directory. */
-        if (GetModuleFileNameA(input_hinst, module_path,
-                               lengthof(module_path)) > 0 &&
-            (separator = strrchr(module_path, '\\')) != NULL) {
-            separator[1] = '\0';
-            str_format(path, sizeof(path), "%s%s.bin", module_path, game_type);
-            f = fopen(path, mode);
-            if (f != NULL) {
-                return f;
-            }
-        }
+    /* config.exe has always stored mapper files in the DJHACKERS AppData
+       directory.  Keep that as the authoritative location: a stale copy
+       beside the game must not shadow the user's configured gf.bin/dm.bin. */
+    str_format(path, sizeof(path), "%s.bin", game_type);
+    f = fopen_appdata("DJHACKERS", path, mode);
 
-        str_format(path, sizeof(path), "%s.bin", game_type);
+    if (f != NULL) {
+        log_info("Using %s mapper from DJHACKERS AppData", game_type);
+        return f;
+    }
+
+    /* Keep a package-local fallback for portable installations where AppData
+       is unavailable. This is deliberately after AppData for compatibility
+       with existing bemanitools configurations. */
+    if (strcmp(game_type, "gf") == 0 || strcmp(game_type, "dm") == 0) {
         f = fopen(path, mode);
+
         if (f != NULL) {
+            log_info("Using %s mapper from current directory", game_type);
             return f;
         }
     }
-
-    str_format(path, sizeof(path), "%s.bin", game_type);
-    f = fopen_appdata("DJHACKERS", path, mode);
 
     // Try to load the old save file only if we're loading
     if (f == NULL) {
