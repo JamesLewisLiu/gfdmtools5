@@ -27,6 +27,18 @@ static FILE *mapper_config_open(const char *game_type, const char *mode)
     char path[MAX_PATH];
     FILE *f;
 
+    /* GFDM is distributed as a self-contained package. Prefer a mapper file
+       beside config.exe/game binaries so elevated and non-elevated launches,
+       or separate Windows accounts, cannot silently use different AppData
+       copies. Other games retain the historical AppData behaviour. */
+    if (strcmp(game_type, "gf") == 0 || strcmp(game_type, "dm") == 0) {
+        str_format(path, sizeof(path), "%s.bin", game_type);
+        f = fopen(path, mode);
+        if (f != NULL) {
+            return f;
+        }
+    }
+
     str_format(path, sizeof(path), "%s.bin", game_type);
     f = fopen_appdata("DJHACKERS", path, mode);
 
