@@ -22,6 +22,7 @@
 #include "security/rp3.h"
 #include "util/defs.h"
 #include "util/log.h"
+#include "util/str.h"
 #include "util/thread.h"
 
 #define GFDMHOOK1_INFO_HEADER \
