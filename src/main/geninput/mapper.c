@@ -2,6 +2,7 @@
 #include <stdbool.h>
 
 #include "geninput/hid-mgr.h"
+#include "geninput/kbd.h"
 #include "geninput/mapper.h"
 
 #include "util/array.h"
@@ -125,16 +126,44 @@ void action_iter_free(action_iter_t iter)
 
 static uint64_t action_mapping_update(struct action_mapping *am)
 {
+    struct hid_stub *fallback;
     int32_t value;
 
     if (am->src.hid == NULL) {
         return 0;
     }
 
-    if (!hid_stub_get_value(am->src.hid, am->src.control_no, &value)) {
+    if (hid_stub_get_value(am->src.hid, am->src.control_no, &value)) {
+        goto value_ready;
+    }
+
+    /* Raw-input keyboard device paths can change after a Windows update,
+       USB re-enumeration, or when the game is started under another desktop
+       session.  Old bemanitools mapper files then retain a stub which is no
+       longer attached and every configured key silently reads as zero.  For
+       keyboard-sized controls, use the first currently attached keyboard as
+       a compatibility fallback; the saved mapping remains unchanged. */
+    if (am->src.control_no >= 343) {
         return 0;
     }
 
+    for (fallback = hid_mgr_get_first_stub(); fallback != NULL;
+         fallback = hid_mgr_get_next_stub(fallback)) {
+        uint32_t usage;
+
+        if (!hid_stub_is_attached(fallback) ||
+            !hid_stub_get_device_usage(fallback, &usage) ||
+            usage != KBD_DEVICE_USAGE_KEYBOARD ||
+            !hid_stub_get_value(fallback, am->src.control_no, &value)) {
+            continue;
+        }
+
+        goto value_ready;
+    }
+
+    return 0;
+
+value_ready:
     if (value < am->src.value_min || value > am->src.value_max) {
         return 0;
     }

@@ -34,6 +34,7 @@ static bool gfdm_initialized;
 static bool gfdm_keyboard;
 static bool gfdm_mapper_loaded;
 static bool gfdm_is_gf;
+static FILE *gfdm_log_file;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -66,6 +67,18 @@ static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
+
+static void gfdm_log_writer(void *ctx, const char *chars, size_t nchars)
+{
+    (void) ctx;
+
+    OutputDebugStringA(chars);
+
+    if (gfdm_log_file != NULL) {
+        fwrite(chars, 1, nchars, gfdm_log_file);
+        fflush(gfdm_log_file);
+    }
+}
 
 /*
  * V4's libmovie has no null check for the decoder object in its exported
@@ -627,6 +640,7 @@ static void gfdm_read_keys(uint32_t *state)
 
 static uint32_t gfdm_read_input_state(void)
 {
+    static bool first_update = true;
     static uint32_t last_state;
     uint32_t state;
     uint32_t keyboard_state;
@@ -642,12 +656,13 @@ static uint32_t gfdm_read_input_state(void)
         state |= keyboard_state;
     }
 
-    if (state != last_state) {
+    if (first_update || state != last_state) {
         log_misc(
             "GFDM input state: %08x (%s mapper)",
             state,
             gfdm_mapper_loaded ? "configured" : "keyboard");
         last_state = state;
+        first_update = false;
     }
 
     if (!gfdm_mapper_loaded) {
@@ -869,6 +884,10 @@ static void gfdm_init(void)
     }
     gfdm_initialized = true;
 
+    gfdm_log_file = fopen("gfdm-v4-hook.log", "a");
+    log_to_writer(gfdm_log_writer, NULL);
+    log_info("GFDM V4 hook initialization started");
+
     config = cconfig_init();
     gfdmhook1_config_init(config);
     if (!cconfig_hook_config_init(
@@ -937,7 +956,7 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
     (void) ctx;
 
     if (reason == DLL_PROCESS_ATTACH) {
-        log_to_writer(log_writer_debug, NULL);
+        log_to_writer(gfdm_log_writer, NULL);
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
     }
 
