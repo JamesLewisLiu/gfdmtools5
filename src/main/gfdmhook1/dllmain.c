@@ -61,7 +61,78 @@ static void (*real_avs_boot)(
 #endif
 
 static void gfdm_apply_device_hooks(HMODULE target);
+static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
+
+/* V4's libextio expects the physical IC-card unit to be present during the
+   boot-time CARDUNIT_CHECK pass.  The PC launch has no such serial device, so
+   report an idle, healthy reader with no card inserted.  Card operations are
+   still left to the original library once the game is past the boot check. */
+static void __cdecl gfdm_cardunit_update(void)
+{
+}
+
+static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
+{
+    (void) unit_no;
+
+    return 0;
+}
+
+static int __cdecl gfdm_cardunit_get_status(int unit_no)
+{
+    log_misc("V4 cardunit %d status -> ready", unit_no);
+
+    return 1;
+}
+
+static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
+{
+    (void) unit_no;
+
+    return 0;
+}
+
+static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
+{
+    (void) unit_no;
+
+    return 0;
+}
+
+static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
+{
+    (void) unit_no;
+
+    return 1;
+}
+
+static const struct hook_symbol gfdm_extio_syms[] = {
+    {
+        .name = "?cardunit_update@@YAXXZ",
+        .patch = gfdm_cardunit_update,
+    },
+    {
+        .name = "?cardunit_get_errorcount@@YAHH@Z",
+        .patch = gfdm_cardunit_get_errorcount,
+    },
+    {
+        .name = "?cardunit_get_status@@YAHH@Z",
+        .patch = gfdm_cardunit_get_status,
+    },
+    {
+        .name = "?cardunit_card_sensor@@YAHH@Z",
+        .patch = gfdm_cardunit_card_sensor,
+    },
+    {
+        .name = "?cardunit_card_sensor_raw@@YAHH@Z",
+        .patch = gfdm_cardunit_card_sensor_raw,
+    },
+    {
+        .name = "?cardunit_card_eject_complete@@YAHH@Z",
+        .patch = gfdm_cardunit_card_eject_complete,
+    },
+};
 
 static void gfdm_replace_property_str(
     struct property_node *root, const char *path, const char *value)
@@ -161,6 +232,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
     if (module != NULL) {
         /* The V4 system/error libraries are loaded after boot_main. */
         gfdm_apply_device_hooks(module);
+        gfdm_apply_extio_hooks(module);
         gfdm_apply_avs_hooks(NULL);
     }
 
@@ -270,6 +342,12 @@ static void gfdm_apply_device_hooks(HMODULE target)
                      lengthof(gfdm_secplug_syms));
     hook_table_apply(target, "device.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
+}
+
+static void gfdm_apply_extio_hooks(HMODULE target)
+{
+    hook_table_apply(target, "libextio.dll", gfdm_extio_syms,
+                     lengthof(gfdm_extio_syms));
 }
 
 static void gfdm_apply_avs_hooks(HMODULE target)
@@ -575,6 +653,7 @@ static void gfdm_init(void)
 
     /* Match the security status contract used by the known-good V4 hook. */
     gfdm_apply_device_hooks(NULL);
+    gfdm_apply_extio_hooks(NULL);
     gfdm_apply_avs_hooks(NULL);
     hook_table_apply(NULL, "kernel32.dll", gfdm_loader_syms,
                      lengthof(gfdm_loader_syms));
