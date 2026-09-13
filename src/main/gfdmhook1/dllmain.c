@@ -70,6 +70,58 @@ static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
 
+/* The injector passes the game selector as a separate command-line token
+   ("-g" or "-d").  The old substring check was fragile when the command
+   line was quoted by inject.exe and could silently select the DM mapper for a
+   GF launch.  Parse the selector explicitly so the mapper and compact input
+   translation always agree with the selected cabinet. */
+static bool gfdm_command_has_switch(const char *cmdline, char wanted)
+{
+    const char *p;
+
+    for (p = cmdline; p != NULL && *p != '\0';) {
+        char token[16];
+        size_t n;
+
+        while (*p == ' ' || *p == '\t') {
+            p++;
+        }
+
+        if (*p == '\0') {
+            break;
+        }
+
+        n = 0;
+        if (*p == '"') {
+            p++;
+            while (*p != '\0' && *p != '"') {
+                if (n + 1 < sizeof(token)) {
+                    token[n++] = *p;
+                }
+                p++;
+            }
+            if (*p == '"') {
+                p++;
+            }
+        } else {
+            while (*p != '\0' && *p != ' ' && *p != '\t') {
+                if (n + 1 < sizeof(token)) {
+                    token[n++] = *p;
+                }
+                p++;
+            }
+        }
+
+        token[n] = '\0';
+        if ((n == 2 && token[0] == '-' && token[1] == wanted) ||
+            (n == 2 && token[0] == '/' && token[1] == wanted)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void gfdm_open_log_file(void)
 {
     char module_path[MAX_PATH];
@@ -932,7 +984,11 @@ static void gfdm_init(void)
     gfdm_eamid = gfdm_config.eamid;
 
     cmdline = GetCommandLineA();
-    gfdm_is_gf = strstr(cmdline, " -g") != NULL;
+    gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
+    log_info(
+        "GFDM launch mode: %s (command line: %s)",
+        gfdm_is_gf ? "GF" : "DM",
+        cmdline);
 
     input_set_loggers(
         log_impl_misc, log_impl_info, log_impl_warning, log_impl_fatal);
