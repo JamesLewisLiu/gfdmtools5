@@ -65,11 +65,36 @@ static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 
 /* V4's libextio expects the physical IC-card unit to be present during the
-   boot-time CARDUNIT_CHECK pass.  The PC launch has no such serial device, so
-   report an idle, healthy reader with no card inserted.  Card operations are
-   still left to the original library once the game is past the boot check. */
+   boot-time CARDUNIT_CHECK pass.  The PC launch has no such serial device.
+   Do not let the original cardunit_boot create its serial worker: that worker
+   continues to run after the check and eventually enters AVS with an invalid
+   synchronization object.  Keep the complete exported card-unit surface as a
+   small, idle reader instead (the same contract used by Gitadora tools). */
+static void __cdecl gfdm_cardunit_boot(int unit_count, int reserved)
+{
+    (void) unit_count;
+    (void) reserved;
+}
+
+static int __cdecl gfdm_cardunit_boot_initialize(void)
+{
+    return 0;
+}
+
 static void __cdecl gfdm_cardunit_update(void)
 {
+}
+
+static void __cdecl gfdm_cardunit_card_eject(int unit_no)
+{
+    (void) unit_no;
+}
+
+static int __cdecl gfdm_cardunit_card_eject_wait(int unit_no)
+{
+    (void) unit_no;
+
+    return 1;
 }
 
 static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
@@ -97,7 +122,8 @@ static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
 {
     (void) unit_no;
 
-    return 0;
+    /* Gitadora's dummy reader reports a connected sensor with no card. */
+    return 1;
 }
 
 static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
@@ -107,10 +133,83 @@ static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
     return 1;
 }
 
+static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
+{
+    (void) unit_no;
+
+    if (card != NULL) {
+        memset(card, 0, 8);
+    }
+
+    /* No card is inserted. */
+    return 1;
+}
+
+static void __cdecl gfdm_cardunit_card_ready(int unit_no)
+{
+    (void) unit_no;
+}
+
+static int __cdecl gfdm_cardunit_key_get(int unit_no)
+{
+    (void) unit_no;
+
+    return -1;
+}
+
+static const char *__cdecl gfdm_cardunit_key_str(int unit_no)
+{
+    (void) unit_no;
+
+    return "";
+}
+
+static int __cdecl gfdm_cardunit_reset(void)
+{
+    return 0;
+}
+
+static void __cdecl gfdm_cardunit_shutdown(void)
+{
+}
+
+static const void *__cdecl gfdm_cardunit_get_version(int unit_no)
+{
+    static const uint8_t version[] = {'D', 'U', 'M', 'M', 'Y', 4, 2, 0};
+
+    (void) unit_no;
+
+    return version;
+}
+
 static const struct hook_symbol gfdm_extio_syms[] = {
+    {
+        .name = "?cardunit_boot@@YAXHH@Z",
+        .patch = gfdm_cardunit_boot,
+    },
+    {
+        .name = "?cardunit_boot_initialize@@YAHXZ",
+        .patch = gfdm_cardunit_boot_initialize,
+    },
     {
         .name = "?cardunit_update@@YAXXZ",
         .patch = gfdm_cardunit_update,
+    },
+    {
+        .name = "?cardunit_card_eject@@YAXH@Z",
+        .patch = gfdm_cardunit_card_eject,
+    },
+    {
+        .name = "?cardunit_card_eject_wait@@YAHH@Z",
+        .patch = gfdm_cardunit_card_eject_wait,
+    },
+    {
+        .name = "?cardunit_card_read@@YAHHQAE@Z",
+        .patch = gfdm_cardunit_card_read,
+    },
+    {
+        .name = "?cardunit_card_ready@@YAXH@Z",
+        .patch = gfdm_cardunit_card_ready,
     },
     {
         .name = "?cardunit_get_errorcount@@YAHH@Z",
@@ -131,6 +230,26 @@ static const struct hook_symbol gfdm_extio_syms[] = {
     {
         .name = "?cardunit_card_eject_complete@@YAHH@Z",
         .patch = gfdm_cardunit_card_eject_complete,
+    },
+    {
+        .name = "?cardunit_key_get@@YAHH@Z",
+        .patch = gfdm_cardunit_key_get,
+    },
+    {
+        .name = "?cardunit_key_str@@YAPBDH@Z",
+        .patch = gfdm_cardunit_key_str,
+    },
+    {
+        .name = "?cardunit_reset@@YAHXZ",
+        .patch = gfdm_cardunit_reset,
+    },
+    {
+        .name = "?cardunit_shutdown@@YAXXZ",
+        .patch = gfdm_cardunit_shutdown,
+    },
+    {
+        .name = "?cardunit_get_version@@YAPBUfirm_version@@H@Z",
+        .patch = gfdm_cardunit_get_version,
     },
 };
 
