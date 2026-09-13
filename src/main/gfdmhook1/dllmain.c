@@ -439,7 +439,10 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
         gfdm_apply_device_hooks(module);
         gfdm_apply_extio_hooks(module);
         gfdm_apply_avs_hooks(NULL);
-        gfdm_apply_movie_hooks(module);
+        /* The import we need to patch lives in game.dll, not libmovie.dll.
+           Re-scan all loaded modules after late movie loading so the game's
+           IAT is updated even when game.dll was loaded before libmovie. */
+        gfdm_apply_movie_hooks(NULL);
     }
 
     return module;
