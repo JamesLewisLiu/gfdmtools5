@@ -42,6 +42,7 @@ static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
 static HMODULE(STDCALL *real_LoadLibraryA)(LPCSTR name);
 static int(__cdecl *real_movie_is_ready)(void);
+static int(__cdecl *real_movie_is_ready_system)(void);
 #if AVS_VERSION >= 1600
 static void (*real_avs_boot)(
     struct property_node *config,
@@ -99,7 +100,7 @@ static bool gfdm_movie_readable(const void *address, size_t size)
     return end <= (uintptr_t) mbi.BaseAddress + mbi.RegionSize;
 }
 
-static int __cdecl gfdm_movie_is_ready(void)
+static int gfdm_movie_is_ready_call(int(__cdecl *original)(void))
 {
     HMODULE movie;
     uintptr_t movie_base;
@@ -135,11 +136,21 @@ static int __cdecl gfdm_movie_is_ready(void)
         return 0;
     }
 
-    if (real_movie_is_ready == NULL) {
+    if (original == NULL) {
         return 0;
     }
 
-    return real_movie_is_ready();
+    return original();
+}
+
+static int __cdecl gfdm_movie_is_ready(void)
+{
+    return gfdm_movie_is_ready_call(real_movie_is_ready);
+}
+
+static int __cdecl gfdm_movie_is_ready_system(void)
+{
+    return gfdm_movie_is_ready_call(real_movie_is_ready_system);
 }
 
 static const struct hook_symbol gfdm_movie_syms[] = {
@@ -147,6 +158,11 @@ static const struct hook_symbol gfdm_movie_syms[] = {
         .name = "?movie_is_ready@@YAHXZ",
         .patch = gfdm_movie_is_ready,
         .link = (void **) &real_movie_is_ready,
+    },
+    {
+        .name = "?movie_is_ready_system@@YAHXZ",
+        .patch = gfdm_movie_is_ready_system,
+        .link = (void **) &real_movie_is_ready_system,
     },
 };
 
