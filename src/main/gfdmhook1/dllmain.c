@@ -35,6 +35,7 @@ static bool gfdm_is_gf;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
+static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
 
@@ -88,6 +89,7 @@ static void __cdecl gfdm_device_update_secplug(void)
 
 static int __cdecl gfdm_device_get_jamma_history(
     void *history, int max_entries);
+static unsigned int __cdecl gfdm_device_get_input(int player);
 
 static const struct hook_symbol gfdm_secplug_syms[] = {
     {
@@ -105,6 +107,11 @@ static const struct hook_symbol gfdm_secplug_syms[] = {
     {
         .name = "?device_update_secplug@@YAXXZ",
         .patch = gfdm_device_update_secplug,
+    },
+    {
+        .name = "?device_get_input@@YAIH@Z",
+        .patch = gfdm_device_get_input,
+        .link = (void **) &real_device_get_input,
     },
     {
         .name = "?device_get_jamma_history@@YAHPAUT_JAMMA_HISTORY_INFO@@H@Z",
@@ -162,6 +169,64 @@ static uint32_t gfdm_read_input_state(void)
     gfdm_read_keys(&state);
 
     return state;
+}
+
+/*
+ * V4's game-facing libdevice API uses the compact input word returned by
+ * device_get_input(), rather than the physical P3IO bit positions exposed by
+ * read_jamma().  The stock V4 libdevice has no useful host input source in a
+ * PC launch, so simply emulating P3IO is not enough to make TEST/SERVICE
+ * usable on the backup-error screen.  Translate the same mapper state used
+ * by the P3IO path into the libdevice word as Gitadora's hook does.
+ */
+static unsigned int __cdecl gfdm_device_get_input(int player)
+{
+    uint32_t state;
+    unsigned int result;
+
+    state = gfdm_read_input_state();
+    result = 0;
+
+    if (state & (1u << 0)) result |= 0x08; /* SERVICE */
+    if (state & (1u << 1)) result |= 0x02; /* TEST */
+
+    if (gfdm_is_gf) {
+        if (player != 1) {
+            if (state & (1u << 8)) result |= 0x0004;  /* START */
+            if (state & (1u << 12)) result |= 0x0200; /* WAIL */
+            if (state & (1u << 18)) result |= 0x0400; /* RED */
+            if (state & (1u << 20)) result |= 0x0800; /* GREEN */
+            if (state & (1u << 22)) result |= 0x1000; /* BLUE */
+            if (state & (1u << 24)) result |= 0x4000; /* PICK A */
+            if (state & (1u << 25)) result |= 0x8000; /* PICK B */
+            if (state & (1u << 28)) result |= 0x2000; /* EFFECTOR */
+        } else {
+            if (state & (1u << 9)) result |= 0x0004;
+            if (state & (1u << 13)) result |= 0x0200;
+            if (state & (1u << 19)) result |= 0x0400;
+            if (state & (1u << 21)) result |= 0x0800;
+            if (state & (1u << 23)) result |= 0x1000;
+            if (state & (1u << 26)) result |= 0x4000;
+            if (state & (1u << 27)) result |= 0x8000;
+            if (state & (1u << 29)) result |= 0x2000;
+        }
+    } else {
+        if (state & (1u << 8)) result |= 0x0004;  /* START */
+        if (state & (1u << 15)) result |= 0x0080; /* MENU LEFT */
+        if (state & (1u << 17)) result |= 0x0100; /* MENU RIGHT */
+        if (state & (1u << 10)) result |= 0x0020; /* HI-HAT */
+        if (state & (1u << 12)) result |= 0x0040; /* SNARE */
+        if (state & (1u << 14)) result |= 0x0080; /* HIGH TOM */
+        if (state & (1u << 16)) result |= 0x0100; /* LOW TOM */
+        if (state & (1u << 18)) result |= 0x0200; /* CYMBAL */
+        if (state & (1u << 22)) result |= 0x0400; /* BASS */
+    }
+
+    if (result != 0) {
+        log_misc("V4 device input player %d: %08x", player, result);
+    }
+
+    return result;
 }
 
 static int __cdecl gfdm_device_get_jamma_history(
@@ -331,6 +396,9 @@ static void gfdm_init(void)
 
     /* Match the security status contract used by the known-good V4 hook. */
     hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
+                     lengthof(gfdm_secplug_syms));
+    /* Some V4 distributions name the same module device.dll. */
+    hook_table_apply(NULL, "device.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);
     p3io_setupapi_insert_hooks(NULL);
