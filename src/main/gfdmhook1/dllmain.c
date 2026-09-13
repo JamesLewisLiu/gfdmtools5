@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -40,6 +41,15 @@ static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
 static HMODULE(STDCALL *real_LoadLibraryA)(LPCSTR name);
+#if AVS_VERSION >= 1600
+static void (*real_avs_boot)(
+    struct property_node *config,
+    void *com_heap,
+    size_t sz_com_heap,
+    void *reserved,
+    avs_log_writer_t log_writer,
+    void *log_context);
+#else
 static void (*real_avs_boot)(
     struct property_node *config,
     void *std_heap,
@@ -48,6 +58,7 @@ static void (*real_avs_boot)(
     size_t sz_avs_heap,
     avs_log_writer_t log_writer,
     void *log_context);
+#endif
 
 static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
@@ -69,6 +80,15 @@ static void gfdm_replace_property_str(
     }
 }
 
+#if AVS_VERSION >= 1600
+static void __cdecl gfdm_avs_boot(
+    struct property_node *config,
+    void *com_heap,
+    size_t sz_com_heap,
+    void *reserved,
+    avs_log_writer_t log_writer,
+    void *log_context)
+#else
 static void __cdecl gfdm_avs_boot(
     struct property_node *config,
     void *std_heap,
@@ -77,6 +97,7 @@ static void __cdecl gfdm_avs_boot(
     size_t sz_avs_heap,
     avs_log_writer_t log_writer,
     void *log_context)
+#endif
 {
     char base[MAX_PATH];
     char nvram[MAX_PATH];
@@ -93,7 +114,12 @@ static void __cdecl gfdm_avs_boot(
     snprintf(nvram, sizeof(nvram), "%s\\CONF\\NVRAM", base);
     snprintf(raw, sizeof(raw), "%s\\CONF\\RAW", base);
 
-    CreateDirectoryA("CONF", NULL);
+    {
+        char conf[MAX_PATH];
+
+        snprintf(conf, sizeof(conf), "%s\\CONF", base);
+        CreateDirectoryA(conf, NULL);
+    }
     CreateDirectoryA(nvram, NULL);
     CreateDirectoryA(raw, NULL);
 
@@ -102,6 +128,15 @@ static void __cdecl gfdm_avs_boot(
     log_info("V4 AVS paths: nvram=%s raw=%s", nvram, raw);
 
     if (real_avs_boot != NULL) {
+#if AVS_VERSION >= 1600
+        real_avs_boot(
+            config,
+            com_heap,
+            sz_com_heap,
+            reserved,
+            log_writer,
+            log_context);
+#else
         real_avs_boot(
             config,
             std_heap,
@@ -110,6 +145,7 @@ static void __cdecl gfdm_avs_boot(
             sz_avs_heap,
             log_writer_debug,
             NULL);
+#endif
     }
 }
 

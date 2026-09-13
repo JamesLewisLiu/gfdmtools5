@@ -1,6 +1,6 @@
-dlls += gfdmhook1
+avsdlls += gfdmhook1
 
-deplibs_gfdmhook1 :=
+deplibs_gfdmhook1 := avs
 
 ldflags_gfdmhook1 := \
     -liphlpapi \
@@ -8,7 +8,6 @@ ldflags_gfdmhook1 := \
     -lws2_32 \
 
 libs_gfdmhook1 := \
-    avs \
     cconfig \
     geninput \
     hook \

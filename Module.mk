@@ -266,7 +266,7 @@ $(zipdir)/tools-x64.zip: \
 	$(V)zip -j $@ $^
 
 $(zipdir)/gfdm-v4.zip: \
-		build/bin/indep-32/gfdmhook1.dll \
+	build/bin/avs2_1101-32/gfdmhook1.dll \
 		build/bin/indep-32/config.exe \
 		build/bin/indep-32/eamio.dll \
 		build/bin/indep-32/geninput.dll \
