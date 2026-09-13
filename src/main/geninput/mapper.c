@@ -3,6 +3,7 @@
 
 #include "geninput/hid-mgr.h"
 #include "geninput/kbd.h"
+#include "geninput/kbd-data.h"
 #include "geninput/mapper.h"
 
 #include "util/array.h"
@@ -63,6 +64,92 @@ static void analog_mapping_update(struct analog_mapping *am);
 static void light_mapping_bind(struct light_mapping *lm);
 static void
 light_mapping_send(struct light_mapping *lm, const struct mapper *m);
+
+static int mapper_kbd_usage_to_vk(uint8_t usage)
+{
+    if (usage >= 0x04 && usage <= 0x1d) {
+        return 'A' + usage - 0x04;
+    }
+
+    if (usage >= 0x1e && usage <= 0x27) {
+        static const int digits[] = {
+            '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
+
+        return digits[usage - 0x1e];
+    }
+
+    if (usage >= 0x3a && usage <= 0x45) {
+        return VK_F1 + usage - 0x3a;
+    }
+
+    switch (usage) {
+        case 0x28: return VK_RETURN;
+        case 0x29: return VK_ESCAPE;
+        case 0x2a: return VK_BACK;
+        case 0x2b: return VK_TAB;
+        case 0x2c: return VK_SPACE;
+        case 0x2d: return VK_OEM_MINUS;
+        case 0x2e: return VK_OEM_PLUS;
+        case 0x2f: return VK_OEM_4;
+        case 0x30: return VK_OEM_6;
+        case 0x31: return VK_OEM_5;
+        case 0x33: return VK_OEM_1;
+        case 0x34: return VK_OEM_7;
+        case 0x35: return VK_OEM_3;
+        case 0x36: return VK_OEM_COMMA;
+        case 0x37: return VK_OEM_PERIOD;
+        case 0x38: return VK_OEM_2;
+        case 0x39: return VK_CAPITAL;
+        case 0x49: return VK_INSERT;
+        case 0x4a: return VK_HOME;
+        case 0x4b: return VK_PRIOR;
+        case 0x4c: return VK_DELETE;
+        case 0x4d: return VK_END;
+        case 0x4e: return VK_NEXT;
+        case 0x4f: return VK_RIGHT;
+        case 0x50: return VK_LEFT;
+        case 0x51: return VK_DOWN;
+        case 0x52: return VK_UP;
+        case 0x53: return VK_NUMLOCK;
+        case 0x54: return VK_DIVIDE;
+        case 0x55: return VK_MULTIPLY;
+        case 0x56: return VK_SUBTRACT;
+        case 0x57: return VK_ADD;
+        case 0x58: return VK_RETURN;
+        case 0xe0: return VK_LCONTROL;
+        case 0xe1: return VK_LSHIFT;
+        case 0xe2: return VK_LMENU;
+        case 0xe3: return VK_LWIN;
+        case 0xe4: return VK_RCONTROL;
+        case 0xe5: return VK_RSHIFT;
+        case 0xe6: return VK_RMENU;
+        case 0xe7: return VK_RWIN;
+        default: return 0;
+    }
+}
+
+static bool mapper_get_keyboard_value(uint32_t control_no, int32_t *value)
+{
+    uint8_t usage;
+    int vk;
+
+    if (control_no < kbd_basic_nusages) {
+        usage = kbd_basic_usages[control_no];
+    } else if (control_no < kbd_basic_nusages + kbd_ext_nusages) {
+        usage = kbd_ext_usages[control_no - kbd_basic_nusages];
+    } else {
+        return false;
+    }
+
+    vk = mapper_kbd_usage_to_vk(usage);
+    if (vk == 0) {
+        return false;
+    }
+
+    *value = (GetAsyncKeyState(vk) & 0x8000) != 0;
+
+    return true;
+}
 
 struct mapper *mapper_inst;
 
@@ -134,6 +221,13 @@ static uint64_t action_mapping_update(struct action_mapping *am)
     }
 
     if (hid_stub_get_value(am->src.hid, am->src.control_no, &value)) {
+        goto value_ready;
+    }
+
+    /* A keyboard mapping can still be evaluated directly when Raw Input did
+       not attach the saved device node. This keeps the configured HID usage
+       meaningful across device-path changes. */
+    if (mapper_get_keyboard_value(am->src.control_no, &value)) {
         goto value_ready;
     }
 
