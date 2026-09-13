@@ -12,6 +12,7 @@
 #include "hook/iohook.h"
 #include "hooklib/adapter.h"
 #include "hook/table.h"
+#include "imports/avs.h"
 #include "p3io/cmd.h"
 #include "p3ioemu/devmgr.h"
 #include "p3ioemu/emu.h"
@@ -39,8 +40,78 @@ static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
 static HMODULE(STDCALL *real_LoadLibraryA)(LPCSTR name);
+static void (*real_avs_boot)(
+    struct property_node *config,
+    void *std_heap,
+    size_t sz_std_heap,
+    void *avs_heap,
+    size_t sz_avs_heap,
+    avs_log_writer_t log_writer,
+    void *log_context);
 
 static void gfdm_apply_device_hooks(HMODULE target);
+static void gfdm_apply_avs_hooks(HMODULE target);
+
+static void gfdm_replace_property_str(
+    struct property_node *root, const char *path, const char *value)
+{
+    struct property_node *node;
+
+    node = property_search(NULL, root, path);
+    if (node != NULL) {
+        property_node_remove(node);
+    }
+
+    node = property_node_create(
+        NULL, root, PROPERTY_TYPE_STR, path, value);
+    if (node != NULL) {
+        property_node_datasize(node);
+    }
+}
+
+static void __cdecl gfdm_avs_boot(
+    struct property_node *config,
+    void *std_heap,
+    size_t sz_std_heap,
+    void *avs_heap,
+    size_t sz_avs_heap,
+    avs_log_writer_t log_writer,
+    void *log_context)
+{
+    char base[MAX_PATH];
+    char nvram[MAX_PATH];
+    char raw[MAX_PATH];
+    char *slash;
+
+    memset(base, 0, sizeof(base));
+    GetModuleFileNameA(NULL, base, sizeof(base) - 1);
+    slash = strrchr(base, '\\');
+    if (slash != NULL) {
+        *slash = '\0';
+    }
+
+    snprintf(nvram, sizeof(nvram), "%s\\CONF\\NVRAM", base);
+    snprintf(raw, sizeof(raw), "%s\\CONF\\RAW", base);
+
+    CreateDirectoryA("CONF", NULL);
+    CreateDirectoryA(nvram, NULL);
+    CreateDirectoryA(raw, NULL);
+
+    gfdm_replace_property_str(config, "/fs/nvram/device", nvram);
+    gfdm_replace_property_str(config, "/fs/raw/device", raw);
+    log_info("V4 AVS paths: nvram=%s raw=%s", nvram, raw);
+
+    if (real_avs_boot != NULL) {
+        real_avs_boot(
+            config,
+            std_heap,
+            sz_std_heap,
+            avs_heap,
+            sz_avs_heap,
+            log_writer_debug,
+            NULL);
+    }
+}
 
 static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
 {
@@ -54,6 +125,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
     if (module != NULL) {
         /* The V4 system/error libraries are loaded after boot_main. */
         gfdm_apply_device_hooks(module);
+        gfdm_apply_avs_hooks(NULL);
     }
 
     return module;
@@ -148,12 +220,26 @@ static const struct hook_symbol gfdm_loader_syms[] = {
     },
 };
 
+static const struct hook_symbol gfdm_avs_syms[] = {
+    {
+        .name = "avs_boot",
+        .patch = gfdm_avs_boot,
+        .link = (void **) &real_avs_boot,
+    },
+};
+
 static void gfdm_apply_device_hooks(HMODULE target)
 {
     hook_table_apply(target, "libdevice.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
     hook_table_apply(target, "device.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
+}
+
+static void gfdm_apply_avs_hooks(HMODULE target)
+{
+    hook_table_apply(target, "libavs-win32.dll", gfdm_avs_syms,
+                     lengthof(gfdm_avs_syms));
 }
 
 static void gfdm_read_keys(uint32_t *state)
@@ -453,6 +539,7 @@ static void gfdm_init(void)
 
     /* Match the security status contract used by the known-good V4 hook. */
     gfdm_apply_device_hooks(NULL);
+    gfdm_apply_avs_hooks(NULL);
     hook_table_apply(NULL, "kernel32.dll", gfdm_loader_syms,
                      lengthof(gfdm_loader_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);

@@ -8,6 +8,7 @@ ldflags_gfdmhook1 := \
     -lws2_32 \
 
 libs_gfdmhook1 := \
+    avs \
     cconfig \
     geninput \
     hook \
