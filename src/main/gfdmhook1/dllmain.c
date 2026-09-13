@@ -38,6 +38,26 @@ static struct security_id gfdm_eamid;
 static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
+static HMODULE(STDCALL *real_LoadLibraryA)(LPCSTR name);
+
+static void gfdm_apply_device_hooks(HMODULE target);
+
+static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
+{
+    HMODULE module;
+
+    module = GetModuleHandleA(name);
+    if (module == NULL && real_LoadLibraryA != NULL) {
+        module = real_LoadLibraryA(name);
+    }
+
+    if (module != NULL) {
+        /* The V4 system/error libraries are loaded after boot_main. */
+        gfdm_apply_device_hooks(module);
+    }
+
+    return module;
+}
 
 /*
  * GFDM V4's original gfdmhook exposes the libdevice security entry points
@@ -119,6 +139,22 @@ static const struct hook_symbol gfdm_secplug_syms[] = {
         .link = (void **) &real_device_get_jamma_history,
     },
 };
+
+static const struct hook_symbol gfdm_loader_syms[] = {
+    {
+        .name = "LoadLibraryA",
+        .patch = gfdm_LoadLibraryA,
+        .link = (void **) &real_LoadLibraryA,
+    },
+};
+
+static void gfdm_apply_device_hooks(HMODULE target)
+{
+    hook_table_apply(target, "libdevice.dll", gfdm_secplug_syms,
+                     lengthof(gfdm_secplug_syms));
+    hook_table_apply(target, "device.dll", gfdm_secplug_syms,
+                     lengthof(gfdm_secplug_syms));
+}
 
 static void gfdm_read_keys(uint32_t *state)
 {
@@ -395,11 +431,9 @@ static void gfdm_init(void)
     adapter_hook_override(gfdm_config.adapter.override_ip);
 
     /* Match the security status contract used by the known-good V4 hook. */
-    hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
-                     lengthof(gfdm_secplug_syms));
-    /* Some V4 distributions name the same module device.dll. */
-    hook_table_apply(NULL, "device.dll", gfdm_secplug_syms,
-                     lengthof(gfdm_secplug_syms));
+    gfdm_apply_device_hooks(NULL);
+    hook_table_apply(NULL, "kernel32.dll", gfdm_loader_syms,
+                     lengthof(gfdm_loader_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);
     p3io_setupapi_insert_hooks(NULL);
     p3io_emu_init(&gfdm_p3io_ops, NULL);
