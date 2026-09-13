@@ -8,7 +8,6 @@
 
 #include "bemanitools/input.h"
 #include "cconfig/cconfig-hook.h"
-#include "geninput/input-config.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "hook/iohook.h"
@@ -943,29 +942,6 @@ static void gfdm_init(void)
         "GFDM %s input mapping %s",
         gfdm_is_gf ? "GF" : "DM",
         gfdm_mapper_loaded ? "loaded" : "not configured; using keyboard fallback");
-
-    if (gfdm_mapper_loaded) {
-        action_iter_t iter;
-
-        for (iter = mapper_iterate_actions(); action_iter_is_valid(iter);
-             action_iter_next(iter)) {
-            struct mapped_action ma;
-            const char *dev_node;
-
-            action_iter_get_mapping(iter, &ma);
-            dev_node = ma.hid != NULL ? hid_stub_get_dev_node(ma.hid) : "<null>";
-            log_info(
-                "GFDM mapper action=%u page=%u bit=%u dev=%s control=%u attached=%d",
-                action_iter_get_action(iter),
-                action_iter_get_page(iter),
-                action_iter_get_bit(iter),
-                dev_node != NULL ? dev_node : "<none>",
-                (unsigned int) ma.control_no,
-                ma.hid != NULL && hid_stub_is_attached(ma.hid));
-        }
-
-        action_iter_free(iter);
-    }
 
     adapter_hook_init();
     adapter_hook_override(gfdm_config.adapter.override_ip);
