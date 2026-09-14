@@ -16,6 +16,8 @@ struct gfdmhook1_config {
     struct security_id eamid;
     struct security_mcode mcode;
     bool keyboard;
+    float frame_rate_limit;
+    int32_t forced_refresh_rate;
 };
 
 void gfdmhook1_config_init(struct cconfig *config);

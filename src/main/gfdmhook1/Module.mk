@@ -12,6 +12,7 @@ libs_gfdmhook1 := \
     geninput \
     hook \
     hooklib \
+    iidxhook-util \
     p3io \
     p3ioemu \
     security \

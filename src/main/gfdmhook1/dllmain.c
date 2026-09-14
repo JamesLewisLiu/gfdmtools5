@@ -7,13 +7,16 @@
 #include <string.h>
 
 #include "bemanitools/input.h"
+#include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
+#include "hook/d3d9.h"
 #include "hook/iohook.h"
 #include "hooklib/adapter.h"
 #include "hook/table.h"
 #include "imports/avs.h"
+#include "iidxhook-util/d3d9.h"
 #include "p3io/cmd.h"
 #include "p3ioemu/devmgr.h"
 #include "p3ioemu/emu.h"
@@ -37,6 +40,24 @@ static bool gfdm_mapper_loaded;
 static bool gfdm_is_gf;
 static FILE *gfdm_log_file;
 static HMODULE gfdm_module;
+static bool gfdm_d3d9_initialized;
+static HMODULE gfdm_eamio_module;
+static bool gfdm_eamio_initialized;
+
+typedef void (*gfdm_eam_set_loggers_t)(
+    log_formatter_t, log_formatter_t, log_formatter_t, log_formatter_t);
+typedef bool (*gfdm_eam_init_t)(thread_create_t, thread_join_t, thread_destroy_t);
+typedef void (*gfdm_eam_fini_t)(void);
+typedef uint16_t (*gfdm_eam_keypad_t)(uint8_t);
+typedef uint8_t (*gfdm_eam_sensor_t)(uint8_t);
+typedef uint8_t (*gfdm_eam_read_card_t)(uint8_t, uint8_t *, uint8_t);
+
+static gfdm_eam_set_loggers_t gfdm_eam_set_loggers;
+static gfdm_eam_init_t gfdm_eam_init;
+static gfdm_eam_fini_t gfdm_eam_fini;
+static gfdm_eam_keypad_t gfdm_eam_get_keypad_state;
+static gfdm_eam_sensor_t gfdm_eam_get_sensor_state;
+static gfdm_eam_read_card_t gfdm_eam_read_card;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -69,6 +90,87 @@ static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
+
+static const hook_d3d9_irp_handler_t gfdm_d3d9_handlers[] = {
+    iidxhook_util_d3d9_irp_handler,
+};
+
+static void gfdm_setup_d3d9_hooks(void)
+{
+    struct iidxhook_util_d3d9_config d3d9_config;
+
+    if (gfdm_d3d9_initialized) {
+        return;
+    }
+
+    gfdm_d3d9_initialized = true;
+    iidxhook_util_d3d9_init_config(&d3d9_config);
+    d3d9_config.framerate_limit = gfdm_config.frame_rate_limit;
+    d3d9_config.forced_refresh_rate = gfdm_config.forced_refresh_rate;
+    iidxhook_util_d3d9_configure(&d3d9_config);
+    hook_d3d9_init(gfdm_d3d9_handlers, lengthof(gfdm_d3d9_handlers));
+    log_info(
+        "GFDM D3D9 limiter: %.3f FPS, forced refresh %d Hz",
+        d3d9_config.framerate_limit,
+        d3d9_config.forced_refresh_rate);
+}
+
+static void gfdm_setup_eamio(void)
+{
+    if (gfdm_eamio_initialized) {
+        return;
+    }
+
+    gfdm_eamio_initialized = true;
+    gfdm_eamio_module = GetModuleHandleA("eamio.dll");
+    if (gfdm_eamio_module == NULL) {
+        gfdm_eamio_module = LoadLibraryA("eamio.dll");
+    }
+
+    if (gfdm_eamio_module == NULL) {
+        log_warning("GFDM card reader: eamio.dll was not found");
+        return;
+    }
+
+    gfdm_eam_set_loggers = (gfdm_eam_set_loggers_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_set_loggers");
+    gfdm_eam_init = (gfdm_eam_init_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_init");
+    gfdm_eam_fini = (gfdm_eam_fini_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_fini");
+    gfdm_eam_get_keypad_state = (gfdm_eam_keypad_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_get_keypad_state");
+    gfdm_eam_get_sensor_state = (gfdm_eam_sensor_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_get_sensor_state");
+    gfdm_eam_read_card = (gfdm_eam_read_card_t) GetProcAddress(
+        gfdm_eamio_module, "eam_io_read_card");
+
+    if (gfdm_eam_set_loggers == NULL || gfdm_eam_init == NULL ||
+        gfdm_eam_get_keypad_state == NULL ||
+        gfdm_eam_get_sensor_state == NULL || gfdm_eam_read_card == NULL) {
+        log_warning("GFDM card reader: eamio.dll exports are incomplete");
+        return;
+    }
+
+    gfdm_eam_set_loggers(
+        log_impl_misc, log_impl_info, log_impl_warning, log_impl_fatal);
+    if (!gfdm_eam_init(
+            crt_thread_create, crt_thread_join, crt_thread_destroy)) {
+        log_warning("GFDM card reader: eamio initialization failed");
+        return;
+    }
+
+    log_info("GFDM card reader/keypad backend initialized");
+}
+
+static uint8_t gfdm_card_sensor_state(int unit_no)
+{
+    if (gfdm_eam_get_sensor_state == NULL || unit_no < 0 || unit_no >= 2) {
+        return 0;
+    }
+
+    return gfdm_eam_get_sensor_state((uint8_t) unit_no);
+}
 
 /* The injector passes the game selector as a separate command-line token
    ("-g" or "-d").  The old substring check was fragile when the command
@@ -306,17 +408,12 @@ static int __cdecl gfdm_cardunit_get_status(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
 {
-    (void) unit_no;
-
-    return 0;
+    return gfdm_card_sensor_state(unit_no) != 0;
 }
 
 static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
 {
-    (void) unit_no;
-
-    /* Gitadora's dummy reader reports a connected sensor with no card. */
-    return 1;
+    return gfdm_card_sensor_state(unit_no) != 0;
 }
 
 static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
@@ -328,14 +425,63 @@ static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
 {
-    (void) unit_no;
+    uint8_t result;
 
-    if (card != NULL) {
-        memset(card, 0, 8);
+    if (card == NULL || gfdm_eam_read_card == NULL) {
+        return 0;
     }
 
-    /* No card is inserted. */
-    return 1;
+    result = gfdm_eam_read_card((uint8_t) unit_no, card, 8);
+    log_info("GFDM card reader %d read result %u", unit_no, result);
+
+    return result != EAM_IO_CARD_NONE;
+}
+
+static int __cdecl gfdm_cardunit_card_read2(
+    int unit_no, uint8_t *card, int *card_type)
+{
+    uint8_t result;
+
+    if (card == NULL || card_type == NULL || gfdm_eam_read_card == NULL) {
+        return -1;
+    }
+
+    result = gfdm_eam_read_card((uint8_t) unit_no, card, 8);
+    if (result == EAM_IO_CARD_NONE) {
+        *card_type = -1;
+        memset(card, 0, 8);
+        return -1;
+    }
+
+    *card_type = result;
+    log_info(
+        "GFDM card reader %d read2 result %u type %d",
+        unit_no,
+        result,
+        *card_type);
+
+    return 0;
+}
+
+static int __cdecl gfdm_cardunit_card_cardnumber(
+    const uint8_t *card, int unit_no, char *number, int nbytes)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    int i;
+
+    (void) unit_no;
+
+    if (card == NULL || number == NULL || nbytes < 17) {
+        return -1;
+    }
+
+    for (i = 0; i < 8; i++) {
+        number[i * 2] = hex[card[i] >> 4];
+        number[i * 2 + 1] = hex[card[i] & 0x0F];
+    }
+    number[16] = '\0';
+
+    return 0;
 }
 
 static void __cdecl gfdm_cardunit_card_ready(int unit_no)
@@ -345,16 +491,40 @@ static void __cdecl gfdm_cardunit_card_ready(int unit_no)
 
 static int __cdecl gfdm_cardunit_key_get(int unit_no)
 {
-    (void) unit_no;
+    static const uint8_t codes[EAM_IO_KEYPAD_COUNT] = {
+        4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    uint16_t state;
+    unsigned int i;
 
-    return -1;
+    if (gfdm_eam_get_keypad_state == NULL || unit_no < 0 || unit_no >= 2) {
+        return -1;
+    }
+
+    state = gfdm_eam_get_keypad_state((uint8_t) unit_no);
+    for (i = 0; i < EAM_IO_KEYPAD_COUNT; i++) {
+        if ((state & (1u << i)) != 0) {
+            log_misc(
+                "GFDM card keypad %d: scan %u -> code %u",
+                unit_no,
+                i,
+                codes[i]);
+            return codes[i];
+        }
+    }
+
+    return 0;
 }
 
 static const char *__cdecl gfdm_cardunit_key_str(int unit_no)
 {
-    (void) unit_no;
+    static const char *const names[] = {
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "00"};
 
-    return "";
+    if (unit_no < 0 || unit_no >= (int) lengthof(names)) {
+        return "";
+    }
+
+    return names[unit_no];
 }
 
 static int __cdecl gfdm_cardunit_reset(void)
@@ -364,6 +534,9 @@ static int __cdecl gfdm_cardunit_reset(void)
 
 static void __cdecl gfdm_cardunit_shutdown(void)
 {
+    if (gfdm_eam_fini != NULL) {
+        gfdm_eam_fini();
+    }
 }
 
 static const void *__cdecl gfdm_cardunit_get_version(int unit_no)
@@ -399,6 +572,14 @@ static const struct hook_symbol gfdm_extio_syms[] = {
     {
         .name = "?cardunit_card_read@@YAHHQAE@Z",
         .patch = gfdm_cardunit_card_read,
+    },
+    {
+        .name = "?cardunit_card_read2@@YAHHQAEPEAH@Z",
+        .patch = gfdm_cardunit_card_read2,
+    },
+    {
+        .name = "?cardunit_card_cardnumber@@YAHQEBEHPEADH@Z",
+        .patch = gfdm_cardunit_card_cardnumber,
     },
     {
         .name = "?cardunit_card_ready@@YAXH@Z",
@@ -542,6 +723,13 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
     }
 
     if (module != NULL) {
+        gfdm_setup_d3d9_hooks();
+        if (name != NULL && _stricmp(name, "d3d9.dll") == 0) {
+            /* d3d9.dll is normally loaded after boot_main. Re-apply the
+               table hooks now that its exports are present. */
+            hook_d3d9_init(
+                gfdm_d3d9_handlers, lengthof(gfdm_d3d9_handlers));
+        }
         /* The V4 system/error libraries are loaded after boot_main. */
         gfdm_apply_device_hooks(module);
         gfdm_apply_extio_hooks(module);
@@ -720,10 +908,26 @@ static uint32_t gfdm_read_input_state(void)
 {
     static bool first_update = true;
     static uint32_t last_state;
+    static uint8_t last_analog[2];
     uint32_t state;
     uint32_t keyboard_state;
+    uint8_t analog;
+    unsigned int analog_no;
 
     state = gfdm_mapper_loaded ? (uint32_t) mapper_update() : 0;
+
+    if (gfdm_mapper_loaded && gfdm_is_gf) {
+        for (analog_no = 0; analog_no < 2; analog_no++) {
+            analog = mapper_read_analog((uint8_t) analog_no);
+            if (first_update || analog != last_analog[analog_no]) {
+                log_misc(
+                    "GFDM effector analog %u: %u",
+                    analog_no,
+                    analog);
+                last_analog[analog_no] = analog;
+            }
+        }
+    }
 
     /* The keyboard mapping is an explicit fallback.  In particular, do not
        merge it into the mapper state when input.keyboard=false: doing so made
@@ -768,6 +972,7 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
 
     if (state & (1u << 0)) result |= 0x08; /* SERVICE */
     if (state & (1u << 1)) result |= 0x02; /* TEST */
+    if (state & (1u << 2)) result |= 0x01; /* COIN */
 
     if (gfdm_is_gf) {
         if (player != 1) {
@@ -982,6 +1187,7 @@ static void gfdm_init(void)
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
+    gfdm_setup_d3d9_hooks();
 
     cmdline = GetCommandLineA();
     gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
@@ -993,6 +1199,7 @@ static void gfdm_init(void)
     input_set_loggers(
         log_impl_misc, log_impl_info, log_impl_warning, log_impl_fatal);
     input_init(crt_thread_create, crt_thread_join, crt_thread_destroy);
+    gfdm_setup_eamio();
     gfdm_mapper_loaded = mapper_config_load(gfdm_is_gf ? "gf" : "dm");
     log_info(
         "GFDM %s input mapping %s",

@@ -6,6 +6,7 @@
 static const struct action_def dm_actions[] = {
     {0x01, IDS_GENERIC_TEST},
     {0x00, IDS_GENERIC_SERVICE},
+    {0x02, IDS_GENERIC_COIN},
 
     {0x08, IDS_DM_START},
     {0x0A, IDS_DM_HI_HAT},
@@ -33,6 +34,7 @@ static const struct light_def dm_lights[] = {
 
 static const struct action_def gf_actions[] = {
     {0x01, IDS_GENERIC_TEST}, {0x00, IDS_GENERIC_SERVICE},
+    {0x02, IDS_GENERIC_COIN},
 
     {0x08, IDS_GF_P1_START},
     {0x12, IDS_GF_P1_RED},
@@ -218,6 +220,11 @@ static const struct light_def pnm_lights[] = {
     {0x28, IDS_PNM_RR},
 };
 
+static const struct analog_def gf_analogs[] = {
+    {0, IDS_GF_P1_EFFECTOR_ANALOG},
+    {1, IDS_GF_P2_EFFECTOR_ANALOG},
+};
+
 static const struct action_def jb_actions[] = {
     {0x10, IDS_GENERIC_TEST},
     {0x11, IDS_GENERIC_SERVICE},
@@ -325,8 +332,8 @@ const struct schema schemas[] = {
      lengthof(gf_actions),
      gf_lights,
      lengthof(gf_lights),
-     NULL,
-     0,
+     gf_analogs,
+     lengthof(gf_analogs),
      schema_eam_unit_defs,
      2},
 

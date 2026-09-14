@@ -10,6 +10,8 @@
 #define EAMID_KEY "eamuse.eamid"
 #define MCODE_KEY "security.mcode"
 #define KEYBOARD_KEY "input.keyboard"
+#define FRAME_RATE_LIMIT_KEY "gfx.frame_rate_limit"
+#define FORCED_REFRESH_RATE_KEY "gfx.forced_refresh_rate"
 
 static const struct net_addr default_server = {
     .type = NET_ADDR_TYPE_HOSTNAME,
@@ -46,6 +48,16 @@ void gfdmhook1_config_init(struct cconfig *config)
         KEYBOARD_KEY,
         true,
         "enable the default keyboard-to-panel mapping");
+    cconfig_util_set_float(
+        config,
+        FRAME_RATE_LIMIT_KEY,
+        60.0,
+        "software frame-rate limit in Hz (0 disables the limiter)");
+    cconfig_util_set_int(
+        config,
+        FORCED_REFRESH_RATE_KEY,
+        60,
+        "fullscreen refresh rate in Hz (0 disables the override)");
 }
 
 void gfdmhook1_config_get(
@@ -60,6 +72,8 @@ void gfdmhook1_config_get(
     out->pcbid = security_id_default;
     out->eamid = security_id_default;
     out->keyboard = true;
+    out->frame_rate_limit = 60.0f;
+    out->forced_refresh_rate = 60;
 
     if (cconfig_util_get_str(config, SERVER_KEY, server, sizeof(server), "localhost:80")) {
         if (!net_str_parse(server, &out->server)) {
@@ -92,4 +106,14 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, true);
+    if (!cconfig_util_get_float(
+            config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
+        log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);
+        out->frame_rate_limit = 60.0f;
+    }
+    if (!cconfig_util_get_int(
+            config, FORCED_REFRESH_RATE_KEY, &out->forced_refresh_rate, 60)) {
+        log_warning("Invalid %s, using 60 Hz", FORCED_REFRESH_RATE_KEY);
+        out->forced_refresh_rate = 60;
+    }
 }
