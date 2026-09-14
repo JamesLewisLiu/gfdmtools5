@@ -64,9 +64,17 @@ static uint8_t gfdm_card_data[2][8];
 static uint8_t gfdm_card_type[2];
 static bool gfdm_card_read_logged[2];
 static bool gfdm_card_read2_logged[2];
+static int gfdm_card_eject_pending[2];
 static uint16_t gfdm_keypad_seen[2];
 static int gfdm_key_last[2];
 static bool gfdm_key_pending[2];
+static bool gfdm_card_status_logged[2];
+static uint32_t gfdm_last_output_state;
+static bool gfdm_output_state_logged;
+static uint32_t gfdm_last_device_input[2];
+static bool gfdm_device_input_logged[2];
+static bool gfdm_test_history_active;
+static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -437,18 +445,17 @@ static void __cdecl gfdm_cardunit_update(void)
 static void __cdecl gfdm_cardunit_card_eject(int unit_no)
 {
     if (unit_no >= 0 && unit_no < 2) {
-        gfdm_card_present[unit_no] = false;
-        gfdm_card_sensor_seen[unit_no] = false;
-        gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
-        memset(gfdm_card_data[unit_no], 0, 8);
+        gfdm_card_eject_pending[unit_no] = 1;
     }
 }
 
 static int __cdecl gfdm_cardunit_card_eject_wait(int unit_no)
 {
-    (void) unit_no;
+    if (unit_no < 0 || unit_no >= 2) {
+        return 0;
+    }
 
-    return 1;
+    return gfdm_card_eject_pending[unit_no];
 }
 
 static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
@@ -461,7 +468,10 @@ static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
 static int __cdecl gfdm_cardunit_get_status(int unit_no)
 {
     gfdm_cardunit_poll();
-    log_misc("V4 cardunit %d status -> ready", unit_no);
+    if (unit_no >= 0 && unit_no < 2 && !gfdm_card_status_logged[unit_no]) {
+        log_misc("V4 cardunit %d status -> ready", unit_no);
+        gfdm_card_status_logged[unit_no] = true;
+    }
 
     return 1;
 }
@@ -482,9 +492,18 @@ static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
 {
-    (void) unit_no;
+    if (unit_no < 0 || unit_no >= 2) {
+        return 0;
+    }
 
-    return 1;
+    if (gfdm_card_eject_pending[unit_no]) {
+        gfdm_card_present[unit_no] = false;
+        gfdm_card_sensor_seen[unit_no] = false;
+        gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
+        memset(gfdm_card_data[unit_no], 0, 8);
+    }
+
+    return gfdm_card_eject_pending[unit_no];
 }
 
 static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
@@ -570,7 +589,9 @@ static int __cdecl gfdm_cardunit_card_cardnumber(
 
 static void __cdecl gfdm_cardunit_card_ready(int unit_no)
 {
-    (void) unit_no;
+    if (unit_no >= 0 && unit_no < 2) {
+        gfdm_card_eject_pending[unit_no] = 0;
+    }
 }
 
 static int __cdecl gfdm_cardunit_key_get(int unit_no)
@@ -623,6 +644,13 @@ static const char *__cdecl gfdm_cardunit_key_str(int unit_no)
 
 static int __cdecl gfdm_cardunit_reset(void)
 {
+    memset(gfdm_card_present, 0, sizeof(gfdm_card_present));
+    memset(gfdm_card_sensor_seen, 0, sizeof(gfdm_card_sensor_seen));
+    memset(gfdm_card_data, 0, sizeof(gfdm_card_data));
+    memset(gfdm_card_type, 0, sizeof(gfdm_card_type));
+    memset(gfdm_card_eject_pending, 0, sizeof(gfdm_card_eject_pending));
+    memset(gfdm_keypad_seen, 0, sizeof(gfdm_keypad_seen));
+    memset(gfdm_key_pending, 0, sizeof(gfdm_key_pending));
     return 0;
 }
 
@@ -1106,8 +1134,12 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
     if (state & (1u << 30)) result |= 0x00020000; /* DEBUG MENU SELECT */
     if (state & (1u << 31)) result |= 0x00040000; /* DEBUG MENU DECIDE */
 
-    if (result != 0) {
+    if (player >= 0 && player < 2 &&
+        (!gfdm_device_input_logged[player] ||
+         gfdm_last_device_input[player] != result)) {
         log_misc("V4 device input player %d: %08x", player, result);
+        gfdm_last_device_input[player] = result;
+        gfdm_device_input_logged[player] = true;
     }
 
     return result;
@@ -1135,6 +1167,11 @@ static int __cdecl gfdm_device_get_jamma_history(
        real device queue contains unrelated entries, replace it while TEST is
        held so the screen cannot discard the mapped key as stale input. */
     if ((state & (1u << 1)) != 0) {
+        if (!gfdm_test_history_active) {
+            log_misc("Synthesized V4 JAMMA history for TEST");
+            gfdm_test_history_active = true;
+        }
+        gfdm_service_history_active = false;
         entry = (uint8_t *) history;
         memset(entry, 0, 12);
         tick = GetTickCount();
@@ -1142,8 +1179,12 @@ static int __cdecl gfdm_device_get_jamma_history(
         memcpy(entry + 4, &tick, sizeof(tick));
         entry[8] = 0x20;
 
-        log_misc("Synthesized V4 JAMMA history for TEST");
         return 1;
+    }
+
+    gfdm_test_history_active = false;
+    if ((state & (1u << 0)) == 0) {
+        gfdm_service_history_active = false;
     }
 
     if (result > 0 || (state & (1u << 0)) == 0) {
@@ -1159,9 +1200,10 @@ static int __cdecl gfdm_device_get_jamma_history(
     /* History bit 5 is V4's TEST edge; bit 6 is SERVICE. */
     *(uint16_t *) (entry + 8) = state & (1u << 1) ? 0x20 : 0x40;
 
-    log_misc(
-        "Synthesized V4 JAMMA history for %s",
-        state & (1u << 1) ? "TEST" : "SERVICE");
+    if (!gfdm_service_history_active) {
+        log_misc("Synthesized V4 JAMMA history for SERVICE");
+        gfdm_service_history_active = true;
+    }
 
     return 1;
 }
@@ -1178,7 +1220,11 @@ static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
 static HRESULT gfdm_set_outputs(void *ctx, uint32_t state)
 {
     (void) ctx;
-    log_misc("P3IO outputs: %08x", state);
+    if (!gfdm_output_state_logged || gfdm_last_output_state != state) {
+        log_misc("P3IO outputs: %08x", state);
+        gfdm_last_output_state = state;
+        gfdm_output_state_logged = true;
+    }
     return S_OK;
 }
 
