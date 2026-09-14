@@ -64,6 +64,9 @@ static uint8_t gfdm_card_data[2][8];
 static uint8_t gfdm_card_type[2];
 static bool gfdm_card_read_logged[2];
 static bool gfdm_card_read2_logged[2];
+static uint16_t gfdm_keypad_seen[2];
+static int gfdm_key_last[2];
+static bool gfdm_key_pending[2];
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -573,8 +576,9 @@ static void __cdecl gfdm_cardunit_card_ready(int unit_no)
 static int __cdecl gfdm_cardunit_key_get(int unit_no)
 {
     static const uint8_t codes[EAM_IO_KEYPAD_COUNT] = {
-        4, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+        0, 1, 5, 9, 2, 6, 10, 3, 7, 11, 8, 4};
     uint16_t state;
+    uint16_t pressed;
     unsigned int i;
 
     if (gfdm_eam_get_keypad_state == NULL || unit_no < 0 || unit_no >= 2) {
@@ -582,8 +586,12 @@ static int __cdecl gfdm_cardunit_key_get(int unit_no)
     }
 
     state = gfdm_eam_get_keypad_state((uint8_t) unit_no);
+    pressed = state & (uint16_t) ~gfdm_keypad_seen[unit_no];
+    gfdm_keypad_seen[unit_no] = state;
     for (i = 0; i < EAM_IO_KEYPAD_COUNT; i++) {
-        if ((state & (1u << i)) != 0) {
+        if ((pressed & (1u << i)) != 0) {
+            gfdm_key_last[unit_no] = codes[i];
+            gfdm_key_pending[unit_no] = true;
             log_misc(
                 "GFDM card keypad %d: scan %u -> code %u",
                 unit_no,
@@ -593,19 +601,24 @@ static int __cdecl gfdm_cardunit_key_get(int unit_no)
         }
     }
 
-    return 0;
+    return -1;
 }
 
 static const char *__cdecl gfdm_cardunit_key_str(int unit_no)
 {
     static const char *const names[] = {
-        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "00"};
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+        "RETURN", "00"};
 
-    if (unit_no < 0 || unit_no >= (int) lengthof(names)) {
-        return "";
+    if (unit_no < 0 || unit_no >= 2 || !gfdm_key_pending[unit_no] ||
+        gfdm_key_last[unit_no] < 0 ||
+        gfdm_key_last[unit_no] >= (int) lengthof(names)) {
+        return NULL;
     }
 
-    return names[unit_no];
+    gfdm_key_pending[unit_no] = false;
+
+    return names[gfdm_key_last[unit_no]];
 }
 
 static int __cdecl gfdm_cardunit_reset(void)
