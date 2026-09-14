@@ -25,6 +25,7 @@
 #include "util/defs.h"
 #include "util/log.h"
 #include "util/str.h"
+#include "util/time.h"
 #include "util/thread.h"
 
 #define GFDMHOOK1_INFO_HEADER \
@@ -41,6 +42,10 @@ static bool gfdm_is_gf;
 static FILE *gfdm_log_file;
 static HMODULE gfdm_module;
 static bool gfdm_d3d9_initialized;
+static uint64_t gfdm_gl_present_time;
+static uint64_t gfdm_gl_present_count;
+static DWORD gfdm_gl_present_log_time;
+static bool gfdm_gl_present_logged;
 static HMODULE gfdm_eamio_module;
 static bool gfdm_eamio_initialized;
 
@@ -73,6 +78,9 @@ static uint32_t gfdm_last_output_state;
 static bool gfdm_output_state_logged;
 static uint32_t gfdm_last_device_input[2];
 static bool gfdm_device_input_logged[2];
+static uint16_t gfdm_coin_stock;
+static bool gfdm_coin_pressed;
+static bool gfdm_coin_stock_logged;
 static bool gfdm_test_history_active;
 static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
@@ -111,6 +119,61 @@ static void gfdm_apply_movie_hooks(HMODULE target);
 static const hook_d3d9_irp_handler_t gfdm_d3d9_handlers[] = {
     iidxhook_util_d3d9_irp_handler,
 };
+
+static BOOL(WINAPI *real_SwapBuffers)(HDC hdc);
+
+static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
+{
+    uint64_t frame_time;
+
+    gfdm_gl_present_count++;
+    if (!gfdm_gl_present_logged) {
+        log_info("GFDM OpenGL SwapBuffers hook active");
+        gfdm_gl_present_logged = true;
+        gfdm_gl_present_log_time = GetTickCount();
+    } else if (GetTickCount() - gfdm_gl_present_log_time >= 1000) {
+        log_misc(
+            "GFDM OpenGL SwapBuffers: %llu frame(s) in the last interval",
+            (unsigned long long) gfdm_gl_present_count);
+        gfdm_gl_present_count = 0;
+        gfdm_gl_present_log_time = GetTickCount();
+    }
+
+    if (gfdm_config.frame_rate_limit > 0.0f) {
+        frame_time = (uint64_t) (1000000.0 / gfdm_config.frame_rate_limit);
+        if (gfdm_gl_present_time == 0) {
+            gfdm_gl_present_time = time_get_counter();
+        } else {
+            uint64_t dt = time_get_elapsed_us(
+                time_get_counter() - gfdm_gl_present_time);
+
+            while (dt < frame_time) {
+                if (frame_time - dt > 2000) {
+                    Sleep(1);
+                }
+                dt = time_get_elapsed_us(
+                    time_get_counter() - gfdm_gl_present_time);
+            }
+            gfdm_gl_present_time = time_get_counter();
+        }
+    }
+
+    return real_SwapBuffers != NULL ? real_SwapBuffers(hdc) : FALSE;
+}
+
+static const struct hook_symbol gfdm_gdi_syms[] = {
+    {
+        .name = "SwapBuffers",
+        .patch = gfdm_SwapBuffers,
+        .link = (void **) &real_SwapBuffers,
+    },
+};
+
+static void gfdm_setup_gfx_hooks(void)
+{
+    hook_table_apply(
+        NULL, "gdi32.dll", gfdm_gdi_syms, lengthof(gfdm_gdi_syms));
+}
 
 static void gfdm_setup_d3d9_hooks(void)
 {
@@ -846,6 +909,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
 
     if (module != NULL) {
         gfdm_setup_d3d9_hooks();
+        gfdm_setup_gfx_hooks();
         if (name != NULL && _stricmp(name, "d3d9.dll") == 0) {
             /* d3d9.dll is normally loaded after boot_main. Re-apply the
                table hooks now that its exports are present. */
@@ -916,6 +980,8 @@ static void __cdecl gfdm_device_update_secplug(void)
 static int __cdecl gfdm_device_get_jamma_history(
     void *history, int max_entries);
 static unsigned int __cdecl gfdm_device_get_input(int player);
+static void __cdecl gfdm_device_get_coinstock(
+    uint16_t *slot1, uint16_t *slot2);
 
 static const struct hook_symbol gfdm_secplug_syms[] = {
     {
@@ -938,6 +1004,16 @@ static const struct hook_symbol gfdm_secplug_syms[] = {
         .name = "?device_get_input@@YAIH@Z",
         .patch = gfdm_device_get_input,
         .link = (void **) &real_device_get_input,
+    },
+    {
+        /* V4's 32-bit build uses the Pxxxx (unsigned short *) decoration.
+           libshare-pj polls this function for the normal credit path. */
+        .name = "?device_get_coinstock@@YAXPAG0@Z",
+        .patch = gfdm_device_get_coinstock,
+    },
+    {
+        .name = "?device_get_coinstock_all@@YAXPAG0@Z",
+        .patch = gfdm_device_get_coinstock,
     },
     {
         .name = "?device_get_jamma_history@@YAHPAUT_JAMMA_HISTORY_INFO@@H@Z",
@@ -964,15 +1040,21 @@ static const struct hook_symbol gfdm_avs_syms[] = {
 
 static void gfdm_apply_device_hooks(HMODULE target)
 {
-    hook_table_apply(target, "libdevice.dll", gfdm_secplug_syms,
+    (void) target;
+    /* The consumer is game.dll/libshare-pj.dll, not libdevice.dll itself.
+       When those DLLs are loaded after boot_main, applying only to the newly
+       loaded module misses their import tables.  Rescan all modules just as
+       the movie hook does. */
+    hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
-    hook_table_apply(target, "device.dll", gfdm_secplug_syms,
+    hook_table_apply(NULL, "device.dll", gfdm_secplug_syms,
                      lengthof(gfdm_secplug_syms));
 }
 
 static void gfdm_apply_extio_hooks(HMODULE target)
 {
-    hook_table_apply(target, "libextio.dll", gfdm_extio_syms,
+    (void) target;
+    hook_table_apply(NULL, "libextio.dll", gfdm_extio_syms,
                      lengthof(gfdm_extio_syms));
 }
 
@@ -1059,6 +1141,20 @@ static uint32_t gfdm_read_input_state(void)
         gfdm_read_keys(&keyboard_state);
         state |= keyboard_state;
     }
+
+    /* A physical coin switch is an edge-triggered event.  V4's normal game
+       loop does not consume the JAMMA level directly; it polls
+       device_get_coinstock(), so latch one stock unit on each rising edge. */
+    if ((state & (1u << 2)) != 0 && !gfdm_coin_pressed) {
+        if (gfdm_coin_stock != UINT16_MAX) {
+            gfdm_coin_stock++;
+        }
+        if (!gfdm_coin_stock_logged || gfdm_coin_stock > 0) {
+            log_info("GFDM coin inserted, stock=%u", gfdm_coin_stock);
+            gfdm_coin_stock_logged = true;
+        }
+    }
+    gfdm_coin_pressed = (state & (1u << 2)) != 0;
 
     if (first_update || state != last_state) {
         log_misc(
@@ -1165,21 +1261,26 @@ static int __cdecl gfdm_device_get_jamma_history(
 
     /* The V4 error screen consumes the TEST edge from JAMMA history. If the
        real device queue contains unrelated entries, replace it while TEST is
-       held so the screen cannot discard the mapped key as stale input. */
+       pressed so the screen cannot discard the mapped key as stale input.
+       The API is an edge queue, not a level query: return the synthetic entry
+       once and let subsequent polls observe an empty queue until release. */
     if ((state & (1u << 1)) != 0) {
         if (!gfdm_test_history_active) {
             log_misc("Synthesized V4 JAMMA history for TEST");
             gfdm_test_history_active = true;
+
+            entry = (uint8_t *) history;
+            memset(entry, 0, 12);
+            tick = GetTickCount();
+            memcpy(entry, &tick, sizeof(tick));
+            memcpy(entry + 4, &tick, sizeof(tick));
+            entry[8] = 0x20;
+
+            return 1;
         }
         gfdm_service_history_active = false;
-        entry = (uint8_t *) history;
-        memset(entry, 0, 12);
-        tick = GetTickCount();
-        memcpy(entry, &tick, sizeof(tick));
-        memcpy(entry + 4, &tick, sizeof(tick));
-        entry[8] = 0x20;
 
-        return 1;
+        return result;
     }
 
     gfdm_test_history_active = false;
@@ -1191,28 +1292,47 @@ static int __cdecl gfdm_device_get_jamma_history(
         return result;
     }
 
-    entry = (uint8_t *) history;
-    memset(entry, 0, 12);
-    tick = GetTickCount();
-    memcpy(entry, &tick, sizeof(tick));
-    memcpy(entry + 4, &tick, sizeof(tick));
-
-    /* History bit 5 is V4's TEST edge; bit 6 is SERVICE. */
-    *(uint16_t *) (entry + 8) = state & (1u << 1) ? 0x20 : 0x40;
-
     if (!gfdm_service_history_active) {
+        entry = (uint8_t *) history;
+        memset(entry, 0, 12);
+        tick = GetTickCount();
+        memcpy(entry, &tick, sizeof(tick));
+        memcpy(entry + 4, &tick, sizeof(tick));
+
+        /* History bit 6 is the V4 SERVICE edge. */
+        *(uint16_t *) (entry + 8) = 0x40;
         log_misc("Synthesized V4 JAMMA history for SERVICE");
         gfdm_service_history_active = true;
+
+        return 1;
     }
 
-    return 1;
+    return result;
 }
 
 static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
 {
+    uint32_t input;
+
     (void) ctx;
 
-    *state = gfdm_read_input_state();
+    input = gfdm_read_input_state();
+
+    /* P3IO's JAMMA system inputs are not the compact libdevice bits:
+       bit 4 = TEST, bit 5 = COIN, bit 6 = SERVICE.  Keep the game button
+       bits untouched and translate only the three system inputs. */
+    *state = input & ~UINT32_C(0x07);
+    if (input & (1u << 0)) *state |= 1u << 6;
+    if (input & (1u << 1)) *state |= 1u << 4;
+    if (input & (1u << 2)) *state |= 1u << 5;
+
+    static uint32_t last_jamma;
+    static bool jamma_logged;
+    if (!jamma_logged || last_jamma != *state) {
+        log_misc("GFDM JAMMA input: %08x", *state);
+        last_jamma = *state;
+        jamma_logged = true;
+    }
 
     return S_OK;
 }
@@ -1252,8 +1372,21 @@ static HRESULT gfdm_get_video_freq(void *ctx, enum p3io_video_freq *freq)
 static HRESULT gfdm_get_coinstock(void *ctx, uint16_t *slots, size_t nslots)
 {
     (void) ctx;
-    for (size_t i = 0; i < nslots; i++) slots[i] = 0;
+    for (size_t i = 0; i < nslots; i++) {
+        slots[i] = i == 0 ? gfdm_coin_stock : 0;
+    }
     return S_OK;
+}
+
+static void __cdecl gfdm_device_get_coinstock(
+    uint16_t *slot1, uint16_t *slot2)
+{
+    if (slot1 != NULL) {
+        *slot1 = gfdm_coin_stock;
+    }
+    if (slot2 != NULL) {
+        *slot2 = 0;
+    }
 }
 
 static HRESULT gfdm_get_roundplug(
@@ -1328,6 +1461,7 @@ static void gfdm_init(void)
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
     gfdm_setup_d3d9_hooks();
+    gfdm_setup_gfx_hooks();
 
     cmdline = GetCommandLineA();
     gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');

@@ -53,6 +53,9 @@ typedef HRESULT WINAPI (*func_D3DXCreateFontA)(
 static struct iidxhook_util_d3d9_config iidxhook_util_d3d9_config;
 
 static uint64_t iidxhook_util_d3d9_present_current_time = 0;
+static uint64_t iidxhook_util_d3d9_present_count;
+static DWORD iidxhook_util_d3d9_present_log_time;
+static bool iidxhook_util_d3d9_present_logged;
 
 static struct {
     uint16_t original_back_buffer_width;
@@ -533,8 +536,22 @@ iidxhook_util_d3d9_nvidia_fix_iidx14_to_19(struct hook_d3d9_irp *irp)
 
 static void iidxhook_util_d3d9_framerate_limiter(struct hook_d3d9_irp *irp)
 {
+    DWORD now;
+
     log_assert(irp);
     log_assert(irp->op == HOOK_D3D9_IRP_OP_DEV_PRESENT);
+
+    iidxhook_util_d3d9_present_count++;
+    now = GetTickCount();
+    if (!iidxhook_util_d3d9_present_logged ||
+        now - iidxhook_util_d3d9_present_log_time >= 1000) {
+        log_info(
+            "D3D9 Present hook active: %llu frame(s) in the last interval",
+            (unsigned long long) iidxhook_util_d3d9_present_count);
+        iidxhook_util_d3d9_present_count = 0;
+        iidxhook_util_d3d9_present_log_time = now;
+        iidxhook_util_d3d9_present_logged = true;
+    }
 
     if (iidxhook_util_d3d9_config.framerate_limit > 0.0f) {
         if (iidxhook_util_d3d9_present_current_time == 0) {
@@ -547,8 +564,12 @@ static void iidxhook_util_d3d9_framerate_limiter(struct hook_d3d9_irp *irp)
                 time_get_counter() - iidxhook_util_d3d9_present_current_time);
 
             while (dt < frame_time) {
-                /* waste some cpu time by polling
-                   because we can't sleep for X us */
+                /* Keep the final fraction precise, but yield while the
+                   target frame interval is still far away.  The old pure
+                   spin loop could starve V4's input/card worker threads. */
+                if (frame_time - dt > 2000) {
+                    Sleep(1);
+                }
                 dt = time_get_elapsed_us(
                     time_get_counter() -
                     iidxhook_util_d3d9_present_current_time);
