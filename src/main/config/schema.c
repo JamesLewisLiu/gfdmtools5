@@ -6,8 +6,6 @@
 static const struct action_def dm_actions[] = {
     {0x01, IDS_GENERIC_TEST},
     {0x00, IDS_GENERIC_SERVICE},
-    {0x02, IDS_GENERIC_COIN},
-
     {0x08, IDS_DM_START},
     {0x0A, IDS_DM_HI_HAT},
     {0x0C, IDS_DM_SNARE},
@@ -18,7 +16,8 @@ static const struct action_def dm_actions[] = {
     {0x0F, IDS_DM_MENU_LEFT},
     {0x11, IDS_DM_MENU_RIGHT},
     {0x1E, IDS_DM_DEBUG_AUTO},
-    {0x1F, IDS_DM_DEBUG_MENU_TIMER}};
+    {0x1F, IDS_DM_DEBUG_MENU_TIMER},
+    {0x02, IDS_GENERIC_COIN}};
 
 static const struct light_def dm_lights[] = {
     {0x00, IDS_DM_HI_HAT},
@@ -34,8 +33,6 @@ static const struct light_def dm_lights[] = {
 
 static const struct action_def gf_actions[] = {
     {0x01, IDS_GENERIC_TEST}, {0x00, IDS_GENERIC_SERVICE},
-    {0x02, IDS_GENERIC_COIN},
-
     {0x08, IDS_GF_P1_START},
     {0x12, IDS_GF_P1_RED},
     {0x14, IDS_GF_P1_GREEN},
@@ -55,7 +52,8 @@ static const struct action_def gf_actions[] = {
     {0x1D, IDS_GF_P2_EFFECT},
 
     {0x1E, IDS_GF_DEBUG_AUTO},
-    {0x1F, IDS_GF_DEBUG_MENU_TIMER}};
+    {0x1F, IDS_GF_DEBUG_MENU_TIMER},
+    {0x02, IDS_GENERIC_COIN}};
 
 static const struct light_def gf_lights[] = {
     {0x08, IDS_GF_P1_SPOT_LIGHT},
