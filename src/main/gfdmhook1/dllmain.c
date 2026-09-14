@@ -11,6 +11,7 @@
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
+#include "geninput/input-config.h"
 #include "hook/d3d9.h"
 #include "hook/iohook.h"
 #include "hooklib/adapter.h"
@@ -78,6 +79,10 @@ static uint32_t gfdm_last_output_state;
 static bool gfdm_output_state_logged;
 static uint32_t gfdm_last_device_input[2];
 static bool gfdm_device_input_logged[2];
+/* GF's V4 effector is represented by two independent inputs (left/right).
+   Keep the compact state here so the analog binding can expose the same
+   three useful positions to device_get_input(): center, left, and right. */
+static uint8_t gfdm_effector_state[2];
 static uint16_t gfdm_coin_stock;
 static bool gfdm_coin_pressed;
 static bool gfdm_coin_stock_logged;
@@ -1108,11 +1113,61 @@ static void gfdm_read_keys(uint32_t *state)
     }
 }
 
+enum {
+    GFDM_EFFECTOR_CENTER = 0,
+    GFDM_EFFECTOR_LEFT = 1,
+    GFDM_EFFECTOR_RIGHT = 2,
+};
+
+static uint8_t gfdm_read_effector_state(unsigned int player)
+{
+    struct mapped_analog ma;
+    unsigned int analog_no;
+    uint8_t value;
+
+    if (!gfdm_mapper_loaded || player >= 2) {
+        return GFDM_EFFECTOR_CENTER;
+    }
+
+    analog_no = player;
+    if (!mapper_get_analog_map((uint8_t) analog_no, &ma) || ma.hid == NULL) {
+        /* mapper_read_analog() returns zero for an unbound axis. Treating it
+           as a direction would make an unset config hold Effect forever. */
+        return GFDM_EFFECTOR_CENTER;
+    }
+
+    value = mapper_read_analog((uint8_t) analog_no);
+
+    if (mapper_is_analog_absolute((uint8_t) analog_no)) {
+        /* Absolute axes are normalized by geninput to [0, 255]. Keep a
+           generous center band so a physical knob can rest near midpoint. */
+        if (value < 85) {
+            return GFDM_EFFECTOR_LEFT;
+        }
+
+        if (value > 170) {
+            return GFDM_EFFECTOR_RIGHT;
+        }
+
+        return GFDM_EFFECTOR_CENTER;
+    }
+
+    /* Relative controls are accumulated in an unsigned byte by geninput.
+       A small positive delta (the V4 hardware commonly reports 2) is the
+       right direction; wrapped negative deltas occupy the upper half. */
+    if (value == 0) {
+        return GFDM_EFFECTOR_CENTER;
+    }
+
+    return value < 128 ? GFDM_EFFECTOR_RIGHT : GFDM_EFFECTOR_LEFT;
+}
+
 static uint32_t gfdm_read_input_state(void)
 {
     static bool first_update = true;
     static uint32_t last_state;
     static uint8_t last_analog[2];
+    static uint8_t last_effector_state[2];
     uint32_t state;
     uint32_t keyboard_state;
     uint8_t analog;
@@ -1129,6 +1184,19 @@ static uint32_t gfdm_read_input_state(void)
                     analog_no,
                     analog);
                 last_analog[analog_no] = analog;
+            }
+
+            gfdm_effector_state[analog_no] =
+                gfdm_read_effector_state(analog_no);
+            if (first_update ||
+                gfdm_effector_state[analog_no] !=
+                    last_effector_state[analog_no]) {
+                log_misc(
+                    "GFDM effector state P%u: %u (0=center, 1=left, 2=right)",
+                    analog_no + 1,
+                    gfdm_effector_state[analog_no]);
+                last_effector_state[analog_no] =
+                    gfdm_effector_state[analog_no];
             }
         }
     }
@@ -1202,6 +1270,11 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 24)) result |= 0x0020; /* PICK A (UP) */
             if (state & (1u << 25)) result |= 0x0040; /* PICK B (DOWN) */
             if (state & (1u << 28)) result |= 0x8000; /* EFFECTOR (LEFT) */
+            if (gfdm_effector_state[0] == GFDM_EFFECTOR_LEFT) {
+                result |= 0x8000;
+            } else if (gfdm_effector_state[0] == GFDM_EFFECTOR_RIGHT) {
+                result |= 0x10000; /* EFFECTOR (RIGHT) */
+            }
         } else {
             if (state & (1u << 9)) result |= 0x0004;
             if (state & (1u << 13)) result |= 0x0040;
@@ -1211,6 +1284,11 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 26)) result |= 0x0020;
             if (state & (1u << 27)) result |= 0x0040;
             if (state & (1u << 29)) result |= 0x8000;
+            if (gfdm_effector_state[1] == GFDM_EFFECTOR_LEFT) {
+                result |= 0x8000;
+            } else if (gfdm_effector_state[1] == GFDM_EFFECTOR_RIGHT) {
+                result |= 0x10000;
+            }
         }
     } else {
         if (state & (1u << 8)) result |= 0x0004;  /* START */
