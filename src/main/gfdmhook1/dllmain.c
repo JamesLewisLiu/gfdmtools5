@@ -58,6 +58,12 @@ static gfdm_eam_fini_t gfdm_eam_fini;
 static gfdm_eam_keypad_t gfdm_eam_get_keypad_state;
 static gfdm_eam_sensor_t gfdm_eam_get_sensor_state;
 static gfdm_eam_read_card_t gfdm_eam_read_card;
+static bool gfdm_card_present[2];
+static bool gfdm_card_sensor_seen[2];
+static uint8_t gfdm_card_data[2][8];
+static uint8_t gfdm_card_type[2];
+static bool gfdm_card_read_logged[2];
+static bool gfdm_card_read2_logged[2];
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
@@ -170,6 +176,50 @@ static uint8_t gfdm_card_sensor_state(int unit_no)
     }
 
     return gfdm_eam_get_sensor_state((uint8_t) unit_no);
+}
+
+/* V4's card-unit functions are polled from the game thread.  Keep the
+   physical EAMIO sensor out of the raw sensor hooks: Gitadora's V4 reader
+   reports a connected (but empty) reader there, and changing that contract
+   makes the boot state machine wait forever after NETWORK OK.  Instead,
+   consume a sensor edge in cardunit_update and cache the eight-byte card ID
+   for the later card_read/card_read2 call. */
+static void gfdm_cardunit_poll(void)
+{
+    int unit_no;
+    uint8_t sensor;
+    uint8_t result;
+
+    if (gfdm_eam_get_sensor_state == NULL || gfdm_eam_read_card == NULL) {
+        return;
+    }
+
+    for (unit_no = 0; unit_no < 2; unit_no++) {
+        sensor = gfdm_card_sensor_state(unit_no);
+
+        if (sensor != 0 && !gfdm_card_sensor_seen[unit_no]) {
+            result = gfdm_eam_read_card(
+                (uint8_t) unit_no, gfdm_card_data[unit_no], 8);
+            if (result != EAM_IO_CARD_NONE) {
+                gfdm_card_present[unit_no] = true;
+                gfdm_card_type[unit_no] = result;
+                log_info(
+                    "GFDM card reader %d inserted (type %u)",
+                    unit_no,
+                    result);
+            } else {
+                gfdm_card_present[unit_no] = false;
+                gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
+                memset(gfdm_card_data[unit_no], 0, 8);
+                log_misc("GFDM card reader %d sensor edge without card", unit_no);
+            }
+        }
+
+        /* EAMIO's sensor is a short insert/tap pulse, not a persistent
+           presence switch.  A low level only arms the next rising edge;
+           card removal is driven by cardunit_card_eject(). */
+        gfdm_card_sensor_seen[unit_no] = sensor != 0;
+    }
 }
 
 /* The injector passes the game selector as a separate command-line token
@@ -378,11 +428,17 @@ static int __cdecl gfdm_cardunit_boot_initialize(void)
 
 static void __cdecl gfdm_cardunit_update(void)
 {
+    gfdm_cardunit_poll();
 }
 
 static void __cdecl gfdm_cardunit_card_eject(int unit_no)
 {
-    (void) unit_no;
+    if (unit_no >= 0 && unit_no < 2) {
+        gfdm_card_present[unit_no] = false;
+        gfdm_card_sensor_seen[unit_no] = false;
+        gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
+        memset(gfdm_card_data[unit_no], 0, 8);
+    }
 }
 
 static int __cdecl gfdm_cardunit_card_eject_wait(int unit_no)
@@ -401,6 +457,7 @@ static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
 
 static int __cdecl gfdm_cardunit_get_status(int unit_no)
 {
+    gfdm_cardunit_poll();
     log_misc("V4 cardunit %d status -> ready", unit_no);
 
     return 1;
@@ -408,12 +465,16 @@ static int __cdecl gfdm_cardunit_get_status(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
 {
-    return gfdm_card_sensor_state(unit_no) != 0;
+    (void) unit_no;
+
+    return 0;
 }
 
 static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
 {
-    return gfdm_card_sensor_state(unit_no) != 0;
+    (void) unit_no;
+
+    return 1;
 }
 
 static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
@@ -425,40 +486,60 @@ static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
 {
-    uint8_t result;
-
-    if (card == NULL || gfdm_eam_read_card == NULL) {
-        return 0;
+    if (unit_no < 0 || unit_no >= 2 || card == NULL) {
+        return 1;
     }
 
-    result = gfdm_eam_read_card((uint8_t) unit_no, card, 8);
-    log_info("GFDM card reader %d read result %u", unit_no, result);
+    gfdm_cardunit_poll();
+    if (!gfdm_card_present[unit_no]) {
+        memset(card, 0, 8);
+        if (!gfdm_card_read_logged[unit_no]) {
+            log_info("GFDM card reader %d read: no card", unit_no);
+            gfdm_card_read_logged[unit_no] = true;
+        }
+        return 1;
+    }
 
-    return result != EAM_IO_CARD_NONE;
+    memcpy(card, gfdm_card_data[unit_no], 8);
+    if (!gfdm_card_read_logged[unit_no]) {
+        log_info("GFDM card reader %d read: card present", unit_no);
+        gfdm_card_read_logged[unit_no] = true;
+    }
+
+    return 0;
 }
 
 static int __cdecl gfdm_cardunit_card_read2(
     int unit_no, uint8_t *card, int *card_type)
 {
-    uint8_t result;
-
-    if (card == NULL || card_type == NULL || gfdm_eam_read_card == NULL) {
-        return -1;
+    if (unit_no < 0 || unit_no >= 2 || card == NULL) {
+        return 1;
     }
 
-    result = gfdm_eam_read_card((uint8_t) unit_no, card, 8);
-    if (result == EAM_IO_CARD_NONE) {
-        *card_type = -1;
+    gfdm_cardunit_poll();
+    if (!gfdm_card_present[unit_no]) {
+        if (card_type != NULL) {
+            *card_type = EAM_IO_CARD_NONE;
+        }
         memset(card, 0, 8);
-        return -1;
+        if (!gfdm_card_read2_logged[unit_no]) {
+            log_info("GFDM card reader %d read2: no card", unit_no);
+            gfdm_card_read2_logged[unit_no] = true;
+        }
+        return 1;
     }
 
-    *card_type = result;
-    log_info(
-        "GFDM card reader %d read2 result %u type %d",
-        unit_no,
-        result,
-        *card_type);
+    memcpy(card, gfdm_card_data[unit_no], 8);
+    if (card_type != NULL) {
+        *card_type = gfdm_card_type[unit_no];
+    }
+    if (!gfdm_card_read2_logged[unit_no]) {
+        log_info(
+            "GFDM card reader %d read2: card present type %u",
+            unit_no,
+            gfdm_card_type[unit_no]);
+        gfdm_card_read2_logged[unit_no] = true;
+    }
 
     return 0;
 }
