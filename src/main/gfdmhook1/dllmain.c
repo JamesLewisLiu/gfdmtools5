@@ -80,8 +80,8 @@ static bool gfdm_output_state_logged;
 static uint32_t gfdm_last_device_input[2];
 static bool gfdm_device_input_logged[2];
 /* GF's V4 effector is represented by two independent inputs (left/right).
-   Keep the compact state here so the analog binding can expose the same
-   three useful positions to device_get_input(): center, left, and right. */
+   game_util_input_effect_num() encodes them as a two-bit value:
+   0 = center, 1 = left, 2 = right, and 3 = both. */
 static uint8_t gfdm_effector_state[2];
 static uint16_t gfdm_coin_stock;
 static bool gfdm_coin_pressed;
@@ -1117,7 +1117,21 @@ enum {
     GFDM_EFFECTOR_CENTER = 0,
     GFDM_EFFECTOR_LEFT = 1,
     GFDM_EFFECTOR_RIGHT = 2,
+    GFDM_EFFECTOR_BOTH = 3,
 };
+
+#define GFDM_EFFECTOR_INPUT_LEFT UINT32_C(0x8000)
+#define GFDM_EFFECTOR_INPUT_RIGHT UINT32_C(0x10000)
+
+static uint32_t gfdm_effector_input_mask(uint8_t state)
+{
+    return ((state & GFDM_EFFECTOR_LEFT) != 0
+            ? GFDM_EFFECTOR_INPUT_LEFT
+            : 0)
+        | ((state & GFDM_EFFECTOR_RIGHT) != 0
+            ? GFDM_EFFECTOR_INPUT_RIGHT
+            : 0);
+}
 
 static uint8_t gfdm_read_effector_state(unsigned int player)
 {
@@ -1192,7 +1206,7 @@ static uint32_t gfdm_read_input_state(void)
                 gfdm_effector_state[analog_no] !=
                     last_effector_state[analog_no]) {
                 log_misc(
-                    "GFDM effector state P%u: %u (0=center, 1=left, 2=right)",
+                    "GFDM effector state P%u: %u (0=center, 1=left, 2=right, 3=both)",
                     analog_no + 1,
                     gfdm_effector_state[analog_no]);
                 last_effector_state[analog_no] =
@@ -1269,12 +1283,8 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 22)) result |= 0x0800; /* BLUE (BUTTON2) */
             if (state & (1u << 24)) result |= 0x0020; /* PICK A (UP) */
             if (state & (1u << 25)) result |= 0x0040; /* PICK B (DOWN) */
-            if (state & (1u << 28)) result |= 0x8000; /* EFFECTOR (LEFT) */
-            if (gfdm_effector_state[0] == GFDM_EFFECTOR_LEFT) {
-                result |= 0x8000;
-            } else if (gfdm_effector_state[0] == GFDM_EFFECTOR_RIGHT) {
-                result |= 0x10000; /* EFFECTOR (RIGHT) */
-            }
+            if (state & (1u << 28)) result |= GFDM_EFFECTOR_INPUT_LEFT;
+            result |= gfdm_effector_input_mask(gfdm_effector_state[0]);
         } else {
             if (state & (1u << 9)) result |= 0x0004;
             if (state & (1u << 13)) result |= 0x0040;
@@ -1283,12 +1293,8 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 23)) result |= 0x0800;
             if (state & (1u << 26)) result |= 0x0020;
             if (state & (1u << 27)) result |= 0x0040;
-            if (state & (1u << 29)) result |= 0x8000;
-            if (gfdm_effector_state[1] == GFDM_EFFECTOR_LEFT) {
-                result |= 0x8000;
-            } else if (gfdm_effector_state[1] == GFDM_EFFECTOR_RIGHT) {
-                result |= 0x10000;
-            }
+            if (state & (1u << 29)) result |= GFDM_EFFECTOR_INPUT_LEFT;
+            result |= gfdm_effector_input_mask(gfdm_effector_state[1]);
         }
     } else {
         if (state & (1u << 8)) result |= 0x0004;  /* START */
