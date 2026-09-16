@@ -72,9 +72,8 @@ static bool gfdm_card_read_logged[2];
 static bool gfdm_card_read2_logged[2];
 static int gfdm_card_eject_pending[2];
 static uint16_t gfdm_keypad_seen[2];
-static int gfdm_key_last[2];
-static bool gfdm_key_pending[2];
 static bool gfdm_card_status_logged[2];
+static int gfdm_card_sensor_logged[2] = {-1, -1};
 static uint32_t gfdm_last_output_state;
 static bool gfdm_output_state_logged;
 static uint32_t gfdm_last_device_input[2];
@@ -257,12 +256,10 @@ static uint8_t gfdm_card_sensor_state(int unit_no)
     return gfdm_eam_get_sensor_state((uint8_t) unit_no);
 }
 
-/* V4's card-unit functions are polled from the game thread.  Keep the
-   physical EAMIO sensor out of the raw sensor hooks: Gitadora's V4 reader
-   reports a connected (but empty) reader there, and changing that contract
-   makes the boot state machine wait forever after NETWORK OK.  Instead,
-   consume a sensor edge in cardunit_update and cache the eight-byte card ID
-   for the later card_read/card_read2 call. */
+/* V4's card-unit functions are polled from the game thread.  Consume the
+   EAMIO sensor edge here and cache the eight-byte card ID for the subsequent
+   cardunit_card_read() call.  game.dll does not start that read until
+   cardunit_card_sensor() reports state 2. */
 static void gfdm_cardunit_poll(void)
 {
     int unit_no;
@@ -546,9 +543,20 @@ static int __cdecl gfdm_cardunit_get_status(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
 {
-    (void) unit_no;
+    int result;
 
-    return 0;
+    if (unit_no < 0 || unit_no >= 2) {
+        return 0;
+    }
+
+    gfdm_cardunit_poll();
+    result = gfdm_card_present[unit_no] ? 2 : 0;
+    if (gfdm_card_sensor_logged[unit_no] != result) {
+        log_misc("V4 cardunit %d sensor -> %d", unit_no, result);
+        gfdm_card_sensor_logged[unit_no] = result;
+    }
+
+    return result;
 }
 
 static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
@@ -664,8 +672,6 @@ static void __cdecl gfdm_cardunit_card_ready(int unit_no)
 
 static int __cdecl gfdm_cardunit_key_get(int unit_no)
 {
-    static const uint8_t codes[EAM_IO_KEYPAD_COUNT] = {
-        0, 1, 5, 9, 2, 6, 10, 3, 7, 11, 8, 4};
     uint16_t state;
     uint16_t pressed;
     unsigned int i;
@@ -679,35 +685,28 @@ static int __cdecl gfdm_cardunit_key_get(int unit_no)
     gfdm_keypad_seen[unit_no] = state;
     for (i = 0; i < EAM_IO_KEYPAD_COUNT; i++) {
         if ((pressed & (1u << i)) != 0) {
-            gfdm_key_last[unit_no] = codes[i];
-            gfdm_key_pending[unit_no] = true;
             log_misc(
-                "GFDM card keypad %d: scan %u -> code %u",
+                "GFDM card keypad %d: scan/code %u",
                 unit_no,
-                i,
-                codes[i]);
-            return codes[i];
+                i);
+            return (int) i;
         }
     }
 
     return -1;
 }
 
-static const char *__cdecl gfdm_cardunit_key_str(int unit_no)
+static const char *__cdecl gfdm_cardunit_key_str(int key_code)
 {
     static const char *const names[] = {
-        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
-        "RETURN", "00"};
+        "0", "1", "4", "7", "00", "2", "5", "8", "", "3",
+        "6", "9"};
 
-    if (unit_no < 0 || unit_no >= 2 || !gfdm_key_pending[unit_no] ||
-        gfdm_key_last[unit_no] < 0 ||
-        gfdm_key_last[unit_no] >= (int) lengthof(names)) {
+    if (key_code < 0 || key_code >= (int) lengthof(names)) {
         return NULL;
     }
 
-    gfdm_key_pending[unit_no] = false;
-
-    return names[gfdm_key_last[unit_no]];
+    return names[key_code];
 }
 
 static int __cdecl gfdm_cardunit_reset(void)
@@ -718,7 +717,8 @@ static int __cdecl gfdm_cardunit_reset(void)
     memset(gfdm_card_type, 0, sizeof(gfdm_card_type));
     memset(gfdm_card_eject_pending, 0, sizeof(gfdm_card_eject_pending));
     memset(gfdm_keypad_seen, 0, sizeof(gfdm_keypad_seen));
-    memset(gfdm_key_pending, 0, sizeof(gfdm_key_pending));
+    gfdm_card_sensor_logged[0] = -1;
+    gfdm_card_sensor_logged[1] = -1;
     return 0;
 }
 
