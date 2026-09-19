@@ -53,14 +53,12 @@ static bool gfdm_eamio_initialized;
 typedef void (*gfdm_eam_set_loggers_t)(
     log_formatter_t, log_formatter_t, log_formatter_t, log_formatter_t);
 typedef bool (*gfdm_eam_init_t)(thread_create_t, thread_join_t, thread_destroy_t);
-typedef void (*gfdm_eam_fini_t)(void);
 typedef uint16_t (*gfdm_eam_keypad_t)(uint8_t);
 typedef uint8_t (*gfdm_eam_sensor_t)(uint8_t);
 typedef uint8_t (*gfdm_eam_read_card_t)(uint8_t, uint8_t *, uint8_t);
 
 static gfdm_eam_set_loggers_t gfdm_eam_set_loggers;
 static gfdm_eam_init_t gfdm_eam_init;
-static gfdm_eam_fini_t gfdm_eam_fini;
 static gfdm_eam_keypad_t gfdm_eam_get_keypad_state;
 static gfdm_eam_sensor_t gfdm_eam_get_sensor_state;
 static gfdm_eam_read_card_t gfdm_eam_read_card;
@@ -220,8 +218,6 @@ static void gfdm_setup_eamio(void)
         gfdm_eamio_module, "eam_io_set_loggers");
     gfdm_eam_init = (gfdm_eam_init_t) GetProcAddress(
         gfdm_eamio_module, "eam_io_init");
-    gfdm_eam_fini = (gfdm_eam_fini_t) GetProcAddress(
-        gfdm_eamio_module, "eam_io_fini");
     gfdm_eam_get_keypad_state = (gfdm_eam_keypad_t) GetProcAddress(
         gfdm_eamio_module, "eam_io_get_keypad_state");
     gfdm_eam_get_sensor_state = (gfdm_eam_sensor_t) GetProcAddress(
@@ -724,9 +720,14 @@ static int __cdecl gfdm_cardunit_reset(void)
 
 static void __cdecl gfdm_cardunit_shutdown(void)
 {
-    if (gfdm_eam_fini != NULL) {
-        gfdm_eam_fini();
-    }
+    /* game.dll calls cardunit_shutdown() while changing between the normal
+       game and TEST mode, then boots the card units again in the same
+       process.  eam_io_fini() destroys eamio's state and joins its message
+       thread, so calling it here either blocks that transition or leaves the
+       next cardunit poll using a destroyed backend.  Keep eamio alive for
+       the lifetime of gdv4.exe and only reset the V4-facing reader state. */
+    log_misc("V4 cardunit shutdown: preserving EAMIO backend");
+    gfdm_cardunit_reset();
 }
 
 static const void *__cdecl gfdm_cardunit_get_version(int unit_no)
