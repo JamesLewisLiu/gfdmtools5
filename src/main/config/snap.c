@@ -149,10 +149,12 @@ bool snap_find_edge(
 
         for (j = 0; j < snap->devs[i].ncontrols; j++) {
             /* Prefer left/right modifiers and exclude mouse buttons, Escape
-               (dialog cancellation), and the EAMIO-only Enter alias. */
+               (dialog cancellation), NumLock's synthesized key sequences,
+               and the EAMIO-only Enter alias, as in spice2x's Naive capture. */
             if (naive &&
                 (j < VK_BACK || j == VK_ESCAPE || j == VK_SHIFT ||
-                 j == VK_CONTROL || j == VK_MENU || j >= 256)) {
+                 j == VK_CONTROL || j == VK_MENU || j == VK_NUMLOCK ||
+                 j >= 256)) {
                 continue;
             }
 

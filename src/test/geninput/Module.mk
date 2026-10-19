@@ -12,5 +12,4 @@ src_geninput-naive-test := \
     main/geninput/hid-mgr.c \
     main/geninput/kbd-data.c \
     main/geninput/mapper.c \
-    main/geninput/mapper-s11n.c \
-
+    main/geninput/mapper-s11n.c

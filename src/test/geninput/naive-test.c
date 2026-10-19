@@ -147,12 +147,14 @@ static void test_capture(void)
     snap_init(&before);
     test_keys[VK_ESCAPE] = (SHORT) 0x8000;
     test_keys[VK_LBUTTON] = (SHORT) 0x8000;
+    test_keys[VK_NUMLOCK] = (SHORT) 0x8000;
     snap_init(&after);
     assert(!snap_find_edge(&after, &before, &ma, true));
     snap_fini(&before);
     snap_fini(&after);
     hid_mgr_fini();
-    puts("PASS: capture mode separation, held keys, modifiers, mouse/Escape");
+    puts(
+        "PASS: capture separation, held keys, modifiers, mouse/Escape/NumLock");
 }
 
 static void test_persistence(void)
