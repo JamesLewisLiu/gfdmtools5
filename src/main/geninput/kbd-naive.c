@@ -50,24 +50,10 @@ static bool kbd_naive_get_lights(
 static bool
 kbd_naive_get_value(struct hid *hid, size_t control_no, int32_t *out_value)
 {
-    HWND foreground;
-    DWORD process_id;
-
     *out_value = 0;
 
     if (control_no >= KBD_NAIVE_NCONTROLS) {
         return false;
-    }
-
-    foreground = GetForegroundWindow();
-    process_id = 0;
-
-    if (foreground != NULL) {
-        GetWindowThreadProcessId(foreground, &process_id);
-    }
-
-    if (process_id != GetCurrentProcessId()) {
-        return true;
     }
 
     /* Windows exposes both Enter keys as VK_RETURN. Give EAMIO its keypad
@@ -76,8 +62,9 @@ kbd_naive_get_value(struct hid *hid, size_t control_no, int32_t *out_value)
         control_no = VK_RETURN;
     }
 
-    /* Only the high bit describes the current state. The low bit is shared
-       between consumers and must never be used for mapper polling. */
+    /* Poll in both foreground and background. Only the high bit describes
+       the current state; the low bit is shared between consumers and must
+       never be used for mapper polling. */
     *out_value = (GetAsyncKeyState((int) control_no) & 0x8000) != 0;
 
     return true;

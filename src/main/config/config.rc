@@ -151,7 +151,7 @@ FONT 8, "Ms Shell Dlg"
     PUSHBUTTON      "&Clear", IDC_BINDING_CLEAR, 165, 177, 50, 14, 0, WS_EX_LEFT
     PUSHBUTTON      "&Naive...", IDC_BINDING_NAIVE, 5, 195, 50, 14, 0, WS_EX_LEFT
     PUSHBUTTON      "Naive ma&ny...", IDC_BINDING_NAIVE_MANY, 58, 195, 50, 14, 0, WS_EX_LEFT
-    LTEXT           "Any keyboard (foreground)", -1, 111, 198, 104, 10
+    LTEXT           "Foreground and background", -1, 111, 198, 104, 10
     CONTROL         "", IDC_PAGE, UPDOWN_CLASS, WS_TABSTOP | UDS_ARROWKEYS | UDS_HORZ, 5, 5, 25, 11, WS_EX_LEFT
 }
 

@@ -1,5 +1,5 @@
 /**
- * Device-independent, foreground-only Windows virtual-key keyboard.
+ * Device-independent Windows virtual-key keyboard, active in the background.
  * Control numbers 0..255 are stable virtual-key codes in saved mappings.
  */
 #ifndef GENINPUT_KBD_NAIVE_H

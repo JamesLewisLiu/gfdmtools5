@@ -43,8 +43,8 @@ backend is attached.
 In `config.exe`, select an action in **Buttons** and use **Naive...** to bind a
 Windows virtual key from any keyboard, or **Naive many...** to bind consecutive
 actions. These bindings use `GetAsyncKeyState`, following spice2x's Naive input
-mode, and only respond while a window belonging to the game process is in the
-foreground. **Bind...** continues to bind a particular Raw Input/HID device.
+mode, and respond in both foreground and background, including while another
+window has focus. **Bind...** continues to bind a particular Raw Input/HID device.
 Both kinds can coexist in the existing `gf.bin` / `dm.bin` mapper files; updating
 the tools does not convert existing bindings. Key names carry a `(Naive)` suffix.
 
@@ -52,8 +52,9 @@ The **Naive keyboard (all devices)** entry is also available as an e-amusement
 keypad device. Use NumLock for numeric keypad digits as usual. Windows virtual
 keys distinguish left/right Shift, Ctrl and Alt, but combine main Enter with
 keypad Enter; either Enter key therefore activates the Naive keypad's `00`.
-Escape cancels the binding dialog. Keys held while opening or refocusing that
-dialog must be released and pressed again. Naive applies to mapper/EAMIO input;
+Escape cancels the binding dialog. Keys held while opening that dialog must be
+released and pressed again. Binding capture also works in the background.
+Naive applies to mapper/EAMIO input;
 the hook's separate built-in fallback keys are still controlled by
 `input.keyboard`. Disable that fallback when using only configured bindings.
 

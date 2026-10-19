@@ -15,7 +15,6 @@ struct bind_state {
     size_t cur_snap;
     uintptr_t timer_id;
     bool naive;
-    bool focused;
 };
 
 static INT_PTR CALLBACK
@@ -39,7 +38,6 @@ bool bind_control(
     self.ma = ma;
     self.cur_snap = 0;
     self.naive = naive;
-    self.focused = false;
 
     snap_init(&self.snaps[1]);
     snap_init(&self.snaps[0]);
@@ -107,28 +105,8 @@ static INT_PTR bind_handle_init(HWND hwnd, struct bind_state *self)
 static INT_PTR bind_handle_tick(HWND hwnd)
 {
     struct bind_state *self;
-    DWORD process_id;
-    bool focused;
 
     self = (struct bind_state *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
-
-    if (self->naive) {
-        process_id = 0;
-        GetWindowThreadProcessId(GetForegroundWindow(), &process_id);
-        focused = process_id == GetCurrentProcessId();
-
-        if (!focused || !self->focused) {
-            /* Rebase after focus changes so keys held while switching back
-               cannot become accidental bindings. */
-            snap_fini(&self->snaps[0]);
-            snap_fini(&self->snaps[1]);
-            snap_init(&self->snaps[0]);
-            snap_init(&self->snaps[1]);
-            self->focused = focused;
-
-            return TRUE;
-        }
-    }
 
     self->cur_snap = !self->cur_snap;
 

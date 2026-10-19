@@ -16,6 +16,7 @@
 static SHORT test_keys[256];
 static HWND test_foreground;
 static DWORD test_foreground_pid;
+static unsigned int test_focus_queries;
 
 static SHORT WINAPI test_get_async_key_state(int vkey)
 {
@@ -24,13 +25,15 @@ static SHORT WINAPI test_get_async_key_state(int vkey)
     return test_keys[vkey];
 }
 
-static HWND WINAPI test_get_foreground_window(void)
+HWND WINAPI test_get_foreground_window(void)
 {
+    test_focus_queries++;
     return test_foreground;
 }
 
-static DWORD WINAPI test_get_window_thread_process_id(HWND hwnd, DWORD *pid)
+DWORD WINAPI test_get_window_thread_process_id(HWND hwnd, DWORD *pid)
 {
+    test_focus_queries++;
     assert(hwnd == test_foreground);
     *pid = test_foreground_pid;
 
@@ -53,6 +56,7 @@ static void test_reset(void)
     memset(test_keys, 0, sizeof(test_keys));
     test_foreground = (HWND) (uintptr_t) 1;
     test_foreground_pid = GetCurrentProcessId();
+    test_focus_queries = 0;
 }
 
 static int32_t test_read(struct hid_stub *stub, size_t control)
@@ -105,9 +109,12 @@ static void test_keyboard(void)
     assert(test_read(stub, VK_F2) == 1);
     assert(test_read(stub, VK_F2) == 1);
     test_foreground_pid++;
-    assert(test_read(stub, VK_F2) == 0);
+    assert(test_read(stub, VK_F2) == 1);
     test_foreground = NULL;
+    assert(test_read(stub, VK_F2) == 1);
+    test_keys[VK_F2] = 0;
     assert(test_read(stub, VK_F2) == 0);
+    assert(test_focus_queries == 0);
     test_reset();
     test_keys[VK_RETURN] = (SHORT) 0x8000;
     assert(test_read(stub, VK_RETURN) == 1);
@@ -116,7 +123,9 @@ static void test_keyboard(void)
     assert(test_read(stub, VK_LCONTROL) == 0);
     assert(test_read(stub, VK_RCONTROL) == 1);
     hid_mgr_fini();
-    puts("PASS: keyboard metadata, keypad, high bit, focus, modifiers, Enter");
+    puts(
+        "PASS: keyboard metadata, keypad, high bit, background, modifiers, "
+        "Enter");
 }
 
 static void test_capture(void)
@@ -128,6 +137,7 @@ static void test_capture(void)
     struct hid_stub *stub;
 
     test_reset();
+    test_foreground_pid++;
     hid_mgr_init();
     kbd_naive_create(&physical);
     stub = hid_mgr_get_named_stub("test:physical-keyboard");
@@ -156,9 +166,10 @@ static void test_capture(void)
     assert(!snap_find_edge(&after, &before, &ma, true));
     snap_fini(&before);
     snap_fini(&after);
+    assert(test_focus_queries == 0);
     hid_mgr_fini();
     puts(
-        "PASS: capture separation, held keys, modifiers, mouse/Escape/NumLock");
+        "PASS: background capture, held keys, modifiers, mouse/Escape/NumLock");
 }
 
 static void test_persistence(void)
@@ -195,12 +206,23 @@ static void test_persistence(void)
     test_keys[VK_F2] = (SHORT) 0x8000;
     assert(mapper_impl_update(mapper) == (1ULL << 3));
     test_foreground_pid++;
+    assert(mapper_impl_update(mapper) == (1ULL << 3));
+    test_keys[VK_F2] = 0;
     assert(mapper_impl_update(mapper) == 0);
+    test_keys[VK_F2] = (SHORT) 0x8000;
+    assert(mapper_impl_update(mapper) == (1ULL << 3));
+    test_foreground = NULL;
+    assert(mapper_impl_update(mapper) == (1ULL << 3));
+    test_keys[VK_F2] = 0;
+    assert(mapper_impl_update(mapper) == 0);
+    assert(test_focus_queries == 0);
     test_reset();
     assert(mapper_impl_update(mapper) == 0);
     mapper_impl_destroy(mapper);
     hid_mgr_fini();
-    puts("PASS: saved mapping reload, mapper press/release and focus");
+    puts(
+        "PASS: saved mapping reload, foreground/background mapper "
+        "press/release");
 }
 
 int main(void)
