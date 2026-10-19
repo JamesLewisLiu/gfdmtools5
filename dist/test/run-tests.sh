@@ -24,6 +24,7 @@ wine ./security-rp-test.exe
 wine ./security-rp2-test.exe
 wine ./security-rp3-test.exe
 wine ./util-net-test.exe
+wine ./geninput-naive-test.exe
 
 wine ./inject.exe d3d9hook.dll d3d9hook-test.exe
 

@@ -14,6 +14,8 @@ struct bind_state {
     struct snap snaps[2];
     size_t cur_snap;
     uintptr_t timer_id;
+    bool naive;
+    bool focused;
 };
 
 static INT_PTR CALLBACK
@@ -27,7 +29,8 @@ bool bind_control(
     HINSTANCE inst,
     HWND hwnd,
     const struct action_def *action,
-    struct mapped_action *ma)
+    struct mapped_action *ma,
+    bool naive)
 {
     struct bind_state self;
     bool result;
@@ -35,6 +38,8 @@ bool bind_control(
     self.action = action;
     self.ma = ma;
     self.cur_snap = 0;
+    self.naive = naive;
+    self.focused = false;
 
     snap_init(&self.snaps[1]);
     snap_init(&self.snaps[0]);
@@ -44,7 +49,7 @@ bool bind_control(
                  MAKEINTRESOURCE(IDD_BIND),
                  hwnd,
                  bind_dlg_proc,
-                 (LPARAM) &self) != 0;
+                 (LPARAM) &self) == 1;
 
     snap_fini(&self.snaps[0]);
     snap_fini(&self.snaps[1]);
@@ -88,6 +93,10 @@ static INT_PTR bind_handle_init(HWND hwnd, struct bind_state *self)
     LoadString(inst, self->action->name_rsrc, str, lengthof(str));
     SetWindowText(GetDlgItem(hwnd, IDC_ACTION_NAME), str);
 
+    if (self->naive) {
+        SetWindowText(hwnd, L"Naive keyboard (ESC to cancel)");
+    }
+
     self->timer_id = SetTimer(hwnd, 0, 17, NULL);
 
     SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) self);
@@ -98,8 +107,28 @@ static INT_PTR bind_handle_init(HWND hwnd, struct bind_state *self)
 static INT_PTR bind_handle_tick(HWND hwnd)
 {
     struct bind_state *self;
+    DWORD process_id;
+    bool focused;
 
     self = (struct bind_state *) GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+    if (self->naive) {
+        process_id = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), &process_id);
+        focused = process_id == GetCurrentProcessId();
+
+        if (!focused || !self->focused) {
+            /* Rebase after focus changes so keys held while switching back
+               cannot become accidental bindings. */
+            snap_fini(&self->snaps[0]);
+            snap_fini(&self->snaps[1]);
+            snap_init(&self->snaps[0]);
+            snap_init(&self->snaps[1]);
+            self->focused = focused;
+
+            return TRUE;
+        }
+    }
 
     self->cur_snap = !self->cur_snap;
 
@@ -109,7 +138,8 @@ static INT_PTR bind_handle_tick(HWND hwnd)
     if (snap_find_edge(
             &self->snaps[self->cur_snap],
             &self->snaps[!self->cur_snap],
-            self->ma)) {
+            self->ma,
+            self->naive)) {
         EndDialog(hwnd, 1);
     }
 

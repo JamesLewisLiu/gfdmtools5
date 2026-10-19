@@ -13,6 +13,7 @@ bool bind_control(
     HINSTANCE inst,
     HWND hwnd,
     const struct action_def *action,
-    struct mapped_action *ma);
+    struct mapped_action *ma,
+    bool naive);
 
 #endif

@@ -16,6 +16,7 @@
 #include "config/usages.h"
 
 #include "geninput/input-config.h"
+#include "geninput/kbd-naive.h"
 #include "geninput/mapper.h"
 
 #include "util/defs.h"
@@ -30,7 +31,8 @@ static bool buttons_get_control_name(
 static INT_PTR buttons_handle_init(HWND hwnd, const PROPSHEETPAGE *psp);
 static INT_PTR buttons_handle_binding_adv(HWND hwnd);
 static INT_PTR buttons_handle_binding_clear(HWND hwnd);
-static INT_PTR buttons_handle_binding_edit(HWND hwnd, BOOL bind_many);
+static INT_PTR
+buttons_handle_binding_edit(HWND hwnd, BOOL bind_many, bool naive);
 static INT_PTR buttons_handle_switch_page(HWND hwnd, NMUPDOWN *n);
 static INT_PTR buttons_handle_fini(HWND hwnd);
 static void buttons_update(HWND hwnd);
@@ -85,7 +87,8 @@ buttons_dlg_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                 case IDC_BINDINGS:
                     switch (n->code) {
                         case NM_DBLCLK:
-                            return buttons_handle_binding_edit(hwnd, FALSE);
+                            return buttons_handle_binding_edit(
+                                hwnd, FALSE, false);
 
                         default:
                             return FALSE;
@@ -104,10 +107,16 @@ buttons_dlg_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
                     return buttons_handle_binding_clear(hwnd);
 
                 case IDC_BINDING_EDIT:
-                    return buttons_handle_binding_edit(hwnd, FALSE);
+                    return buttons_handle_binding_edit(hwnd, FALSE, false);
 
                 case IDC_BINDING_EDIT_MANY:
-                    return buttons_handle_binding_edit(hwnd, TRUE);
+                    return buttons_handle_binding_edit(hwnd, TRUE, false);
+
+                case IDC_BINDING_NAIVE:
+                    return buttons_handle_binding_edit(hwnd, FALSE, true);
+
+                case IDC_BINDING_NAIVE_MANY:
+                    return buttons_handle_binding_edit(hwnd, TRUE, true);
 
                 default:
                     return FALSE;
@@ -271,6 +280,8 @@ static bool buttons_get_control_name(
     char chars[128];
     struct hid_control *controls;
     size_t ncontrols;
+    UINT scan;
+    wchar_t key_name[96];
 
     if (!hid_stub_get_controls(ma->hid, NULL, &ncontrols)) {
         goto count_fail;
@@ -287,6 +298,25 @@ static bool buttons_get_control_name(
     }
 
     usages_get(chars, lengthof(chars), controls[ma->control_no].usage);
+
+    if (strcmp(hid_stub_get_dev_node(ma->hid), KBD_NAIVE_DEV_NODE) == 0) {
+        scan = MapVirtualKeyW(ma->control_no, MAPVK_VK_TO_VSC_EX);
+
+        if (scan != 0 &&
+            GetKeyNameTextW(
+                (scan & 0xFF) << 16 | (scan & 0xFF00 ? 1 << 24 : 0),
+                key_name,
+                lengthof(key_name)) != 0) {
+            swprintf(str, nchars, L"%ls (Naive)", key_name);
+        } else {
+            swprintf(str, nchars, L"Naive VK 0x%02X", ma->control_no);
+        }
+
+        free(controls);
+
+        return true;
+    }
+
     MultiByteToWideChar(CP_UTF8, 0, chars, lengthof(chars), str, nchars);
 
     free(controls);
@@ -349,7 +379,8 @@ static INT_PTR buttons_handle_binding_clear(HWND hwnd)
     return TRUE;
 }
 
-static INT_PTR buttons_handle_binding_edit(HWND hwnd, BOOL bind_many)
+static INT_PTR
+buttons_handle_binding_edit(HWND hwnd, BOOL bind_many, bool naive)
 {
     HINSTANCE inst;
     HWND listview;
@@ -379,7 +410,8 @@ static INT_PTR buttons_handle_binding_edit(HWND hwnd, BOOL bind_many)
 
         bit = self->schema->actions[action_no].bit;
 
-        if (bind_control(inst, hwnd, &self->schema->actions[action_no], &ma)) {
+        if (bind_control(
+                inst, hwnd, &self->schema->actions[action_no], &ma, naive)) {
             mapper_set_action_map((uint8_t) action_no, self->page_no, bit, &ma);
             buttons_update(hwnd);
 

@@ -23,7 +23,8 @@ void snap_init(struct snap *snap);
 bool snap_find_edge(
     const struct snap *snap,
     const struct snap *other_snap,
-    struct mapped_action *ma);
+    struct mapped_action *ma,
+    bool naive);
 void snap_fini(struct snap *snap);
 
 #endif

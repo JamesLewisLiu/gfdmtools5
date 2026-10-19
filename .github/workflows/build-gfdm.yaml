@@ -28,6 +28,21 @@ jobs:
           mkdir -p artifact
           cp build/zip/gfdm-v4.zip artifact/
 
+      - name: Build Naive keyboard tests for both architectures
+        run: |
+          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe'
+          mkdir -p naive-tests
+          cp build/bin/indep-32/geninput-naive-test.exe naive-tests/geninput-naive-test-32.exe
+          cp build/bin/indep-64/geninput-naive-test.exe naive-tests/geninput-naive-test-64.exe
+
+      - name: Upload Naive keyboard tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: naive-tests-${{ github.sha }}
+          path: naive-tests/*.exe
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Upload GFDM V4 package
         uses: actions/upload-artifact@v4
         with:
@@ -35,3 +50,18 @@ jobs:
           if-no-files-found: error
           retention-days: 90
           path: artifact/gfdm-v4.zip
+
+  test-naive:
+    needs: build-gfdm
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: naive-tests-${{ github.sha }}
+      - name: Run Naive keyboard tests (32-bit and 64-bit)
+        shell: pwsh
+        run: |
+          ./geninput-naive-test-32.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./geninput-naive-test-64.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

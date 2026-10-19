@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include "geninput/hid-mgr.h"
+#include "geninput/kbd-naive.h"
 
 #include "util/log.h"
 #include "util/mem.h"
@@ -21,8 +22,13 @@ static bool hid_stub_check(struct hid_stub *stub, bool ok);
 
 void hid_mgr_init(void)
 {
+    struct hid *hid;
+
     InitializeCriticalSection(&hid_mgr_cs);
     hid_stubs = NULL;
+
+    kbd_naive_create(&hid);
+    hid_stub_attach(hid_mgr_get_named_stub(KBD_NAIVE_DEV_NODE), hid);
 }
 
 struct hid_stub *hid_mgr_get_first_stub(void)

@@ -7,6 +7,7 @@
 #include "config/snap.h"
 
 #include "geninput/hid-mgr.h"
+#include "geninput/kbd-naive.h"
 
 #include "util/defs.h"
 #include "util/log.h"
@@ -101,7 +102,8 @@ void snap_init(struct snap *snap)
 bool snap_find_edge(
     const struct snap *snap,
     const struct snap *other_snap,
-    struct mapped_action *ma)
+    struct mapped_action *ma,
+    bool naive)
 {
     const struct hid_control *ctl;
     int32_t val;
@@ -131,6 +133,13 @@ bool snap_find_edge(
             return false;
         }
 
+        if (snap->devs[i].hid == NULL ||
+            (strcmp(
+                 hid_stub_get_dev_node(snap->devs[i].hid),
+                 KBD_NAIVE_DEV_NODE) == 0) != naive) {
+            continue;
+        }
+
         if (memcmp(
                 snap->devs[i].controls,
                 other_snap->devs[i].controls,
@@ -139,6 +148,14 @@ bool snap_find_edge(
         }
 
         for (j = 0; j < snap->devs[i].ncontrols; j++) {
+            /* Prefer left/right modifiers and exclude mouse buttons, Escape
+               (dialog cancellation), and the EAMIO-only Enter alias. */
+            if (naive &&
+                (j < VK_BACK || j == VK_ESCAPE || j == VK_SHIFT ||
+                 j == VK_CONTROL || j == VK_MENU || j >= 256)) {
+                continue;
+            }
+
             ctl = &snap->devs[i].controls[j];
             val = snap->devs[i].states[j];
             other_val = other_snap->devs[i].states[j];
