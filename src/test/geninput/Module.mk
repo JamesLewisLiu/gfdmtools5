@@ -2,7 +2,7 @@ testexes += geninput-naive-test
 
 srcdir_geninput-naive-test := src
 libs_geninput-naive-test := util
-ldflags_geninput-naive-test := -lsetupapi
+ldflags_geninput-naive-test := -lhid -lsetupapi
 
 src_geninput-naive-test := \
     test/geninput/naive-test.c \
