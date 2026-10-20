@@ -12,6 +12,7 @@
 #include "gfdmhook1/bios.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
+#include "gfdmhook1/profile.h"
 #include "geninput/input-config.h"
 #include "hook/d3d9.h"
 #include "hook/iohook.h"
@@ -32,10 +33,10 @@
 #include "util/thread.h"
 
 #define GFDMHOOK1_INFO_HEADER \
-    "gfdmhook1 for GFDM V4, build " __DATE__ " " __TIME__ \
+    "gfdmhook1 for GFDM V4-V8, build " __DATE__ " " __TIME__ \
     ", gitrev " STRINGIFY(GITREV)
 #define GFDMHOOK1_CMD_USAGE \
-    "Usage: inject.exe gfdmhook1.dll gdv4.exe -g|-d [options...]"
+    "Usage: inject.exe gfdmhook1.dll gdv[4-8].exe -g|-d [options...]"
 
 static struct gfdmhook1_config gfdm_config;
 static bool gfdm_initialized;
@@ -44,6 +45,7 @@ static bool gfdm_mapper_loaded;
 static bool gfdm_is_gf;
 static FILE *gfdm_log_file;
 static HMODULE gfdm_module;
+static const struct gfdm_profile *gfdm_profile;
 static bool gfdm_d3d9_initialized;
 static uint64_t gfdm_gl_present_time;
 static uint64_t gfdm_gl_present_count;
@@ -382,12 +384,14 @@ static void gfdm_open_log_file(void)
         (separator = strrchr(module_path, '\\')) != NULL) {
         separator[1] = '\0';
         str_format(log_path, sizeof(log_path),
-                   "%sgfdm-v4-hook.log", module_path);
+                   "%sgfdm-v%u-hook.log", module_path, gfdm_profile->version);
         gfdm_log_file = fopen(log_path, "a");
     }
 
     if (gfdm_log_file == NULL) {
-        gfdm_log_file = fopen("gfdm-v4-hook.log", "a");
+        str_format(log_path, sizeof(log_path), "gfdm-v%u-hook.log",
+                   gfdm_profile->version);
+        gfdm_log_file = fopen(log_path, "a");
     }
 }
 
@@ -901,7 +905,8 @@ static void __cdecl gfdm_avs_boot(
 
     gfdm_replace_property_str(config, "/fs/nvram/device", nvram);
     gfdm_replace_property_str(config, "/fs/raw/device", raw);
-    log_info("V4 AVS paths: nvram=%s raw=%s", nvram, raw);
+    log_info("GFDM V%u AVS paths: nvram=%s raw=%s",
+             gfdm_profile->version, nvram, raw);
 
     if (real_avs_boot != NULL) {
 #if AVS_VERSION >= 1600
@@ -1028,6 +1033,9 @@ static const struct hook_symbol gfdm_secplug_syms[] = {
         .name = "?device_update_secplug@@YAXXZ",
         .patch = gfdm_device_update_secplug,
     },
+};
+
+static const struct hook_symbol gfdm_input_syms[] = {
     {
         .name = "?device_get_input@@YAIH@Z",
         .patch = gfdm_device_get_input,
@@ -1066,7 +1074,7 @@ static int __cdecl gfdm_std_setenv(const char *key, const char *value)
        libshare-pj and boot's eam_init all consume the same complete PCBID.
        Keep the physical white ROM and its EEPROM signature tied to EAMID. */
     if (key != NULL && strcmp(key, "/env/profile/sysid") == 0) {
-        log_info("V4 system/EA3 PCBID: %s", gfdm_system_id);
+        log_info("GFDM system/EA3 PCBID: %s", gfdm_system_id);
         value = gfdm_system_id;
     }
 
@@ -1112,10 +1120,18 @@ static void gfdm_apply_device_hooks(HMODULE target)
        When those DLLs are loaded after boot_main, applying only to the newly
        loaded module misses their import tables.  Rescan all modules just as
        the movie hook does. */
-    hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
-                     lengthof(gfdm_secplug_syms));
-    hook_table_apply(NULL, "device.dll", gfdm_secplug_syms,
-                     lengthof(gfdm_secplug_syms));
+    if (gfdm_profile->version == 4) {
+        hook_table_apply(NULL, "libdevice.dll", gfdm_secplug_syms,
+                         lengthof(gfdm_secplug_syms));
+        hook_table_apply(NULL, "device.dll", gfdm_secplug_syms,
+                         lengthof(gfdm_secplug_syms));
+    }
+    /* V5-V8 use UDONHRKI/E-AMUSE3, matching our signed P3IO payloads.
+       Leave their native security checks and output buffers intact. */
+    hook_table_apply(NULL, "libdevice.dll", gfdm_input_syms,
+                     lengthof(gfdm_input_syms));
+    hook_table_apply(NULL, "device.dll", gfdm_input_syms,
+                     lengthof(gfdm_input_syms));
 }
 
 static void gfdm_apply_extio_hooks(HMODULE target)
@@ -1135,6 +1151,10 @@ static void gfdm_apply_avs_hooks(HMODULE target)
 
 static void gfdm_apply_movie_hooks(HMODULE target)
 {
+    /* The decoder RVA and object layout above were verified only for V4. */
+    if (!gfdm_profile->movie_v4_guard) {
+        return;
+    }
     hook_table_apply(target, "libmovie.dll", gfdm_movie_syms,
                      lengthof(gfdm_movie_syms));
 }
@@ -1579,6 +1599,7 @@ static void gfdm_init(void)
 {
     struct cconfig *config;
     const char *cmdline;
+    const char *default_mcode;
 
     if (gfdm_initialized) {
         return;
@@ -1587,10 +1608,14 @@ static void gfdm_init(void)
 
     gfdm_open_log_file();
     log_to_writer(gfdm_log_writer, NULL);
-    log_info("GFDM V4 hook initialization started");
+    log_info("GFDM V%u hook initialization started", gfdm_profile->version);
+
+    cmdline = GetCommandLineA();
+    gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
+    default_mcode = gfdm_is_gf ? gfdm_profile->mcode_gf : gfdm_profile->mcode_dm;
 
     config = cconfig_init();
-    gfdmhook1_config_init(config);
+    gfdmhook1_config_init(config, default_mcode);
     if (!cconfig_hook_config_init(
             config,
             GFDMHOOK1_INFO_HEADER "\n" GFDMHOOK1_CMD_USAGE,
@@ -1598,7 +1623,7 @@ static void gfdm_init(void)
         cconfig_finit(config);
         ExitProcess(EXIT_FAILURE);
     }
-    gfdmhook1_config_get(&gfdm_config, config);
+    gfdmhook1_config_get(&gfdm_config, config, default_mcode);
     cconfig_finit(config);
 
     gfdm_keyboard = gfdm_config.keyboard;
@@ -1612,8 +1637,6 @@ static void gfdm_init(void)
     gfdm_setup_d3d9_hooks();
     gfdm_setup_gfx_hooks();
 
-    cmdline = GetCommandLineA();
-    gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
     log_info(
         "GFDM launch mode: %s (command line: %s)",
         gfdm_is_gf ? "GF" : "DM",
@@ -1645,7 +1668,7 @@ static void gfdm_init(void)
     p3io_emu_init(&gfdm_p3io_ops, NULL);
     gfdmhook1_network_init(&gfdm_config.server);
 
-    log_info("GFDM V4 P3IO emulation is ready");
+    log_info("GFDM V%u P3IO emulation is ready", gfdm_profile->version);
 }
 
 static void(__cdecl *real_boot_main)(HWND);
@@ -1669,6 +1692,18 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
     (void) ctx;
 
     if (reason == DLL_PROCESS_ATTACH) {
+        char executable[MAX_PATH];
+        DWORD size;
+
+        size = GetModuleFileNameA(NULL, executable, sizeof(executable));
+        if (size == 0 || size >= sizeof(executable)) {
+            return FALSE;
+        }
+        gfdm_profile = gfdm_profile_find(executable);
+        if (gfdm_profile == NULL) {
+            OutputDebugStringA("gfdmhook1: expected gdv4.exe through gdv8.exe\n");
+            return FALSE;
+        }
         gfdm_module = mod;
         gfdm_open_log_file();
         log_to_writer(gfdm_log_writer, NULL);

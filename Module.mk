@@ -208,6 +208,7 @@ include src/main/vigemstub/Module.mk
 
 include src/test/cconfig/Module.mk
 include src/test/geninput/Module.mk
+include src/test/gfdmhook1/Module.mk
 include src/test/d3d9hook/Module.mk
 include src/test/iidxhook-util/Module.mk
 include src/test/iidxhook8/Module.mk
@@ -266,7 +267,7 @@ $(zipdir)/tools-x64.zip: \
 	$(V)echo ... $@
 	$(V)zip -j $@ $^
 
-$(zipdir)/gfdm-v4.zip: \
+$(zipdir)/gfdm-v%.zip: \
 	build/bin/avs2_1002-32/gfdmhook1.dll \
 		build/bin/indep-32/config.exe \
 		build/bin/indep-32/eamio.dll \
@@ -274,14 +275,14 @@ $(zipdir)/gfdm-v4.zip: \
 		build/bin/indep-32/inject.exe \
 		dist/gfdm/config-gf.bat \
 		dist/gfdm/config-dm.bat \
-		dist/gfdm/gamestart-v4-gf.bat \
-		dist/gfdm/gamestart-v4-dm.bat \
-		dist/gfdm/gfdm-v4-boot.xml \
-		dist/gfdm/gfdm-v4-ea3-ident-gf.xml \
-		dist/gfdm/gfdm-v4-ea3-ident-dm.xml \
-		dist/gfdm/gfdm-v4.conf \
-		dist/gfdm/gfdm-v4-gf.conf \
-		dist/gfdm/gfdm-v4-dm.conf \
+		dist/gfdm/gamestart-v%-gf.bat \
+		dist/gfdm/gamestart-v%-dm.bat \
+		dist/gfdm/gfdm-v%-boot.xml \
+		dist/gfdm/gfdm-v%-ea3-ident-gf.xml \
+		dist/gfdm/gfdm-v%-ea3-ident-dm.xml \
+		dist/gfdm/gfdm-v%.conf \
+		dist/gfdm/gfdm-v%-gf.conf \
+		dist/gfdm/gfdm-v%-dm.conf \
 		| $(zipdir)/
 	$(V)echo ... $@
 	$(V)zip -j $@ $^
@@ -883,6 +884,10 @@ $(BUILDDIR)/bemanitools.zip: \
 		$(zipdir)/ddr-hwio-x64.zip \
 		$(zipdir)/doc.zip \
 		$(zipdir)/gfdm-v4.zip \
+		$(zipdir)/gfdm-v5.zip \
+		$(zipdir)/gfdm-v6.zip \
+		$(zipdir)/gfdm-v7.zip \
+		$(zipdir)/gfdm-v8.zip \
 		$(zipdir)/iidx-09-to-12.zip \
 		$(zipdir)/iidx-13.zip \
 		$(zipdir)/iidx-14-to-17.zip \

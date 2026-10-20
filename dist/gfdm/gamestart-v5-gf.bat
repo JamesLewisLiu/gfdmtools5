@@ -1,0 +1,8 @@
+@echo off
+
+cd /d %~dp0
+if not exist dev mkdir dev
+if not exist dev\nvram mkdir dev\nvram
+if not exist dev\raw mkdir dev\raw
+
+inject gfdmhook1.dll gdv5.exe -g -I gfdm-v5-ea3-ident-gf.xml -b gfdm-v5-boot.xml --config gfdm-v5-gf.conf %*

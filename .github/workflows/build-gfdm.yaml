@@ -1,4 +1,4 @@
-name: "Build GFDM V4 support"
+name: "Build GFDM V4-V8 support"
 
 on:
   push:
@@ -23,17 +23,21 @@ jobs:
       - name: Build bemanitools
         run: make build-docker
 
-      - name: Extract GFDM V4 package
+      - name: Extract GFDM V4-V8 packages
         run: |
           mkdir -p artifact
-          cp build/zip/gfdm-v4.zip artifact/
+          cp build/zip/gfdm-v[4-8].zip artifact/
+          python3 scripts/check-gfdm-packages.py artifact
 
-      - name: Build Naive keyboard tests for both architectures
+      - name: Build input and GFDM profile tests for both architectures
         run: |
-          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe'
+          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe build/bin/indep-32/gfdm-profile-test.exe build/bin/indep-64/gfdm-profile-test.exe'
           mkdir -p naive-tests
           cp build/bin/indep-32/geninput-naive-test.exe naive-tests/geninput-naive-test-32.exe
           cp build/bin/indep-64/geninput-naive-test.exe naive-tests/geninput-naive-test-64.exe
+
+          cp build/bin/indep-32/gfdm-profile-test.exe naive-tests/gfdm-profile-test-32.exe
+          cp build/bin/indep-64/gfdm-profile-test.exe naive-tests/gfdm-profile-test-64.exe
 
       - name: Upload Naive keyboard tests
         uses: actions/upload-artifact@v4
@@ -43,13 +47,13 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-      - name: Upload GFDM V4 package
+      - name: Upload GFDM V4-V8 packages
         uses: actions/upload-artifact@v4
         with:
-          name: gfdm-v4-${{ github.sha }}
+          name: gfdm-v4-to-v8-${{ github.sha }}
           if-no-files-found: error
           retention-days: 90
-          path: artifact/gfdm-v4.zip
+          path: artifact/gfdm-v*.zip
 
   test-naive:
     needs: build-gfdm
@@ -58,10 +62,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: naive-tests-${{ github.sha }}
-      - name: Run Naive keyboard tests (32-bit and 64-bit)
+      - name: Run input and GFDM profile tests (32-bit and 64-bit)
         shell: pwsh
         run: |
           ./geninput-naive-test-32.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./geninput-naive-test-64.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./gfdm-profile-test-32.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./gfdm-profile-test-64.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

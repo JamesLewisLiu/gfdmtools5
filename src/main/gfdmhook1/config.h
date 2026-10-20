@@ -20,8 +20,9 @@ struct gfdmhook1_config {
     int32_t forced_refresh_rate;
 };
 
-void gfdmhook1_config_init(struct cconfig *config);
+void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode);
 void gfdmhook1_config_get(
-    struct gfdmhook1_config *out, struct cconfig *config);
+    struct gfdmhook1_config *out, struct cconfig *config,
+    const char *default_mcode);
 
 #endif

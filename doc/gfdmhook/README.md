@@ -1,20 +1,36 @@
 # gfdmhook1
 
-`gfdmhook1` provides the first BT5 startup path for the 32-bit Guitar Freaks &
-DrumMania V4 runtime (`gdv4.exe`). It keeps the old game's process model intact:
-the hook is injected into `gdv4.exe`, the original `boot.dll` remains in charge of
-AVS startup, and the P3IO protocol is emulated through the common BT5 IO hook.
+`gfdmhook1` provides a shared BT5 startup path for the 32-bit classic Guitar
+Freaks & DrumMania V4-V8 runtimes. Inject it into the matching `gdvN.exe`;
+the original `boot.dll` still starts AVS, with P3IO emulated through BT5 IO.
 
-Extract `gfdm-v4.zip` into the V4 game directory (the directory containing
-`gdv4.exe`, `boot.dll`, and `game.dll`). Start Asphyxia CORE first, then run the
-mode-specific launcher from that directory.
+Extract `gfdm-vN.zip` into a directory containing that version's original
+`gdvN.exe`, `boot.dll`, `game.dll` and supporting libraries. Keep the existing
+data directory at its original relative location. Start Asphyxia CORE, then
+run `gamestart-vN-gf.bat` or `gamestart-vN-dm.bat`. Each launcher selects its
+own boot XML, EA3 identity and mode-specific configuration.
 
-The package contains launch scripts for both game modes:
+| Version | Executable | GF / DM models | Default GF / DM security codes |
+| --- | --- | --- | --- |
+| V4 | gdv4.exe | G33 / G32 | GCG33JAA / GCG32JAA |
+| V5 | gdv5.exe | H33 / H32 | GCH33JAA / GCH32JAA |
+| V6 | gdv6.exe | I33 / I32 | GCI33JAA / GCI32JAA |
+| V7 | gdv7.exe | J33 / J32 | GCJ33JBA / GCJ32JBA |
+| V8 | gdv8.exe | K33 / K32 | GCK33JBA / GCK32JBA |
 
-```text
-gamestart-v4-gf.bat   Guitar Freaks mode (-g)
-gamestart-v4-dm.bat   DrumMania mode (-d)
-```
+The hook selects its profile from the complete executable basename and rejects
+unknown executables. The default security code follows both version and `-g`
+mode; an explicit `security.mcode` still overrides it. Each version writes
+`gfdm-vN-hook.log` and uses its own directory's `CONF/NVRAM` and `CONF/RAW`.
+Other regions/revisions may require different security codes and EA3 identities.
+Do not mix libraries from different game images, or layer this over an old
+replacement `libdevice.dll` which supplies its own identity and input backend.
+
+V5-V8 retain native roundplug signature checks using the emulator's matching
+UDONHRKI/E-AMUSE3 payloads. Only V4 uses the historical security compatibility
+exports. The decoder-pointer guard with V4-specific offsets is enabled only
+for V4; those offsets are never applied to V5-V8. All versions keep the original
+`device_initialize` export, including the additional V7/V8 argument.
 
 The same package includes the generic bemanitools mapper UI. Run
 `config-gf.bat` or `config-dm.bat` to configure the requested Buttons list and
@@ -80,10 +96,11 @@ actual window size, including during focus changes; the shared IIDX D3D9
 back-buffer-size override is bypassed for GFDM. This prevents a zero-sized
 drawable from leaving the last frame frozen after switching windows.
 
-V4 uses the AVS boot implementation shipped with the game, so this hook is built
-as an AVS-independent 32-bit DLL. That allows the same binary to be used with
-the V4 `libavs-win32.dll` without copying a newer AVS import shim into the game
-directory.
+V4 uses the AVS boot implementation shipped with the game, and V5-V8 retain the same seven-argument AVS boot ABI. The package uses
+the AVS1002 build family for its named imports; this is an ABI/build selector,
+not a claim that every game ships AVS 2.10.2. V5/V6 ship 2.7.1, V7 2.10.2
+and V8 2.12.0. The original AVS libraries stay in place, including the separate
+`libavs-win32-ea3.dll` required by V7/V8.
 
 The hook also installs the V4 `libdevice` security-status compatibility layer.
 The original Gitadora V4 hook reports status `0x101` for the black roundplug

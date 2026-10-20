@@ -18,7 +18,7 @@ static const struct net_addr default_server = {
     .hostname = {.host = NET_LOCALHOST_NAME, .port = 80},
 };
 
-void gfdmhook1_config_init(struct cconfig *config)
+void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
 {
     cconfig_util_set_str(
         config,
@@ -41,8 +41,8 @@ void gfdmhook1_config_init(struct cconfig *config)
     cconfig_util_set_str(
         config,
         MCODE_KEY,
-        "GCG32JAA",
-        "V4 security mcode (8 characters)");
+        default_mcode,
+        "security mcode (8 characters; default follows version and GF/DM mode)");
     cconfig_util_set_bool(
         config,
         KEYBOARD_KEY,
@@ -61,7 +61,8 @@ void gfdmhook1_config_init(struct cconfig *config)
 }
 
 void gfdmhook1_config_get(
-    struct gfdmhook1_config *out, struct cconfig *config)
+    struct gfdmhook1_config *out, struct cconfig *config,
+    const char *default_mcode)
 {
     char server[1024];
     char mcode[sizeof(struct security_mcode) + 1];
@@ -99,10 +100,10 @@ void gfdmhook1_config_get(
     }
 
     if (!cconfig_util_get_str(
-            config, MCODE_KEY, mcode, sizeof(mcode), "GCG32JAA") ||
+            config, MCODE_KEY, mcode, sizeof(mcode), default_mcode) ||
         !security_mcode_parse(mcode, &out->mcode)) {
-        log_warning("Invalid %s, using GCG32JAA", MCODE_KEY);
-        security_mcode_parse("GCG32JAA", &out->mcode);
+        log_warning("Invalid %s, using %s", MCODE_KEY, default_mcode);
+        security_mcode_parse(default_mcode, &out->mcode);
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, true);
