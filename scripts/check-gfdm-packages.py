@@ -24,9 +24,10 @@ def check(directory):
             if hook is not None:
                 assert binary == hook, "all versions must ship the same common hook"
             hook = binary
-            ET.fromstring(package.read(f"{prefix}-boot.xml"))
+            # Expat does not accept a multi-byte encoding declaration on bytes.
+            ET.fromstring(package.read(f"{prefix}-boot.xml").decode("shift_jis"))
             for mode, number, switch in [("gf", 33, "g"), ("dm", 32, "d")]:
-                root = ET.fromstring(package.read(f"{prefix}-ea3-ident-{mode}.xml"))
+                root = ET.fromstring(package.read(f"{prefix}-ea3-ident-{mode}.xml").decode("shift_jis"))
                 identity = [root.findtext("soft/" + key) for key in
                             ("model", "dest", "spec", "rev")]
                 assert identity == [f"{letter}{number}", "J", spec, "A"], identity
