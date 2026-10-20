@@ -9,6 +9,7 @@
 #include "bemanitools/input.h"
 #include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
+#include "gfdmhook1/bios.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "geninput/input-config.h"
@@ -88,6 +89,7 @@ static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
+static char gfdm_bios_date[GFDM_BIOS_DATE_SIZE];
 static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
@@ -117,6 +119,7 @@ static void gfdm_apply_device_hooks(HMODULE target);
 static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
+static void gfdm_apply_system_hooks(void);
 
 static HRESULT gfdm_d3d9_irp_handler(struct hook_d3d9_irp *irp)
 {
@@ -945,6 +948,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
            Re-scan all loaded modules after late movie loading so the game's
            IAT is updated even when game.dll was loaded before libmovie. */
         gfdm_apply_movie_hooks(NULL);
+        gfdm_apply_system_hooks();
     }
 
     return module;
@@ -1058,6 +1062,25 @@ static const struct hook_symbol gfdm_avs_syms[] = {
         .link = (void **) &real_avs_boot,
     },
 };
+
+static char *__cdecl gfdm_sys_code_get_bios_date(void)
+{
+    return gfdm_bios_date;
+}
+
+static const struct hook_symbol gfdm_system_syms[] = {
+    {
+        .name = "sys_code_get_bios_date",
+        .patch = gfdm_sys_code_get_bios_date,
+    },
+};
+
+static void gfdm_apply_system_hooks(void)
+{
+    /* game.dll may be loaded after libsystem.dll, so scan all consumers. */
+    hook_table_apply(NULL, "libsystem.dll", gfdm_system_syms,
+                     lengthof(gfdm_system_syms));
+}
 
 static void gfdm_apply_device_hooks(HMODULE target)
 {
@@ -1560,6 +1583,8 @@ static void gfdm_init(void)
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
+    gfdm_bios_read_date(gfdm_bios_date);
+    log_info("GFDM BIOS date: %s", gfdm_bios_date);
     gfdm_setup_d3d9_hooks();
     gfdm_setup_gfx_hooks();
 
@@ -1588,6 +1613,7 @@ static void gfdm_init(void)
     gfdm_apply_extio_hooks(NULL);
     gfdm_apply_avs_hooks(NULL);
     gfdm_apply_movie_hooks(NULL);
+    gfdm_apply_system_hooks();
     hook_table_apply(NULL, "kernel32.dll", gfdm_loader_syms,
                      lengthof(gfdm_loader_syms));
     iohook_push_handler(p3io_emu_dispatch_irp);

@@ -30,6 +30,11 @@ set `security.mcode` to the eight-character code reported by that image.
 If Asphyxia is bound to a non-loopback address, change `eamuse.server` in both
 files to that address and port (for example `10.9.0.156:80`).
 
+The TEST menu's BIOS date uses the legacy Windows `SystemBiosDate` registry
+value when available, then falls back to `System\\BIOS`'s `BIOSReleaseDate`
+on newer PCs. If neither provides valid text, it displays `UNKNOWN`. This
+avoids the original V4 reader's uninitialized text on a failed registry read.
+
 The hook exposes one network adapter to the game. By default it selects the
 adapter used by Windows' default route. On systems with multiple active
 adapters, set `adapter.override_ip` to the IPv4 address of the adapter that

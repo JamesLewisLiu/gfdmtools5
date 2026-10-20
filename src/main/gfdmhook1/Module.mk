@@ -3,6 +3,7 @@ avsdlls += gfdmhook1
 deplibs_gfdmhook1 := avs
 
 ldflags_gfdmhook1 := \
+    -ladvapi32 \
     -liphlpapi \
     -luser32 \
     -lws2_32 \
@@ -19,6 +20,7 @@ libs_gfdmhook1 := \
     util \
 
 src_gfdmhook1 := \
+    bios.c \
     config.c \
     dllmain.c \
     network.c \
