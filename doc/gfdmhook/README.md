@@ -58,6 +58,11 @@ Naive applies to mapper/EAMIO input;
 the hook's separate built-in fallback keys are still controlled by
 `input.keyboard`. Disable that fallback when using only configured bindings.
 
+V4's main display uses OpenGL. The hook keeps `GetClientRect` reporting the
+actual window size, including during focus changes; the shared IIDX D3D9
+back-buffer-size override is bypassed for GFDM. This prevents a zero-sized
+drawable from leaving the last frame frozen after switching windows.
+
 V4 uses the AVS boot implementation shipped with the game, so this hook is built
 as an AVS-independent 32-bit DLL. That allows the same binary to be used with
 the V4 `libavs-win32.dll` without copying a newer AVS import shim into the game

@@ -118,8 +118,23 @@ static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
 
+static HRESULT gfdm_d3d9_irp_handler(struct hook_d3d9_irp *irp)
+{
+    /* The IIDX handler replaces GetClientRect with the D3D back-buffer size.
+       V4 renders its main window with OpenGL, so that size is uninitialized
+       until a D3D device is created. Drivers also query the client rectangle
+       after focus changes; returning 0x0 then stops visible OpenGL updates.
+       Preserve the real client rectangle while retaining the shared D3D
+       limiter and device handling for movie playback. */
+    if (irp->op == HOOK_D3D9_IRP_OP_GET_CLIENT_RECT) {
+        return hook_d3d9_irp_invoke_next(irp);
+    }
+
+    return iidxhook_util_d3d9_irp_handler(irp);
+}
+
 static const hook_d3d9_irp_handler_t gfdm_d3d9_handlers[] = {
-    iidxhook_util_d3d9_irp_handler,
+    gfdm_d3d9_irp_handler,
 };
 
 static BOOL(WINAPI *real_SwapBuffers)(HDC hdc);
