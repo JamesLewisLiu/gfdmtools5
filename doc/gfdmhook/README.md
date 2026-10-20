@@ -27,7 +27,8 @@ Do not mix libraries from different game images, or layer this over an old
 replacement `libdevice.dll` which supplies its own identity and input backend.
 
 V5-V8 retain native roundplug signature checks using the emulator's matching
-UDONHRKI/E-AMUSE3 payloads. Only V4 uses the historical security compatibility
+payloads: V5-V7 use UDONHRKI, V8 uses SHAMOSAN, and white plugs use E-AMUSE3.
+Only V4 uses the historical security compatibility
 exports. The decoder-pointer guard with V4-specific offsets is enabled only
 for V4; those offsets are never applied to V5-V8. All versions keep the original
 `device_initialize` export, including the additional V7/V8 argument.
@@ -104,6 +105,13 @@ the AVS1002 build family for its named imports; this is an ABI/build selector,
 not a claim that every game ships AVS 2.10.2. V5/V6 ship 2.7.1, V7 2.10.2
 and V8 2.12.0. The original AVS libraries stay in place, including the separate
 `libavs-win32-ea3.dll` required by V7/V8.
+
+V5-V7 error screens require the game's native `../sys/infodisp.exe` companion.
+Keep it in the expected sibling directory; a missing executable can leave
+the native error screen waiting indefinitely. V8 renders errors internally.
+On fresh NVRAM, `2500(1)` is the native initialization confirmation; press
+TEST once the error screen appears. A zero-byte `info.bin.new` is normal
+after a successful AVS mount and does not establish NVRAM corruption.
 
 The hook also installs the V4 `libdevice` security-status compatibility layer.
 The original Gitadora V4 hook reports status `0x101` for the black roundplug

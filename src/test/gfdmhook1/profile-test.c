@@ -23,6 +23,8 @@ int main(void)
         assert(strcmp(profile->mcode_gf, gf[i]) == 0);
         assert(strcmp(profile->mcode_dm, dm[i]) == 0);
         assert(profile->movie_v4_guard == (i == 0));
+        assert(memcmp(profile->black_sign_key->data,
+                      i == 4 ? "SHAMOSAN" : "UDONHRKI", 8) == 0);
         snprintf(path, sizeof(path), "I:/GFDMV%u/binbt5/gdv%u.exe", i + 4, i + 4);
         assert(gfdm_profile_find(path) == profile);
         assert(gfdm_profile_find(profile->executable) == profile);
@@ -30,6 +32,6 @@ int main(void)
     for (i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
         assert(gfdm_profile_find(bad[i]) == NULL);
     }
-    puts("PASS: version/mode identities, path matching, unsupported executables and V4-only movie guard");
+    puts("PASS: version/mode identities, native signing keys, path matching, unsupported executables and V4-only movie guard");
     return 0;
 }

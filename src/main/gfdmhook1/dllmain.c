@@ -1578,7 +1578,7 @@ static HRESULT gfdm_get_roundplug(
     security_rp3_generate_signed_eeprom_data(
         plug_id == 0 ? SECURITY_RP_UTIL_RP_TYPE_BLACK
                      : SECURITY_RP_UTIL_RP_TYPE_WHITE,
-        plug_id == 0 ? &security_rp_sign_key_black_gfdmv4
+        plug_id == 0 ? gfdm_profile->black_sign_key
                      : &security_rp_sign_key_white_eamuse,
         mcode,
         id,

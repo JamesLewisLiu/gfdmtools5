@@ -2,6 +2,7 @@
 #define GFDMHOOK1_PROFILE_H
 
 #include <stdbool.h>
+#include "security/rp-sign-key.h"
 
 struct gfdm_profile {
     unsigned int version;
@@ -9,6 +10,7 @@ struct gfdm_profile {
     const char *mcode_gf;
     const char *mcode_dm;
     bool movie_v4_guard;
+    const struct security_rp_sign_key *black_sign_key;
 };
 
 /* Match only a complete executable basename, independently of its directory. */
