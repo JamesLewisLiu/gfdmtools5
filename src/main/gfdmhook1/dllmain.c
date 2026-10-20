@@ -25,6 +25,7 @@
 #include "security/rp-sign-key.h"
 #include "security/rp3.h"
 #include "util/defs.h"
+#include "util/hex.h"
 #include "util/log.h"
 #include "util/str.h"
 #include "util/time.h"
@@ -89,7 +90,9 @@ static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
 static struct security_id gfdm_pcbid;
 static struct security_id gfdm_eamid;
+static char gfdm_system_id[sizeof(struct security_id) * 2 + 1];
 static char gfdm_bios_date[GFDM_BIOS_DATE_SIZE];
+static int(__cdecl *real_std_setenv)(const char *key, const char *value);
 static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
@@ -1055,11 +1058,31 @@ static const struct hook_symbol gfdm_loader_syms[] = {
     },
 };
 
+static int __cdecl gfdm_std_setenv(const char *key, const char *value)
+{
+    /* Like launcher/ea3-config.c, use the configured PCBID as system identity.
+       V4 otherwise encodes the white ROM with a fixed 0140 prefix and byte
+       permutation. Override at the environment producer so libsystem,
+       libshare-pj and boot's eam_init all consume the same complete PCBID.
+       Keep the physical white ROM and its EEPROM signature tied to EAMID. */
+    if (key != NULL && strcmp(key, "/env/profile/sysid") == 0) {
+        log_info("V4 system/EA3 PCBID: %s", gfdm_system_id);
+        value = gfdm_system_id;
+    }
+
+    return real_std_setenv(key, value);
+}
+
 static const struct hook_symbol gfdm_avs_syms[] = {
     {
         .name = "avs_boot",
         .patch = gfdm_avs_boot,
         .link = (void **) &real_avs_boot,
+    },
+    {
+        .name = "std_setenv",
+        .patch = gfdm_std_setenv,
+        .link = (void **) &real_std_setenv,
     },
 };
 
@@ -1104,7 +1127,9 @@ static void gfdm_apply_extio_hooks(HMODULE target)
 
 static void gfdm_apply_avs_hooks(HMODULE target)
 {
-    hook_table_apply(target, "libavs-win32.dll", gfdm_avs_syms,
+    (void) target;
+    /* A newly loaded game module can bring libdevice in as a dependency. */
+    hook_table_apply(NULL, "libavs-win32.dll", gfdm_avs_syms,
                      lengthof(gfdm_avs_syms));
 }
 
@@ -1580,6 +1605,8 @@ static void gfdm_init(void)
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;
+    hex_encode_uc(&gfdm_pcbid, sizeof(gfdm_pcbid),
+                  gfdm_system_id, sizeof(gfdm_system_id));
     gfdm_bios_read_date(gfdm_bios_date);
     log_info("GFDM BIOS date: %s", gfdm_bios_date);
     gfdm_setup_d3d9_hooks();

@@ -31,7 +31,7 @@ void gfdmhook1_config_init(struct cconfig *config)
         PCBID_KEY,
         (const uint8_t *) &security_id_default,
         sizeof(security_id_default),
-        "black roundplug PCBID");
+        "system/network PCBID and black roundplug ID");
     cconfig_util_set_data(
         config,
         EAMID_KEY,

@@ -35,11 +35,16 @@ value when available, then falls back to `System\\BIOS`'s `BIOSReleaseDate`
 on newer PCs. If neither provides valid text, it displays `UNKNOWN`. This
 avoids the original V4 reader's uninitialized text on a failed registry read.
 
-`eamuse.eamid` supplies the white roundplug ROM and its EEPROM signature.
-The TEST menu's SYSTEM ID uses V4's native encoding: a fixed `0140` prefix
-followed by the ROM bytes in order 0, 6, 5, 4, 3, 2, 1, 7, grouped with
-hyphens. Thus the default `0101020304050607086F` setting displays as
-`0140-0107-0605-0403-0208`; it does not print the full config value verbatim.
+`eamuse.pcbid` supplies the complete system/network identity, matching the
+IIDX launcher convention. The hook sets V4's `/env/profile/sysid` to that
+validated 20-character value when the device layer publishes it, so TEST,
+the shared identity APIs and EA3 initialization all use the same PCBID.
+The default `0101020304050607086F` displays as `0101-0203-0405-0607-086F`.
+This also replaces V4's native fixed `0140` prefix and ROM-byte permutation.
+`eamuse.eamid` independently supplies the white roundplug ROM and its EEPROM
+signature; `eamuse.pcbid` also supplies the black roundplug ROM and signature.
+The injected V4 boot path initializes EA3 from the system identity, rather
+than taking the network PCBID from `gfdm-v4-boot.xml`'s legacy identity node.
 HARDWARE ID is derived separately from the selected network adapter's MAC.
 
 The hook exposes one network adapter to the game. By default it selects the
