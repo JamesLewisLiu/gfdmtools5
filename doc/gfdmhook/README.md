@@ -63,7 +63,10 @@ The injected V4 boot path initializes EA3 from the system identity, rather
 than taking the network PCBID from `gfdm-v4-boot.xml`'s legacy identity node.
 HARDWARE ID is derived separately from the selected network adapter's MAC.
 
-The hook exposes one network adapter to the game. By default it selects the
+All V4-V8 profiles, in both GF and DM modes, expose one network adapter to the
+game through the shared `adapter.override_ip` configuration. The hook also
+filters consumers loaded after boot, so late network libraries use the same
+selected adapter. By default it selects the
 adapter used by Windows' default route. On systems with multiple active
 adapters, set `adapter.override_ip` to the IPv4 address of the adapter that
 should be visible to GFDM; the other adapters are hidden from the game.

@@ -555,7 +555,7 @@ static int __cdecl gfdm_cardunit_get_status(int unit_no)
 {
     gfdm_cardunit_poll();
     if (unit_no >= 0 && unit_no < 2 && !gfdm_card_status_logged[unit_no]) {
-        log_misc("V4 cardunit %d status -> ready", unit_no);
+        log_misc("GFDM cardunit %d status -> ready", unit_no);
         gfdm_card_status_logged[unit_no] = true;
     }
 
@@ -573,7 +573,7 @@ static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
     gfdm_cardunit_poll();
     result = gfdm_card_present[unit_no] ? 2 : 0;
     if (gfdm_card_sensor_logged[unit_no] != result) {
-        log_misc("V4 cardunit %d sensor -> %d", unit_no, result);
+        log_misc("GFDM cardunit %d sensor -> %d", unit_no, result);
         gfdm_card_sensor_logged[unit_no] = result;
     }
 
@@ -751,7 +751,7 @@ static void __cdecl gfdm_cardunit_shutdown(void)
        thread, so calling it here either blocks that transition or leaves the
        next cardunit poll using a destroyed backend.  Keep eamio alive for
        the lifetime of gdv4.exe and only reset the V4-facing reader state. */
-    log_misc("V4 cardunit shutdown: preserving EAMIO backend");
+    log_misc("GFDM cardunit shutdown: preserving EAMIO backend");
     gfdm_cardunit_reset();
 }
 
@@ -940,6 +940,9 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
     }
 
     if (module != NULL) {
+        /* Every GFDM profile can load network consumers after boot_main.
+           Re-apply the common adapter filter without changing its selected IP. */
+        adapter_hook_init();
         gfdm_setup_d3d9_hooks();
         gfdm_setup_gfx_hooks();
         if (name != NULL && _stricmp(name, "d3d9.dll") == 0) {
@@ -1401,7 +1404,7 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
     if (player >= 0 && player < 2 &&
         (!gfdm_device_input_logged[player] ||
          gfdm_last_device_input[player] != result)) {
-        log_misc("V4 device input player %d: %08x", player, result);
+        log_misc("GFDM device input player %d: %08x", player, result);
         gfdm_last_device_input[player] = result;
         gfdm_device_input_logged[player] = true;
     }
@@ -1434,7 +1437,7 @@ static int __cdecl gfdm_device_get_jamma_history(
        once and let subsequent polls observe an empty queue until release. */
     if ((state & (1u << 1)) != 0) {
         if (!gfdm_test_history_active) {
-            log_misc("Synthesized V4 JAMMA history for TEST");
+            log_misc("Synthesized GFDM JAMMA history for TEST");
             gfdm_test_history_active = true;
 
             entry = (uint8_t *) history;
@@ -1469,7 +1472,7 @@ static int __cdecl gfdm_device_get_jamma_history(
 
         /* History bit 6 is the V4 SERVICE edge. */
         *(uint16_t *) (entry + 8) = 0x40;
-        log_misc("Synthesized V4 JAMMA history for SERVICE");
+        log_misc("Synthesized GFDM JAMMA history for SERVICE");
         gfdm_service_history_active = true;
 
         return 1;
@@ -1654,6 +1657,9 @@ static void gfdm_init(void)
 
     adapter_hook_init();
     adapter_hook_override(gfdm_config.adapter.override_ip);
+    log_info("GFDM V%u network adapter: %s", gfdm_profile->version,
+             gfdm_config.adapter.override_ip[0] != '\0'
+                 ? gfdm_config.adapter.override_ip : "default route");
 
     /* Match the security status contract used by the known-good V4 hook. */
     gfdm_apply_device_hooks(NULL);

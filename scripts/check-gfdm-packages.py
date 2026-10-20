@@ -35,6 +35,7 @@ def check(directory):
                               package.read(f"{prefix}-{mode}.conf").decode().splitlines()
                               if line and not line.startswith("#"))
                 assert config["security.mcode"] == f"GC{letter}{number}J{spec}A"
+                assert "adapter.override_ip" in config, (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",
