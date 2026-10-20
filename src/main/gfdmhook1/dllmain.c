@@ -1523,13 +1523,10 @@ static HRESULT gfdm_get_roundplug(
     id = plug_id == 0 ? &gfdm_pcbid : &gfdm_eamid;
     mcode = plug_id == 0 ? &gfdm_mcode : &security_mcode_eamuse;
 
-    if (plug_id == 0) {
-        memcpy(rom, id->id, sizeof(id->id));
-    } else {
-        /* GFDM checks the white plug's ROM for the eight '@' bytes. The
-           EAMID is carried in the signed EEPROM payload instead. */
-        memset(rom, '@', sizeof(id->id));
-    }
+    /* Both ROMs carry their configured ID, which is also used for the
+       EEPROM signature. V4 identifies a white plug by the decoded EEPROM
+       mcode (eight '@' bytes), then derives SYSTEM ID from its ROM. */
+    memcpy(rom, id->id, sizeof(id->id));
     security_rp3_generate_signed_eeprom_data(
         plug_id == 0 ? SECURITY_RP_UTIL_RP_TYPE_BLACK
                      : SECURITY_RP_UTIL_RP_TYPE_WHITE,

@@ -35,6 +35,13 @@ value when available, then falls back to `System\\BIOS`'s `BIOSReleaseDate`
 on newer PCs. If neither provides valid text, it displays `UNKNOWN`. This
 avoids the original V4 reader's uninitialized text on a failed registry read.
 
+`eamuse.eamid` supplies the white roundplug ROM and its EEPROM signature.
+The TEST menu's SYSTEM ID uses V4's native encoding: a fixed `0140` prefix
+followed by the ROM bytes in order 0, 6, 5, 4, 3, 2, 1, 7, grouped with
+hyphens. Thus the default `0101020304050607086F` setting displays as
+`0140-0107-0605-0403-0208`; it does not print the full config value verbatim.
+HARDWARE ID is derived separately from the selected network adapter's MAC.
+
 The hook exposes one network adapter to the game. By default it selects the
 adapter used by Windows' default route. On systems with multiple active
 adapters, set `adapter.override_ip` to the IPv4 address of the adapter that
