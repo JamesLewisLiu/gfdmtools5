@@ -10,6 +10,7 @@
 #include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/bios.h"
+#include "gfdmhook1/coin.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
@@ -85,9 +86,8 @@ static bool gfdm_device_input_logged[2];
    game_util_input_effect_num() encodes them as a two-bit value:
    0 = center, 1 = left, 2 = right, and 3 = both. */
 static uint8_t gfdm_effector_state[2];
-static uint16_t gfdm_coin_stock;
-static bool gfdm_coin_pressed;
-static bool gfdm_coin_stock_logged;
+static struct gfdm_coin_state gfdm_coins;
+static CRITICAL_SECTION gfdm_coin_lock;
 static bool gfdm_test_history_active;
 static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
@@ -1002,6 +1002,8 @@ static int __cdecl gfdm_device_get_jamma_history(
 static unsigned int __cdecl gfdm_device_get_input(int player);
 static void __cdecl gfdm_device_get_coinstock(
     uint16_t *slot1, uint16_t *slot2);
+static void __cdecl gfdm_device_get_coinstock_all(
+    uint16_t *slot1, uint16_t *slot2);
 
 static const struct hook_symbol gfdm_secplug_syms[] = {
     {
@@ -1036,7 +1038,7 @@ static const struct hook_symbol gfdm_input_syms[] = {
     },
     {
         .name = "?device_get_coinstock_all@@YAXPAG0@Z",
-        .patch = gfdm_device_get_coinstock,
+        .patch = gfdm_device_get_coinstock_all,
     },
     {
         .name = "?device_get_jamma_history@@YAHPAUT_JAMMA_HISTORY_INFO@@H@Z",
@@ -1295,19 +1297,13 @@ static uint32_t gfdm_read_input_state(void)
         state |= keyboard_state;
     }
 
-    /* A physical coin switch is an edge-triggered event.  V4's normal game
-       loop does not consume the JAMMA level directly; it polls
-       device_get_coinstock(), so latch one stock unit on each rising edge. */
-    if ((state & (1u << 2)) != 0 && !gfdm_coin_pressed) {
-        if (gfdm_coin_stock != UINT16_MAX) {
-            gfdm_coin_stock++;
-        }
-        if (!gfdm_coin_stock_logged || gfdm_coin_stock > 0) {
-            log_info("GFDM coin inserted, stock=%u", gfdm_coin_stock);
-            gfdm_coin_stock_logged = true;
-        }
+    /* Count only physical press edges. Keep the cumulative board counter
+       independent of the game-facing consumption cursor. */
+    EnterCriticalSection(&gfdm_coin_lock);
+    if (gfdm_coin_update(&gfdm_coins, (state & (1u << 2)) != 0)) {
+        log_info("GFDM coin inserted, total=%u", gfdm_coins.total);
     }
-    gfdm_coin_pressed = (state & (1u << 2)) != 0;
+    LeaveCriticalSection(&gfdm_coin_lock);
 
     if (first_update || state != last_state) {
         log_misc(
@@ -1527,21 +1523,46 @@ static HRESULT gfdm_get_video_freq(void *ctx, enum p3io_video_freq *freq)
 static HRESULT gfdm_get_coinstock(void *ctx, uint16_t *slots, size_t nslots)
 {
     (void) ctx;
+    EnterCriticalSection(&gfdm_coin_lock);
     for (size_t i = 0; i < nslots; i++) {
-        slots[i] = i == 0 ? gfdm_coin_stock : 0;
+        slots[i] = i == 0 ? gfdm_coins.total : 0;
     }
+    LeaveCriticalSection(&gfdm_coin_lock);
     return S_OK;
+}
+
+static void gfdm_take_coinstock(
+    uint16_t *slot1, uint16_t *slot2, bool all)
+{
+    uint16_t count = 0;
+
+    /* Native get_coinstock consumes at most one per slot; _all drains all
+       pending events. Returning the board total here repeatedly adds credit
+       after a single press, even when the key has already been released. */
+    EnterCriticalSection(&gfdm_coin_lock);
+    if (slot1 != NULL) {
+        count = gfdm_coin_take(&gfdm_coins, all);
+        *slot1 = count;
+    }
+    if (slot2 != NULL) {
+        *slot2 = 0;
+    }
+    LeaveCriticalSection(&gfdm_coin_lock);
+    if (count != 0) {
+        log_info("GFDM coin consumed%s: %u", all ? " (all)" : "", count);
+    }
 }
 
 static void __cdecl gfdm_device_get_coinstock(
     uint16_t *slot1, uint16_t *slot2)
 {
-    if (slot1 != NULL) {
-        *slot1 = gfdm_coin_stock;
-    }
-    if (slot2 != NULL) {
-        *slot2 = 0;
-    }
+    gfdm_take_coinstock(slot1, slot2, false);
+}
+
+static void __cdecl gfdm_device_get_coinstock_all(
+    uint16_t *slot1, uint16_t *slot2)
+{
+    gfdm_take_coinstock(slot1, slot2, true);
 }
 
 static HRESULT gfdm_get_roundplug(
@@ -1596,6 +1617,7 @@ static void gfdm_init(void)
     gfdm_open_log_file();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
+    InitializeCriticalSection(&gfdm_coin_lock);
 
     if (!gfdm_storage_init(GetModuleHandleA("boot.dll"))) {
         log_fatal("Cannot resolve GFDM save paths beside the executable");

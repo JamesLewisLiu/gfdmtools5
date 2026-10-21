@@ -30,6 +30,13 @@ deleted or automatically merged with a different game's saves.
 Native `F:/TMP`, `F:/CACHE` and `F:/CACHE/PROXY` creation and the separate
 `/tmp/` and `/proxy/` mounts are likewise redirected to `TMP`, `CACHE` and
 `CACHE/PROXY` beside the executable. The asset root mount remains unchanged.
+
+COIN counts one insertion on each press edge. Holding the button does not
+repeat. Like the native V4-V8 libdevice APIs, `device_get_coinstock` consumes
+at most one pending coin per call and `device_get_coinstock_all` consumes
+all remaining coins; subsequent reads return zero until another insertion.
+Both APIs share the consumption cursor. P3IO retains the separate cumulative
+16-bit board count, so consuming game credit cannot make that counter drop.
 Other regions/revisions may require different security codes and EA3 identities.
 Do not mix libraries from different game images, or layer this over an old
 replacement `libdevice.dll` which supplies its own identity and input backend.
