@@ -13,6 +13,7 @@
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
+#include "gfdmhook1/storage.h"
 #include "geninput/input-config.h"
 #include "hook/d3d9.h"
 #include "hook/iohook.h"
@@ -879,29 +880,12 @@ static void __cdecl gfdm_avs_boot(
     void *log_context)
 #endif
 {
-    char base[MAX_PATH];
-    char nvram[MAX_PATH];
-    char raw[MAX_PATH];
-    char *slash;
+    const char *nvram = gfdm_storage_nvram();
+    const char *raw = gfdm_storage_raw();
 
-    memset(base, 0, sizeof(base));
-    GetModuleFileNameA(NULL, base, sizeof(base) - 1);
-    slash = strrchr(base, '\\');
-    if (slash != NULL) {
-        *slash = '\0';
+    if (!gfdm_storage_prepare()) {
+        log_fatal("Cannot prepare GFDM save directories beside the executable");
     }
-
-    snprintf(nvram, sizeof(nvram), "%s\\CONF\\NVRAM", base);
-    snprintf(raw, sizeof(raw), "%s\\CONF\\RAW", base);
-
-    {
-        char conf[MAX_PATH];
-
-        snprintf(conf, sizeof(conf), "%s\\CONF", base);
-        CreateDirectoryA(conf, NULL);
-    }
-    CreateDirectoryA(nvram, NULL);
-    CreateDirectoryA(raw, NULL);
 
     gfdm_replace_property_str(config, "/fs/nvram/device", nvram);
     gfdm_replace_property_str(config, "/fs/raw/device", raw);
@@ -1612,6 +1596,10 @@ static void gfdm_init(void)
     gfdm_open_log_file();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
+
+    if (!gfdm_storage_init(GetModuleHandleA("boot.dll"))) {
+        log_fatal("Cannot resolve GFDM save paths beside the executable");
+    }
 
     cmdline = GetCommandLineA();
     gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');

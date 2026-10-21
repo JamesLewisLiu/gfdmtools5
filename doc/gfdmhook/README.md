@@ -22,6 +22,14 @@ The hook selects its profile from the complete executable basename and rejects
 unknown executables. The default security code follows both version and `-g`
 mode; an explicit `security.mcode` still overrides it. Each version writes
 `gfdm-vN-hook.log` and uses its own directory's `CONF/NVRAM` and `CONF/RAW`.
+The native boot module's early `E:/CONF` (or `./CONF`) directory creation is
+also redirected beside the executable before AVS starts. The NVRAM/raw AVS
+mount devices use those same absolute paths, independently of the working
+directory. Existing saves are retained; no drive-root save directory is
+deleted or automatically merged with a different game's saves.
+Native `F:/TMP`, `F:/CACHE` and `F:/CACHE/PROXY` creation and the separate
+`/tmp/` and `/proxy/` mounts are likewise redirected to `TMP`, `CACHE` and
+`CACHE/PROXY` beside the executable. The asset root mount remains unchanged.
 Other regions/revisions may require different security codes and EA3 identities.
 Do not mix libraries from different game images, or layer this over an old
 replacement `libdevice.dll` which supplies its own identity and input backend.

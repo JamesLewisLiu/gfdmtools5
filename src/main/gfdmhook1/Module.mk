@@ -25,3 +25,4 @@ src_gfdmhook1 := \
     dllmain.c \
     network.c \
     profile.c \
+    storage.c \
