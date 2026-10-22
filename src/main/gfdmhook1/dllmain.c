@@ -12,6 +12,7 @@
 #include "gfdmhook1/bios.h"
 #include "gfdmhook1/coin.h"
 #include "gfdmhook1/config.h"
+#include "gfdmhook1/debug.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
 #include "gfdmhook1/storage.h"
@@ -87,7 +88,8 @@ static bool gfdm_device_input_logged[2];
    0 = center, 1 = left, 2 = right, and 3 = both. */
 static uint8_t gfdm_effector_state[2];
 static struct gfdm_coin_state gfdm_coins;
-static CRITICAL_SECTION gfdm_coin_lock;
+static struct gfdm_debug_state gfdm_debug;
+static CRITICAL_SECTION gfdm_input_lock;
 static bool gfdm_test_history_active;
 static bool gfdm_service_history_active;
 static struct security_mcode gfdm_mcode;
@@ -96,6 +98,7 @@ static struct security_id gfdm_eamid;
 static char gfdm_system_id[sizeof(struct security_id) * 2 + 1];
 static char gfdm_bios_date[GFDM_BIOS_DATE_SIZE];
 static int(__cdecl *real_std_setenv)(const char *key, const char *value);
+static char(__cdecl *real_gd_dip_get_debug_dip_param)(int param);
 static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
@@ -126,6 +129,7 @@ static void gfdm_apply_extio_hooks(HMODULE target);
 static void gfdm_apply_avs_hooks(HMODULE target);
 static void gfdm_apply_movie_hooks(HMODULE target);
 static void gfdm_apply_system_hooks(void);
+static uint32_t gfdm_read_input_state(void);
 
 static HRESULT gfdm_d3d9_irp_handler(struct hook_d3d9_irp *irp)
 {
@@ -1088,6 +1092,41 @@ static char *__cdecl gfdm_sys_code_get_bios_date(void)
     return gfdm_bios_date;
 }
 
+static char __cdecl gfdm_gd_dip_get_debug_dip_param(int param)
+{
+    static bool logged[2];
+    static char last_value[2];
+    char native_value;
+    char value;
+    int index;
+
+    native_value = real_gd_dip_get_debug_dip_param(param);
+    if (param != 1 && param != 2) {
+        return native_value;
+    }
+
+    gfdm_read_input_state();
+    EnterCriticalSection(&gfdm_input_lock);
+    value = gfdm_debug_param(&gfdm_debug, param, native_value);
+    index = param - 1;
+    if (!logged[index] || last_value[index] != value) {
+        log_info("GFDM debug DIP %s -> %u",
+                 param == 2 ? "autoplay" : "neverend", (unsigned char) value);
+        last_value[index] = value;
+        logged[index] = true;
+    }
+    LeaveCriticalSection(&gfdm_input_lock);
+    return value;
+}
+
+static const struct hook_symbol gfdm_debug_syms[] = {
+    {
+        .name = "gd_dip_get_debug_dip_param",
+        .patch = gfdm_gd_dip_get_debug_dip_param,
+        .link = (void **) &real_gd_dip_get_debug_dip_param,
+    },
+};
+
 static const struct hook_symbol gfdm_system_syms[] = {
     {
         .name = "sys_code_get_bios_date",
@@ -1100,6 +1139,8 @@ static void gfdm_apply_system_hooks(void)
     /* game.dll may be loaded after libsystem.dll, so scan all consumers. */
     hook_table_apply(NULL, "libsystem.dll", gfdm_system_syms,
                      lengthof(gfdm_system_syms));
+    hook_table_apply(NULL, "libshare-pj.dll", gfdm_debug_syms,
+                     lengthof(gfdm_debug_syms));
 }
 
 static void gfdm_apply_device_hooks(HMODULE target)
@@ -1160,6 +1201,8 @@ static void gfdm_read_keys(uint32_t *state)
        the optional generic-input mapping has been configured. */
     if (GetAsyncKeyState(VK_F1) & 0x8000) *state |= 1u << 0; /* service */
     if (GetAsyncKeyState(VK_F2) & 0x8000) *state |= 1u << 1; /* test */
+    if (GetAsyncKeyState(VK_F3) & 0x8000) *state |= GFDM_DEBUG_AUTO;
+    if (GetAsyncKeyState(VK_F4) & 0x8000) *state |= GFDM_DEBUG_TIMER;
 
     if (gfdm_is_gf) {
         if (GetAsyncKeyState(VK_RETURN) & 0x8000) {
@@ -1257,9 +1300,13 @@ static uint32_t gfdm_read_input_state(void)
     static uint8_t last_effector_state[2];
     uint32_t state;
     uint32_t keyboard_state;
+    uint32_t debug_changed;
     uint8_t analog;
     unsigned int analog_no;
 
+    /* Serialize sampling with edge updates: a stale sample from another
+       caller must not look like a release followed by a second press. */
+    EnterCriticalSection(&gfdm_input_lock);
     state = gfdm_mapper_loaded ? (uint32_t) mapper_update() : 0;
 
     if (gfdm_mapper_loaded && gfdm_is_gf) {
@@ -1299,12 +1346,18 @@ static uint32_t gfdm_read_input_state(void)
 
     /* Count only physical press edges. Keep the cumulative board counter
        independent of the game-facing consumption cursor. */
-    EnterCriticalSection(&gfdm_coin_lock);
     if (gfdm_coin_update(&gfdm_coins, (state & (1u << 2)) != 0)) {
         log_info("GFDM coin inserted, total=%u", gfdm_coins.total);
     }
-    LeaveCriticalSection(&gfdm_coin_lock);
-
+    debug_changed = gfdm_debug_update(&gfdm_debug, state);
+    if (debug_changed & GFDM_DEBUG_AUTO) {
+        log_info("GFDM debug switch Auto Play: %s",
+                 gfdm_debug.enabled & GFDM_DEBUG_AUTO ? "ON" : "OFF");
+    }
+    if (debug_changed & GFDM_DEBUG_TIMER) {
+        log_info("GFDM debug switch Disable Menu Timer: %s",
+                 gfdm_debug.enabled & GFDM_DEBUG_TIMER ? "ON" : "OFF");
+    }
     if (first_update || state != last_state) {
         log_misc(
             "GFDM input state: %08x (%s mapper)",
@@ -1314,10 +1367,7 @@ static uint32_t gfdm_read_input_state(void)
         first_update = false;
     }
 
-    if (!gfdm_mapper_loaded) {
-        return state;
-    }
-
+    LeaveCriticalSection(&gfdm_input_lock);
     return state;
 }
 
@@ -1375,11 +1425,8 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
         if (state & (1u << 22)) result |= 0x0800; /* BASS (BUTTON2) */
     }
 
-    /* V4 exposes the two debug switches as global input bits rather than as
-       player buttons.  They are nevertheless returned by device_get_input,
-       so both player queries see the same configured switch state. */
-    if (state & (1u << 30)) result |= 0x00020000; /* DEBUG MENU SELECT */
-    if (state & (1u << 31)) result |= 0x00040000; /* DEBUG MENU DECIDE */
+    /* Mapper debug actions control software DIPs. The compact 0x20000 and
+       0x40000 bits are debug-menu navigation, not Auto Play / Neverend. */
 
     if (player >= 0 && player < 2 &&
         (!gfdm_device_input_logged[player] ||
@@ -1472,7 +1519,7 @@ static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
     /* P3IO's JAMMA system inputs are not the compact libdevice bits:
        bit 4 = TEST, bit 5 = COIN, bit 6 = SERVICE.  Keep the game button
        bits untouched and translate only the three system inputs. */
-    *state = input & ~UINT32_C(0x07);
+    *state = input & ~(UINT32_C(0x07) | GFDM_DEBUG_MASK);
     if (input & (1u << 0)) *state |= 1u << 6;
     if (input & (1u << 1)) *state |= 1u << 4;
     if (input & (1u << 2)) *state |= 1u << 5;
@@ -1523,11 +1570,11 @@ static HRESULT gfdm_get_video_freq(void *ctx, enum p3io_video_freq *freq)
 static HRESULT gfdm_get_coinstock(void *ctx, uint16_t *slots, size_t nslots)
 {
     (void) ctx;
-    EnterCriticalSection(&gfdm_coin_lock);
+    EnterCriticalSection(&gfdm_input_lock);
     for (size_t i = 0; i < nslots; i++) {
         slots[i] = i == 0 ? gfdm_coins.total : 0;
     }
-    LeaveCriticalSection(&gfdm_coin_lock);
+    LeaveCriticalSection(&gfdm_input_lock);
     return S_OK;
 }
 
@@ -1539,7 +1586,7 @@ static void gfdm_take_coinstock(
     /* Native get_coinstock consumes at most one per slot; _all drains all
        pending events. Returning the board total here repeatedly adds credit
        after a single press, even when the key has already been released. */
-    EnterCriticalSection(&gfdm_coin_lock);
+    EnterCriticalSection(&gfdm_input_lock);
     if (slot1 != NULL) {
         count = gfdm_coin_take(&gfdm_coins, all);
         *slot1 = count;
@@ -1547,7 +1594,7 @@ static void gfdm_take_coinstock(
     if (slot2 != NULL) {
         *slot2 = 0;
     }
-    LeaveCriticalSection(&gfdm_coin_lock);
+    LeaveCriticalSection(&gfdm_input_lock);
     if (count != 0) {
         log_info("GFDM coin consumed%s: %u", all ? " (all)" : "", count);
     }
@@ -1617,7 +1664,7 @@ static void gfdm_init(void)
     gfdm_open_log_file();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
-    InitializeCriticalSection(&gfdm_coin_lock);
+    InitializeCriticalSection(&gfdm_input_lock);
 
     if (!gfdm_storage_init(GetModuleHandleA("boot.dll"))) {
         log_fatal("Cannot resolve GFDM save paths beside the executable");

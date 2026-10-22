@@ -31,7 +31,7 @@ jobs:
 
       - name: Build input and GFDM tests for both architectures
         run: |
-          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe build/bin/indep-32/gfdm-profile-test.exe build/bin/indep-64/gfdm-profile-test.exe build/bin/indep-32/gfdm-storage-test.exe build/bin/indep-64/gfdm-storage-test.exe build/bin/indep-32/gfdm-coin-test.exe build/bin/indep-64/gfdm-coin-test.exe'
+          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe build/bin/indep-32/gfdm-profile-test.exe build/bin/indep-64/gfdm-profile-test.exe build/bin/indep-32/gfdm-storage-test.exe build/bin/indep-64/gfdm-storage-test.exe build/bin/indep-32/gfdm-coin-test.exe build/bin/indep-64/gfdm-coin-test.exe build/bin/indep-32/gfdm-debug-test.exe build/bin/indep-64/gfdm-debug-test.exe'
           mkdir -p naive-tests
           cp build/bin/indep-32/geninput-naive-test.exe naive-tests/geninput-naive-test-32.exe
           cp build/bin/indep-64/geninput-naive-test.exe naive-tests/geninput-naive-test-64.exe
@@ -42,6 +42,8 @@ jobs:
           cp build/bin/indep-64/gfdm-storage-test.exe naive-tests/gfdm-storage-test-64.exe
           cp build/bin/indep-32/gfdm-coin-test.exe naive-tests/gfdm-coin-test-32.exe
           cp build/bin/indep-64/gfdm-coin-test.exe naive-tests/gfdm-coin-test-64.exe
+          cp build/bin/indep-32/gfdm-debug-test.exe naive-tests/gfdm-debug-test-32.exe
+          cp build/bin/indep-64/gfdm-debug-test.exe naive-tests/gfdm-debug-test-64.exe
 
       - name: Upload Naive keyboard tests
         uses: actions/upload-artifact@v4
@@ -84,4 +86,8 @@ jobs:
           ./gfdm-coin-test-32.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           ./gfdm-coin-test-64.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./gfdm-debug-test-32.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./gfdm-debug-test-64.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

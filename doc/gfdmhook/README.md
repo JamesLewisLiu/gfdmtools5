@@ -110,6 +110,16 @@ Naive applies to mapper/EAMIO input;
 the hook's separate built-in fallback keys are still controlled by
 `input.keyboard`. Disable that fallback when using only configured bindings.
 
+The configured **Debug S/W: Auto Play** and **Debug S/W: Disable Menu Timer**
+buttons toggle the native software debug parameters `autoplay` and `neverend`
+in V4-V8. Press once to enable, release and press again to disable; holding a
+button does not repeatedly toggle it. Both start disabled in each new process.
+With `input.keyboard=true`, F3 and F4 provide the same two actions as fallback
+keys; configured mapper bindings remain available with that fallback disabled.
+Other debug parameters retain their native values. These actions do not set
+the cabinet's hardware DIP switches or navigate a debug menu. The native
+`neverend` parameter is also read by game flows beyond menu countdowns.
+
 V4's main display uses OpenGL. The hook keeps `GetClientRect` reporting the
 actual window size, including during focus changes; the shared IIDX D3D9
 back-buffer-size override is bypassed for GFDM. This prevents a zero-sized

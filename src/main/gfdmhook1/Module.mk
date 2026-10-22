@@ -23,6 +23,7 @@ src_gfdmhook1 := \
     bios.c \
     coin.c \
     config.c \
+    debug.c \
     dllmain.c \
     network.c \
     profile.c \

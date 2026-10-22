@@ -11,3 +11,7 @@ src_gfdm-storage-test := storage-test.c
 testexes += gfdm-coin-test
 srcdir_gfdm-coin-test := src/test/gfdmhook1
 src_gfdm-coin-test := coin-test.c
+
+testexes += gfdm-debug-test
+srcdir_gfdm-debug-test := src/test/gfdmhook1
+src_gfdm-debug-test := debug-test.c
