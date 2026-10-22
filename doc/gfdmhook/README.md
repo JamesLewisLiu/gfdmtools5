@@ -110,6 +110,21 @@ Naive applies to mapper/EAMIO input;
 the hook's separate built-in fallback keys are still controlled by
 `input.keyboard`. Disable that fallback when using only configured bindings.
 
+GF's **Effector (Clockwise)** buttons retain the existing Effector bindings.
+Each new press rotates one step through the native `0, 1, 2, 3, 0` phase
+sequence; releasing or holding the button retains the position. The appended
+**Effector (Counterclockwise)** buttons rotate in the opposite direction.
+Bind these independently for each player. With `input.keyboard=true`, W/E
+provide clockwise/counterclockwise fallback input for player 1.
+
+The two existing Effector analog bindings also control this rotary position.
+They use geninput's persistent circular position, with each quarter of its
+normalized revolution advancing one native phase. Relative-axis sensitivity
+remains configurable in the Analogs tab. Moves crossing multiple phases are
+queued and exposed one adjacent phase per rendered input frame; repeated
+getters cannot consume extra steps. The TEST input check displays the two-bit
+phase, while the game maintains its separate sound-effect selection.
+
 The configured **Debug S/W: Auto Play** and **Debug S/W: Disable Menu Timer**
 buttons toggle the native software debug parameters `autoplay` and `neverend`
 in V4-V8. Press once to enable, release and press again to disable; holding a

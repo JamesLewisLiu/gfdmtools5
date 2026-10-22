@@ -53,7 +53,10 @@ static const struct action_def gf_actions[] = {
 
     {0x1E, IDS_GF_DEBUG_AUTO},
     {0x1F, IDS_GF_DEBUG_MENU_TIMER},
-    {0x02, IDS_GENERIC_COIN}};
+    {0x02, IDS_GENERIC_COIN},
+    /* Append: old mapping files persist these UI row indices. */
+    {0x0A, IDS_GF_P1_EFFECT_REVERSE},
+    {0x0B, IDS_GF_P2_EFFECT_REVERSE}};
 
 static const struct light_def gf_lights[] = {
     {0x08, IDS_GF_P1_SPOT_LIGHT},

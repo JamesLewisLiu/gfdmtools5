@@ -13,6 +13,7 @@
 #include "gfdmhook1/coin.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/debug.h"
+#include "gfdmhook1/effect.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
 #include "gfdmhook1/storage.h"
@@ -83,10 +84,9 @@ static uint32_t gfdm_last_output_state;
 static bool gfdm_output_state_logged;
 static uint32_t gfdm_last_device_input[2];
 static bool gfdm_device_input_logged[2];
-/* GF's V4 effector is represented by two independent inputs (left/right).
-   game_util_input_effect_num() encodes them as a two-bit value:
-   0 = center, 1 = left, 2 = right, and 3 = both. */
-static uint8_t gfdm_effector_state[2];
+/* The native game consumes a persistent four-phase rotary position. */
+static struct gfdm_effect_state gfdm_effectors[2];
+static volatile LONG gfdm_input_frame;
 static struct gfdm_coin_state gfdm_coins;
 static struct gfdm_debug_state gfdm_debug;
 static CRITICAL_SECTION gfdm_input_lock;
@@ -159,6 +159,7 @@ static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
 {
     uint64_t frame_time;
 
+    InterlockedIncrement(&gfdm_input_frame);
     gfdm_gl_present_count++;
     if (!gfdm_gl_present_logged) {
         log_info("GFDM OpenGL SwapBuffers hook active");
@@ -1256,6 +1257,7 @@ static void gfdm_read_keys(uint32_t *state)
         if (GetAsyncKeyState('S') & 0x8000) *state |= 1u << 25;
         if (GetAsyncKeyState('Q') & 0x8000) *state |= 1u << 12;
         if (GetAsyncKeyState('W') & 0x8000) *state |= 1u << 28;
+        if (GetAsyncKeyState('E') & 0x8000) *state |= GFDM_EFFECT_REVERSE_P1;
     } else {
         if (GetAsyncKeyState(VK_RETURN) & 0x8000) *state |= 1u << 8;
         if (GetAsyncKeyState(VK_LEFT) & 0x8000) *state |= 1u << 15;
@@ -1269,67 +1271,32 @@ static void gfdm_read_keys(uint32_t *state)
     }
 }
 
-enum {
-    GFDM_EFFECTOR_CENTER = 0,
-    GFDM_EFFECTOR_LEFT = 1,
-    GFDM_EFFECTOR_RIGHT = 2,
-    GFDM_EFFECTOR_BOTH = 3,
-};
-
-#define GFDM_EFFECTOR_INPUT_LEFT UINT32_C(0x8000)
-#define GFDM_EFFECTOR_INPUT_RIGHT UINT32_C(0x10000)
-
-static uint32_t gfdm_effector_input_mask(uint8_t state)
-{
-    return ((state & GFDM_EFFECTOR_LEFT) != 0
-            ? GFDM_EFFECTOR_INPUT_LEFT
-            : 0)
-        | ((state & GFDM_EFFECTOR_RIGHT) != 0
-            ? GFDM_EFFECTOR_INPUT_RIGHT
-            : 0);
-}
-
-static uint8_t gfdm_read_effector_state(unsigned int player)
+static void gfdm_update_effector_axis(unsigned int player)
 {
     struct mapped_analog ma;
-    unsigned int analog_no;
-    uint8_t value;
+    bool bound;
 
-    if (!gfdm_mapper_loaded || player >= 2) {
-        return GFDM_EFFECTOR_CENTER;
+    bound = mapper_get_analog_map((uint8_t) player, &ma) && ma.hid != NULL;
+    gfdm_effect_axis(&gfdm_effectors[player], bound,
+        bound && mapper_is_analog_absolute((uint8_t) player),
+        bound ? mapper_read_analog((uint8_t) player) : 0);
+}
+
+static uint32_t gfdm_get_effector_input(unsigned int player)
+{
+    uint32_t result;
+    uint8_t before;
+
+    EnterCriticalSection(&gfdm_input_lock);
+    before = gfdm_effectors[player].phase;
+    result = gfdm_effect_publish(&gfdm_effectors[player],
+        (uint32_t) InterlockedCompareExchange(&gfdm_input_frame, 0, 0));
+    if (before != gfdm_effectors[player].phase) {
+        log_misc("GFDM effector P%u phase: %u -> %u",
+            player + 1, before, gfdm_effectors[player].phase);
     }
-
-    analog_no = player;
-    if (!mapper_get_analog_map((uint8_t) analog_no, &ma) || ma.hid == NULL) {
-        /* mapper_read_analog() returns zero for an unbound axis. Treating it
-           as a direction would make an unset config hold Effect forever. */
-        return GFDM_EFFECTOR_CENTER;
-    }
-
-    value = mapper_read_analog((uint8_t) analog_no);
-
-    if (mapper_is_analog_absolute((uint8_t) analog_no)) {
-        /* Absolute axes are normalized by geninput to [0, 255]. Keep a
-           generous center band so a physical knob can rest near midpoint. */
-        if (value < 85) {
-            return GFDM_EFFECTOR_LEFT;
-        }
-
-        if (value > 170) {
-            return GFDM_EFFECTOR_RIGHT;
-        }
-
-        return GFDM_EFFECTOR_CENTER;
-    }
-
-    /* Relative controls are accumulated in an unsigned byte by geninput.
-       A small positive delta (the V4 hardware commonly reports 2) is the
-       right direction; wrapped negative deltas occupy the upper half. */
-    if (value == 0) {
-        return GFDM_EFFECTOR_CENTER;
-    }
-
-    return value < 128 ? GFDM_EFFECTOR_RIGHT : GFDM_EFFECTOR_LEFT;
+    LeaveCriticalSection(&gfdm_input_lock);
+    return result;
 }
 
 static uint32_t gfdm_read_input_state(void)
@@ -1337,7 +1304,6 @@ static uint32_t gfdm_read_input_state(void)
     static bool first_update = true;
     static uint32_t last_state;
     static uint8_t last_analog[2];
-    static uint8_t last_effector_state[2];
     uint32_t state;
     uint32_t keyboard_state;
     uint32_t debug_changed;
@@ -1360,18 +1326,7 @@ static uint32_t gfdm_read_input_state(void)
                 last_analog[analog_no] = analog;
             }
 
-            gfdm_effector_state[analog_no] =
-                gfdm_read_effector_state(analog_no);
-            if (first_update ||
-                gfdm_effector_state[analog_no] !=
-                    last_effector_state[analog_no]) {
-                log_misc(
-                    "GFDM effector state P%u: %u (0=center, 1=left, 2=right, 3=both)",
-                    analog_no + 1,
-                    gfdm_effector_state[analog_no]);
-                last_effector_state[analog_no] =
-                    gfdm_effector_state[analog_no];
-            }
+            gfdm_update_effector_axis(analog_no);
         }
     }
 
@@ -1382,6 +1337,15 @@ static uint32_t gfdm_read_input_state(void)
     if (gfdm_keyboard) {
         gfdm_read_keys(&keyboard_state);
         state |= keyboard_state;
+    }
+
+    if (gfdm_is_gf) {
+        gfdm_effect_buttons(&gfdm_effectors[0],
+            (state & (1u << 28)) != 0,
+            (state & GFDM_EFFECT_REVERSE_P1) != 0);
+        gfdm_effect_buttons(&gfdm_effectors[1],
+            (state & (1u << 29)) != 0,
+            (state & GFDM_EFFECT_REVERSE_P2) != 0);
     }
 
     /* Count only physical press edges. Keep the cumulative board counter
@@ -1440,8 +1404,7 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 22)) result |= 0x0800; /* BLUE (BUTTON2) */
             if (state & (1u << 24)) result |= 0x0020; /* PICK A (UP) */
             if (state & (1u << 25)) result |= 0x0040; /* PICK B (DOWN) */
-            if (state & (1u << 28)) result |= GFDM_EFFECTOR_INPUT_LEFT;
-            result |= gfdm_effector_input_mask(gfdm_effector_state[0]);
+            result |= gfdm_get_effector_input(0);
         } else {
             if (state & (1u << 9)) result |= 0x0004;
             if (state & (1u << 13)) result |= 0x0040;
@@ -1450,8 +1413,7 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
             if (state & (1u << 23)) result |= 0x0800;
             if (state & (1u << 26)) result |= 0x0020;
             if (state & (1u << 27)) result |= 0x0040;
-            if (state & (1u << 29)) result |= GFDM_EFFECTOR_INPUT_LEFT;
-            result |= gfdm_effector_input_mask(gfdm_effector_state[1]);
+            result |= gfdm_get_effector_input(1);
         }
     } else {
         if (state & (1u << 8)) result |= 0x0004;  /* START */
@@ -1559,7 +1521,8 @@ static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
     /* P3IO's JAMMA system inputs are not the compact libdevice bits:
        bit 4 = TEST, bit 5 = COIN, bit 6 = SERVICE.  Keep the game button
        bits untouched and translate only the three system inputs. */
-    *state = input & ~(UINT32_C(0x07) | GFDM_DEBUG_MASK);
+    *state = input & ~(UINT32_C(0x07) | GFDM_DEBUG_MASK
+        | (gfdm_is_gf ? GFDM_EFFECT_REVERSE_MASK : 0));
     if (input & (1u << 0)) *state |= 1u << 6;
     if (input & (1u << 1)) *state |= 1u << 4;
     if (input & (1u << 2)) *state |= 1u << 5;

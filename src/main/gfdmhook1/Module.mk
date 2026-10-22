@@ -24,6 +24,7 @@ src_gfdmhook1 := \
     coin.c \
     config.c \
     debug.c \
+    effect.c \
     dllmain.c \
     network.c \
     profile.c \

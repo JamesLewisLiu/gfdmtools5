@@ -15,3 +15,7 @@ src_gfdm-coin-test := coin-test.c
 testexes += gfdm-debug-test
 srcdir_gfdm-debug-test := src/test/gfdmhook1
 src_gfdm-debug-test := debug-test.c
+
+testexes += gfdm-effect-test
+srcdir_gfdm-effect-test := src/test/gfdmhook1
+src_gfdm-effect-test := effect-test.c
