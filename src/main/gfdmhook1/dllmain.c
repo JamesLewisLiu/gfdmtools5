@@ -99,6 +99,9 @@ static char gfdm_system_id[sizeof(struct security_id) * 2 + 1];
 static char gfdm_bios_date[GFDM_BIOS_DATE_SIZE];
 static int(__cdecl *real_std_setenv)(const char *key, const char *value);
 static char(__cdecl *real_gd_dip_get_debug_dip_param)(int param);
+static int(__cdecl *real_bmsd_boot)(
+    HWND hwnd, void *work, unsigned int work_size, int mode,
+    char port_mode, int port_count, int flags);
 static unsigned int(__cdecl *real_device_get_input)(int player);
 static int(__cdecl *real_device_get_jamma_history)(
     void *history, int max_entries);
@@ -1134,6 +1137,41 @@ static const struct hook_symbol gfdm_system_syms[] = {
     },
 };
 
+static int __cdecl gfdm_bmsd_boot(
+    HWND hwnd, void *work, unsigned int work_size, int mode,
+    char port_mode, int port_count, int flags)
+{
+    int result;
+
+    /* V4-V8 flag 1 skips the obsolete WinMM system master-volume setup.
+       Digital/HDMI endpoints need not expose its DST_SPEAKERS mixer line;
+       failure there aborts bmsd_boot before DirectSound is even created.
+       Keep the native renderer and game volumes, and leave Windows volume
+       to the user. V5-V8 flag 2 also changes rendering, so preserve it. */
+    if (flags == 0) {
+        flags = 1;
+        log_info("GFDM audio: bypassing legacy Windows master-volume setup");
+    }
+
+    result = real_bmsd_boot(
+        hwnd, work, work_size, mode, port_mode, port_count, flags);
+    if (result < 0) {
+        log_warning("GFDM audio: native bmsd_boot failed (%d)", result);
+    } else {
+        log_info("GFDM audio: native bmsd_boot succeeded (%d)", result);
+    }
+
+    return result;
+}
+
+static const struct hook_symbol gfdm_audio_syms[] = {
+    {
+        .name = "bmsd_boot",
+        .patch = gfdm_bmsd_boot,
+        .link = (void **) &real_bmsd_boot,
+    },
+};
+
 static void gfdm_apply_system_hooks(void)
 {
     /* game.dll may be loaded after libsystem.dll, so scan all consumers. */
@@ -1141,6 +1179,8 @@ static void gfdm_apply_system_hooks(void)
                      lengthof(gfdm_system_syms));
     hook_table_apply(NULL, "libshare-pj.dll", gfdm_debug_syms,
                      lengthof(gfdm_debug_syms));
+    hook_table_apply(NULL, "libbmsd.dll", gfdm_audio_syms,
+                     lengthof(gfdm_audio_syms));
 }
 
 static void gfdm_apply_device_hooks(HMODULE target)

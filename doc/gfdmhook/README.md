@@ -125,6 +125,14 @@ actual window size, including during focus changes; the shared IIDX D3D9
 back-buffer-size override is bypassed for GFDM. This prevents a zero-sized
 drawable from leaving the last frame frozen after switching windows.
 
+V4-V8 keep the native DirectSound renderer and game sound-volume settings.
+The hook selects libbmsd's native option to skip legacy Windows master-volume
+control when the game requests it. Digital and HDMI outputs can lack the
+WinMM speaker mixer line that this old setup requires; that failure otherwise
+prevents the sound engine from starting. Adjust Windows output/session volume
+normally. Existing special rendering options are preserved, and the hook logs
+the actual native sound initialization result.
+
 V4 uses the AVS boot implementation shipped with the game, and V5-V8 retain the same seven-argument AVS boot ABI. The package uses
 the AVS1002 build family for its named imports; this is an ABI/build selector,
 not a claim that every game ships AVS 2.10.2. V5/V6 ship 2.7.1, V7 2.10.2
