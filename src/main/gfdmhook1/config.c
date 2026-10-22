@@ -46,7 +46,7 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
     cconfig_util_set_bool(
         config,
         KEYBOARD_KEY,
-        true,
+        false,
         "enable the default keyboard-to-panel mapping");
     cconfig_util_set_float(
         config,
@@ -72,7 +72,7 @@ void gfdmhook1_config_get(
     memset(&out->adapter, 0, sizeof(out->adapter));
     out->pcbid = security_id_default;
     out->eamid = security_id_default;
-    out->keyboard = true;
+    out->keyboard = false;
     out->frame_rate_limit = 60.0f;
     out->forced_refresh_rate = 60;
 
@@ -106,7 +106,7 @@ void gfdmhook1_config_get(
         security_mcode_parse(default_mcode, &out->mcode);
     }
 
-    cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, true);
+    cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
         log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);

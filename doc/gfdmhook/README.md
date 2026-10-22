@@ -87,10 +87,12 @@ adapter used by Windows' default route. On systems with multiple active
 adapters, set `adapter.override_ip` to the IPv4 address of the adapter that
 should be visible to GFDM; the other adapters are hidden from the game.
 
-The default keyboard mapping is intentionally small and deterministic: Enter is
-start, F1/F2 are service/test, 5 is coin, Z/X/C are the GF fret buttons, and
-A/S/D/F/G cover the DM pads. Set `input.keyboard=false` when a separate input
-backend is attached.
+The built-in keyboard fallback is disabled by default. In `config.exe`, open
+**GFDM** and check **Enable built-in keyboard fallback** only when needed.
+This saves `input.keyboard` in the current version's GF or DM configuration
+beside the configurator. Leave it off after configuring IO bindings. Explicit
+command-line `-p input.keyboard=true` still overrides the saved setting.
+Configured Raw Input, Naive and EAMIO bindings continue to work independently.
 
 In `config.exe`, select an action in **Buttons** and use **Naive...** to bind a
 Windows virtual key from any keyboard, or **Naive many...** to bind consecutive
