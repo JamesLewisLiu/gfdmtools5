@@ -6,20 +6,54 @@
 
 static void check(struct gfdm_effect_state *s, uint32_t frame, unsigned int phase)
 {
-    static const uint32_t masks[] = {0, 0x10000, 0x8000, 0x18000};
+    static const uint32_t masks[] = {0, 0x8000, 0x10000, 0x18000};
     uint32_t result = gfdm_effect_publish(s, frame);
     if (result != masks[phase]) {
         fprintf(stderr, "frame %u: expected phase %u, got %u, pending %d\n",
             frame, phase, s->phase, s->pending);
     }
     assert(result == masks[phase]);
+    /* Native gameplay weights right/button7 twice, left/button6 once.
+       TEST displays those bits with the opposite weights. */
+    assert(2 * ((result & 0x10000) != 0)
+        + ((result & 0x8000) != 0) == phase);
     assert(s->phase == phase);
+}
+
+/* Native game.dll consumer: V4 RVA 0x3ED60, with the independently
+   verified libshare getter's 2*right+left weighting (V4 RVA 0x7D10). */
+static void check_native_effect_cycle(void)
+{
+    struct gfdm_effect_state s = {0};
+    uint32_t frame = 0;
+    unsigned int previous = 0, effect = 0;
+
+    for (unsigned int direction = 0; direction < 2; direction++) {
+        for (unsigned int step = 1; step <= 6; step++) {
+            uint32_t input;
+            unsigned int phase;
+            bool cw = direction == 0;
+
+            gfdm_effect_buttons(&s, cw, !cw);
+            input = gfdm_effect_publish(&s, frame++);
+            phase = 2 * ((input & 0x10000) != 0)
+                + ((input & 0x8000) != 0);
+            assert(phase != previous);
+            effect = (effect + (phase == ((previous + 1) & 3) ? 1 : 5)) % 6;
+            previous = phase;
+            assert(effect == (cw ? step % 6 : (6 - step) % 6));
+            assert(gfdm_effect_publish(&s, frame++) == input);
+            gfdm_effect_buttons(&s, false, false);
+            assert(gfdm_effect_publish(&s, frame++) == input);
+        }
+    }
 }
 
 int main(void)
 {
     struct gfdm_effect_state a = {0}, b = {0};
     uint32_t frame = 0;
+    check_native_effect_cycle();
     check(&a, frame++, 0);
     for (unsigned int n = 1; n <= 12; n++) {
         gfdm_effect_buttons(&a, true, false);

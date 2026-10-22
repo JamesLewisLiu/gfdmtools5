@@ -122,8 +122,10 @@ They use geninput's persistent circular position, with each quarter of its
 normalized revolution advancing one native phase. Relative-axis sensitivity
 remains configurable in the Analogs tab. Moves crossing multiple phases are
 queued and exposed one adjacent phase per rendered input frame; repeated
-getters cannot consume extra steps. The TEST input check displays the two-bit
-phase, while the game maintains its separate sound-effect selection.
+getters cannot consume extra steps. Gameplay encodes phase as `2*right+left`;
+the TEST input check reverses those weights, so its clockwise display is
+`0, 2, 1, 3, 0`. The game maintains a separate six-position sound-effect
+selection (`0` through `5`); the TEST value is not that selection.
 
 The configured **Debug S/W: Auto Play** and **Debug S/W: Disable Menu Timer**
 buttons toggle the native software debug parameters `autoplay` and `neverend`

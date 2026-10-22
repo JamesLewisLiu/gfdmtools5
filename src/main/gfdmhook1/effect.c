@@ -75,7 +75,8 @@ uint32_t gfdm_effect_publish(struct gfdm_effect_state *s, uint32_t frame)
             s->pending++;
         }
     }
-    /* Native effect_num is 2*button6 + button7. */
-    return ((s->phase & 2) ? UINT32_C(0x8000) : 0)
-        | ((s->phase & 1) ? UINT32_C(0x10000) : 0);
+    /* Gameplay effect_num is 2*button7 + button6. The TEST display
+       reverses those weights; do not use its displayed number as phase. */
+    return ((s->phase & 2) ? UINT32_C(0x10000) : 0)
+        | ((s->phase & 1) ? UINT32_C(0x8000) : 0);
 }
