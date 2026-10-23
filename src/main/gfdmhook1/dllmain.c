@@ -11,6 +11,7 @@
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/bios.h"
 #include "gfdmhook1/coin.h"
+#include "gfdmhook1/codec.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/debug.h"
 #include "gfdmhook1/effect.h"
@@ -951,6 +952,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
            Re-scan all loaded modules after late movie loading so the game's
            IAT is updated even when game.dll was loaded before libmovie. */
         gfdm_apply_movie_hooks(NULL);
+        gfdm_codec_apply_hooks();
         gfdm_apply_system_hooks();
     }
 
@@ -1696,6 +1698,7 @@ static void gfdm_init(void)
     hex_encode_uc(&gfdm_pcbid, sizeof(gfdm_pcbid),
                   gfdm_system_id, sizeof(gfdm_system_id));
     gfdm_bios_read_date(gfdm_bios_date);
+    gfdm_codec_init();
     log_info("GFDM BIOS date: %s", gfdm_bios_date);
     gfdm_setup_d3d9_hooks();
     gfdm_setup_gfx_hooks();

@@ -48,6 +48,24 @@ exports. The decoder-pointer guard with V4-specific offsets is enabled only
 for V4; those offsets are never applied to V5-V8. All versions keep the original
 `device_initialize` export, including the additional V7/V8 argument.
 
+For registration-free video decoding, place a compatible **32-bit**
+`clvsd.ax` beside `gdvN.exe` and restart the game. The hook loads that exact
+file from the executable directory and creates the native DirectShow decoder
+through `DllGetClassObject`; it never calls `DllRegisterServer` or changes COM
+registration. This also works when the launcher's working directory differs.
+Keep any decoder dependencies beside the AX. The decoder is not distributed
+with bemanitools.
+
+V4-V6 request decoder class `8ACD52ED-9C2D-4008-9129-DCE955D86065`
+(for example, the matching CLVSD 6 release). V7/V8 first try
+`37991D68-42A3-40E3-8C05-037170E1A42A`, then the older class. A newer AX which
+only exposes the second class cannot satisfy V4-V6. Class identities are not
+remapped. Other COM objects retain native activation, and a missing, invalid
+or incompatible local decoder falls back to existing registered activation.
+The hook log reports successful local creation, loading errors, and unsupported
+classes. Add or replace the AX only with the game stopped; loading is attempted
+once per process and the module remains loaded until exit.
+
 The same package includes the generic bemanitools mapper UI. Run
 `config-gf.bat` or `config-dm.bat` to configure the requested Buttons list and
 the Network/card-reader tab; the hook loads the matching `gf.bin` or `dm.bin`
