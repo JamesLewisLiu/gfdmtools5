@@ -38,6 +38,15 @@ all remaining coins; subsequent reads return zero until another insertion.
 Both APIs share the consumption cursor. P3IO retains the separate cumulative
 16-bit board count, so consuming game credit cannot make that counter drop.
 Other regions/revisions may require different security codes and EA3 identities.
+P3IO JAMMA reads yield for one millisecond before sampling. The native
+asynchronous reader relies on a blocking hardware interrupt read; completing
+every emulated read immediately otherwise spins and contends with game input
+consumers. This wait is outside the input lock and independent of the graphics
+frame rate limit.
+Keep `gfx.frame_rate_limit=60` for normal play. A value of zero disables the
+OpenGL limiter and can make frame-driven game logic run too fast once input
+polling no longer limits performance; `gfx.forced_refresh_rate` alone does not
+limit the OpenGL presentation rate.
 Do not mix libraries from different game images, or layer this over an old
 replacement `libdevice.dll` which supplies its own identity and input backend.
 

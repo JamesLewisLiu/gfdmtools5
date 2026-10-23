@@ -1518,6 +1518,11 @@ static HRESULT gfdm_read_jamma(void *ctx, uint32_t *state)
 
     (void) ctx;
 
+    /* libdevice's asynchronous reader expects the hardware interrupt read
+       to block. An immediately completed emulated IOCTL makes it spin at
+       tens of thousands of reads per second, holding the input lock and
+       starving the game thread. Yield before sampling, outside that lock. */
+    Sleep(1);
     input = gfdm_read_input_state();
 
     /* P3IO's JAMMA system inputs are not the compact libdevice bits:
