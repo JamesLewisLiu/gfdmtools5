@@ -49,9 +49,9 @@ static gfdm_get_class_object_t gfdm_codec_load(void)
         if (attributes == INVALID_FILE_ATTRIBUTES) {
             error = GetLastError();
             if (error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND) {
-                log_info("GFDM local clvsd.ax not found; using registered decoder");
+                log_info("GFDM tools/CLVSD.ax not found; using registered decoder");
             } else {
-                log_warning("GFDM cannot access local clvsd.ax (error %lu)", error);
+                log_warning("GFDM cannot access tools/CLVSD.ax (error %lu)", error);
             }
         } else if (!(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
             /* An absolute path anchors the AX and its dependencies beside the
@@ -63,16 +63,16 @@ static gfdm_get_class_object_t gfdm_codec_load(void)
                 gfdm_codec_get_class_object = (gfdm_get_class_object_t)
                     GetProcAddress(gfdm_codec_module, "DllGetClassObject");
                 if (gfdm_codec_get_class_object == NULL) {
-                    log_warning("GFDM local clvsd.ax has no DllGetClassObject");
+                    log_warning("GFDM tools/CLVSD.ax has no DllGetClassObject");
                 }
             } else {
-                log_warning("GFDM cannot load local clvsd.ax (error %lu); "
+                log_warning("GFDM cannot load tools/CLVSD.ax (error %lu); "
                             "using registered decoder", GetLastError());
             }
             /* Retain the loader reference for the process lifetime. Native
                libmovie calls CoFreeUnusedLibraries while graphs are reused. */
         } else {
-            log_warning("GFDM local clvsd.ax is a directory; using registered decoder");
+            log_warning("GFDM tools/CLVSD.ax is a directory; using registered decoder");
         }
     }
     get_class_object = gfdm_codec_get_class_object;
@@ -109,21 +109,21 @@ static HRESULT WINAPI gfdm_CoCreateInstance(
                 EnterCriticalSection(&gfdm_codec_lock);
                 if (!gfdm_codec_created[i]) {
                     gfdm_codec_created[i] = true;
-                    log_info("GFDM local clvsd.ax decoder class %u created "
+                    log_info("GFDM tools/CLVSD.ax decoder class %u created "
                              "without registration", (unsigned int) i);
                 }
                 LeaveCriticalSection(&gfdm_codec_lock);
                 return hr;
             }
-            log_warning("GFDM local clvsd.ax class %u creation failed "
+            log_warning("GFDM tools/CLVSD.ax class %u creation failed "
                         "(hr=%08lx); using registered decoder",
                         (unsigned int) i, (unsigned long) hr);
         } else if (hr != CLASS_E_CLASSNOTAVAILABLE) {
-            log_warning("GFDM local clvsd.ax class %u factory failed "
+            log_warning("GFDM tools/CLVSD.ax class %u factory failed "
                         "(hr=%08lx); using registered decoder",
                         (unsigned int) i, (unsigned long) hr);
         } else {
-            log_misc("GFDM local clvsd.ax does not provide decoder class %u; "
+            log_misc("GFDM tools/CLVSD.ax does not provide decoder class %u; "
                      "trying registered/native decoder fallback", (unsigned int) i);
         }
         /* Preserve V7/V8's native newer-class -> older-class fallback, and
@@ -151,16 +151,16 @@ void gfdm_codec_init(void)
     }
     length = GetModuleFileNameW(NULL, gfdm_codec_path, lengthof(gfdm_codec_path));
     if (length == 0 || length >= lengthof(gfdm_codec_path)) {
-        log_warning("GFDM cannot resolve executable directory for local clvsd.ax");
+        log_warning("GFDM cannot resolve executable directory for tools/CLVSD.ax");
         return;
     }
     slash = wcsrchr(gfdm_codec_path, L'\\');
     if (slash == NULL || (size_t) (slash + 1 - gfdm_codec_path) +
-            lengthof(L"clvsd.ax") > lengthof(gfdm_codec_path)) {
-        log_warning("GFDM local clvsd.ax path is too long");
+            lengthof(L"tools\\CLVSD.ax") > lengthof(gfdm_codec_path)) {
+        log_warning("GFDM tools/CLVSD.ax path is too long");
         return;
     }
-    wcscpy(slash + 1, L"clvsd.ax");
+    wcscpy(slash + 1, L"tools\\CLVSD.ax");
     InitializeCriticalSection(&gfdm_codec_lock);
     gfdm_codec_initialized = true;
     gfdm_codec_apply_hooks();

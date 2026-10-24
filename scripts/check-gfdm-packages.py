@@ -1,4 +1,5 @@
 """Check the five distributable archives and their launcher/identity wiring."""
+import hashlib
 import pathlib
 import sys
 import xml.etree.ElementTree as ET
@@ -14,13 +15,21 @@ def check(directory):
             names = package.namelist()
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
-                        f"{prefix}-boot.xml", f"{prefix}.conf"}
+                        f"{prefix}-boot.xml", f"{prefix}.conf", "tools/CLVSD.ax"}
             for mode in ("gf", "dm"):
                 expected.update({f"gamestart-v{version}-{mode}.bat",
                                  f"{prefix}-ea3-ident-{mode}.xml", f"{prefix}-{mode}.conf"})
             assert len(names) == len(set(names)) and set(names) == expected, names
             binary = package.read("gfdmhook1.dll")
             assert binary[:2] == b"MZ"
+            decoder = package.read("tools/CLVSD.ax")
+            expected_decoder = (
+                "A166092B159F991764CCD4BEF9EAED2B016CFD71A8A89C74818BA54C60650CAF"
+                if version >= 7 else
+                "C7BA1DFF716A4C6CF0EC3CFCB5900C3206EB6EC042E858BAEBD11F159C06EEA2"
+            )
+            assert hashlib.sha256(decoder).hexdigest().upper() == expected_decoder
+            assert decoder[:2] == b"MZ"
             if hook is not None:
                 assert binary == hook, "all versions must ship the same common hook"
             hook = binary
@@ -42,7 +51,7 @@ def check(directory):
                               f"-I {prefix}-ea3-ident-{mode}.xml",
                               f"-b {prefix}-boot.xml", f"--config {prefix}-{mode}.conf"):
                     assert token in launch, (version, mode, token)
-            print(f"PASS {prefix}: files, shared hook, GF/DM model and launcher wiring")
+            print(f"PASS {prefix}: files, decoder, shared hook, GF/DM model and launcher wiring")
 
 
 if __name__ == "__main__":

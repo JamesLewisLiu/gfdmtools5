@@ -283,9 +283,11 @@ $(zipdir)/gfdm-v%.zip: \
 		dist/gfdm/gfdm-v%.conf \
 		dist/gfdm/gfdm-v%-gf.conf \
 		dist/gfdm/gfdm-v%-dm.conf \
+		dist/gfdm/assets/v%/tools/CLVSD.ax \
 		| $(zipdir)/
 	$(V)echo ... $@
-	$(V)zip -j $@ $^
+	$(V)zip -j $@ $(filter-out dist/gfdm/assets/v%/tools/CLVSD.ax,$^)
+	$(V)cd dist/gfdm/assets/v$* && zip -q $(abspath $@) tools/CLVSD.ax
 
 $(zipdir)/iidx-09-to-12.zip: \
 		build/bin/indep-32/iidxhook1.dll \
