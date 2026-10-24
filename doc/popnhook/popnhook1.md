@@ -5,7 +5,7 @@ The following games are compatible with this version of popnhook:
 - pop'n music 15 ADVENTURE
 - pop'n music 16 PARTY♪
 - pop'n music 17 THE MOVIE
-- pop'n music 18 せんごく列伝
+- pop'n music 18 Sengoku Retsuden
 
 The games must be bootstrapped using [inject](../inject.md).
 

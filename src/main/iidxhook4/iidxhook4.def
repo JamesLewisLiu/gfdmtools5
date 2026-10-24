@@ -1,5 +1,0 @@
-LIBRARY iidxhook4
-
-EXPORTS
-    DllMain@12 @1 NONAME
-    

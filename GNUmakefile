@@ -23,7 +23,6 @@ objdir                := $(BUILDDIR)/obj
 bindir                := $(BUILDDIR)/bin
 
 toolchain_32          := i686-w64-mingw32-
-toolchain_64          := x86_64-w64-mingw32-
 
 gitrev                := $(shell git rev-parse HEAD)
 cppflags              := -I src -I src/main -I src/test -DGITREV=$(gitrev)
@@ -313,7 +312,7 @@ endef
 
 ##############################################################################
 
-$(eval $(foreach bitness,32 64,$(call t_bitness,$(bitness))))
+$(eval $(foreach bitness,32,$(call t_bitness,$(bitness))))
 
 #
 # Pull in GCC-generated dependency files

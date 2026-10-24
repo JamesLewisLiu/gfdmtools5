@@ -13,7 +13,7 @@ popnhook comes in a few different flavors. The game and its engine changed over 
 versions might require patches/parameters enabled which others don't need or have different AVS
 versions. Here is the list of supported games:
 
-- [popnhook1](popnhook1.md): 15 ADVENTURE, 16 PARTY♪, 17 THE MOVIE, 18 せんごく列伝
+- [popnhook1](popnhook1.md): 15 ADVENTURE, 16 PARTY, 17 THE MOVIE, 18 Sengoku Retsuden
 
 When building bemanitools, independent packages are created for each set of games which are ready to
 be dropped on top of vanilla AC data dumps. We recommend using pristine dumps to avoid any conflicts

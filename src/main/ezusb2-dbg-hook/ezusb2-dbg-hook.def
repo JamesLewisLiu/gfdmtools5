@@ -1,4 +1,0 @@
-LIBRARY ezusb2-dbg-hook
-
-EXPORTS
-    DllMain@12 @1 NONAME

@@ -1,4 +1,0 @@
-LIBRARY sdvxhook2-cn
-
-EXPORTS
-    DllMain@12 @1 NONAME

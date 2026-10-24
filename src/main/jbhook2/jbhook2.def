@@ -1,4 +1,0 @@
-LIBRARY jbhook2
-
-EXPORTS
-    DllMain@12 @1 NONAME

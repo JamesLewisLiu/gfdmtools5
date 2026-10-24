@@ -523,7 +523,7 @@ N/A
 
 REBOOT THE MACHINE
 
-The original message in Japanese: 電源を再投入して下さい
+The original Japanese message requests a power cycle.
 
 #### Known occurances
 

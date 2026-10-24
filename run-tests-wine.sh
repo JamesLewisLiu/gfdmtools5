@@ -1,7 +1,5 @@
-#!/bin/bash
-
-cd build
-unzip -o tests.zip -d tests
-cd tests
-chmod +x run-tests.sh
-./run-tests.sh
+#!/bin/sh
+set -eu
+for test in geninput-naive gfdm-profile gfdm-storage gfdm-coin gfdm-debug gfdm-effect; do
+    wine "build/bin/indep-32/$test-test.exe"
+done

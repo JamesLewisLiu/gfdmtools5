@@ -17,9 +17,9 @@ versions. Here is the list of supported games:
 - [iidxhook2](iidxhook2.md): DistorteD
 - [iidxhook3](iidxhook3.md): GOLD, DJ TROOPERS, EMPRESS, SIRIUS
 - [iidxhook4](iidxhook4.md): Resort Anthem
-- [iidxhook4-cn](iidxhook4-cn.md): Resort Anthem CN (狂热节拍 IIDX)
+- [iidxhook4-cn](iidxhook4-cn.md): Resort Anthem CN (IIDX)
 - [iidxhook5](iidxhook5.md): Lincle
-- [iidxhook5-cn](iidxhook5-cn.md): tricoro CN (狂热节拍 IIDX 2)
+- [iidxhook5-cn](iidxhook5-cn.md): tricoro CN (IIDX 2)
 - [iidxhook6](iidxhook6.md): Tricoro
 - [iidxhook7](iidxhook7.md): SPADA, PENDUAL, copula, SINOBUZ
 - [iidxhook8](iidxhook8.md): CANNON BALLERS, Rootage

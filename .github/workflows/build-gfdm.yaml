@@ -1,99 +1,49 @@
-name: "Build GFDM V4-V8 support"
+name: Build GFDM V4-V8 (x86)
 
 on:
   push:
-    branches:
-      - gfdm
+  pull_request:
   workflow_dispatch:
 
-jobs:
-  build-gfdm:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+permissions:
+  contents: read
 
-      - name: Install build prerequisites
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install x86 cross compiler
         run: |
           sudo apt-get update
-          sudo apt-get install -y runc containerd docker.io
-          sudo systemctl enable --now docker
-          sudo docker info
-
-      - name: Build bemanitools
-        run: make build-docker
-
-      - name: Extract GFDM V4-V8 packages
-        run: |
-          mkdir -p artifact
-          cp build/zip/gfdm-v[4-8].zip artifact/
-          python3 scripts/check-gfdm-packages.py artifact
-
-      - name: Build input and GFDM tests for both architectures
-        run: |
-          docker run --rm --entrypoint /bin/sh --volume "$PWD:/bemanitools" bemanitools-build:latest -c 'make build/bin/indep-32/geninput-naive-test.exe build/bin/indep-64/geninput-naive-test.exe build/bin/indep-32/gfdm-profile-test.exe build/bin/indep-64/gfdm-profile-test.exe build/bin/indep-32/gfdm-storage-test.exe build/bin/indep-64/gfdm-storage-test.exe build/bin/indep-32/gfdm-coin-test.exe build/bin/indep-64/gfdm-coin-test.exe build/bin/indep-32/gfdm-debug-test.exe build/bin/indep-64/gfdm-debug-test.exe build/bin/indep-32/gfdm-effect-test.exe build/bin/indep-64/gfdm-effect-test.exe'
-          mkdir -p naive-tests
-          cp build/bin/indep-32/geninput-naive-test.exe naive-tests/geninput-naive-test-32.exe
-          cp build/bin/indep-64/geninput-naive-test.exe naive-tests/geninput-naive-test-64.exe
-
-          cp build/bin/indep-32/gfdm-profile-test.exe naive-tests/gfdm-profile-test-32.exe
-          cp build/bin/indep-64/gfdm-profile-test.exe naive-tests/gfdm-profile-test-64.exe
-          cp build/bin/indep-32/gfdm-storage-test.exe naive-tests/gfdm-storage-test-32.exe
-          cp build/bin/indep-64/gfdm-storage-test.exe naive-tests/gfdm-storage-test-64.exe
-          cp build/bin/indep-32/gfdm-coin-test.exe naive-tests/gfdm-coin-test-32.exe
-          cp build/bin/indep-64/gfdm-coin-test.exe naive-tests/gfdm-coin-test-64.exe
-          cp build/bin/indep-32/gfdm-debug-test.exe naive-tests/gfdm-debug-test-32.exe
-          cp build/bin/indep-64/gfdm-debug-test.exe naive-tests/gfdm-debug-test-64.exe
-          cp build/bin/indep-32/gfdm-effect-test.exe naive-tests/gfdm-effect-test-32.exe
-          cp build/bin/indep-64/gfdm-effect-test.exe naive-tests/gfdm-effect-test-64.exe
-
-      - name: Upload Naive keyboard tests
-        uses: actions/upload-artifact@v4
+          sudo apt-get install -y gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686 make zip python3
+      - name: Build packages and tests
+        run: make -j1
+      - name: Validate all five packages
+        run: python3 scripts/check-gfdm-packages.py build/zip
+      - uses: actions/upload-artifact@v4
         with:
-          name: naive-tests-${{ github.sha }}
-          path: naive-tests/*.exe
+          name: gfdm-v4-to-v8-x86-${{ github.sha }}
+          path: build/zip/gfdm-v*.zip
           if-no-files-found: error
-          retention-days: 90
-
-      - name: Upload GFDM V4-V8 packages
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: gfdm-v4-to-v8-${{ github.sha }}
+          name: gfdm-tests-x86-${{ github.sha }}
+          path: build/bin/indep-32/*-test.exe
           if-no-files-found: error
-          retention-days: 90
-          path: artifact/gfdm-v*.zip
-
-  test-naive:
-    needs: build-gfdm
+  test:
+    needs: build
     runs-on: windows-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: naive-tests-${{ github.sha }}
-      - name: Run input and GFDM tests (32-bit and 64-bit)
+          name: gfdm-tests-x86-${{ github.sha }}
+          path: tests
+      - name: Run all six x86 tests
         shell: pwsh
         run: |
-          ./geninput-naive-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./geninput-naive-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-profile-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-profile-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-storage-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-storage-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-coin-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-coin-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-debug-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-debug-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-effect-test-32.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          ./gfdm-effect-test-64.exe
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $tests = @('geninput-naive', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect')
+          foreach ($test in $tests) {
+            & "./tests/$test-test.exe"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
