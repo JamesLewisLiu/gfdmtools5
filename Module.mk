@@ -37,14 +37,13 @@ $(zipdir)/gfdm-v%.zip: \
 		dist/gfdm/gfdm-v%-boot.xml \
 		dist/gfdm/gfdm-v%-ea3-ident-gf.xml \
 		dist/gfdm/gfdm-v%-ea3-ident-dm.xml \
-		dist/gfdm/gfdm-v%.conf \
 		dist/gfdm/gfdm-v%-gf.conf \
 		dist/gfdm/gfdm-v%-dm.conf \
-		dist/gfdm/assets/v%/tools/CLVSD.ax \
+		dist/gfdm/assets/v%/CLVSD.ax \
 		| $(zipdir)/
 	$(V)echo ... $@
-	$(V)zip -j $@ $(filter-out dist/gfdm/assets/v%/tools/CLVSD.ax,$^)
-	$(V)cd dist/gfdm/assets/v$* && zip -q $(abspath $@) tools/CLVSD.ax
+	$(V)rm -f $@
+	$(V)zip -j $@ $^
 
 gfdm_packages := $(foreach v,4 5 6 7 8,$(zipdir)/gfdm-v$(v).zip)
 gfdm_tests := $(testexes:%=$(bindir)/indep-32/%.exe)

@@ -15,14 +15,14 @@ def check(directory):
             names = package.namelist()
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
-                        f"{prefix}-boot.xml", f"{prefix}.conf", "tools/CLVSD.ax"}
+                        f"{prefix}-boot.xml", "CLVSD.ax"}
             for mode in ("gf", "dm"):
                 expected.update({f"gamestart-v{version}-{mode}.bat",
                                  f"{prefix}-ea3-ident-{mode}.xml", f"{prefix}-{mode}.conf"})
             assert len(names) == len(set(names)) and set(names) == expected, names
             binary = package.read("gfdmhook1.dll")
             assert binary[:2] == b"MZ"
-            decoder = package.read("tools/CLVSD.ax")
+            decoder = package.read("CLVSD.ax")
             expected_decoder = (
                 "A166092B159F991764CCD4BEF9EAED2B016CFD71A8A89C74818BA54C60650CAF"
                 if version >= 7 else

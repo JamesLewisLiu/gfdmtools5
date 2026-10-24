@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-25: Place CLVSD.ax beside inject.exe, remove unused generic configurations, and document the GF/DM configurations.
+
 
 
 2026-10-25: Extract an x86-only standalone build, preserve shared sources unchanged, and add GitHub Actions.

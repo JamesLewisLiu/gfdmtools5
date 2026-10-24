@@ -8,7 +8,9 @@ Extract `gfdm-vN.zip` into a directory containing that version's original
 `gdvN.exe`, `boot.dll`, `game.dll` and supporting libraries. Keep the existing
 data directory at its original relative location. Start Asphyxia CORE, then
 run `gamestart-vN-gf.bat` or `gamestart-vN-dm.bat`. Each launcher selects its
-own boot XML, EA3 identity and mode-specific configuration.
+own boot XML, EA3 identity and mode-specific configuration: `gfdm-vN-gf.conf`
+or `gfdm-vN-dm.conf`. These files include the configuration comments; no generic
+`gfdm-vN.conf` is shipped.
 
 | Version | Executable | GF / DM models | Default GF / DM security codes |
 | --- | --- | --- | --- |
@@ -66,9 +68,9 @@ for V4; those offsets are never applied to V5-V8. All versions keep the original
 `device_initialize` export, including the additional V7/V8 argument.
 
 For registration-free video decoding, the versioned package includes a
-compatible **32-bit** decoder at `tools/CLVSD.ax`. The hook loads that file
-relative to the directory containing `gdvN.exe` and creates the native
-DirectShow decoder through `DllGetClassObject`; it never calls
+compatible **32-bit** decoder as `CLVSD.ax` beside `inject.exe` and `gdvN.exe`.
+The hook resolves that file from the game executable directory and creates the
+native DirectShow decoder through `DllGetClassObject`; it never calls
 `DllRegisterServer` or changes COM registration. This also works when the
 launcher's working directory differs. Keep any decoder dependencies beside the
 AX.
