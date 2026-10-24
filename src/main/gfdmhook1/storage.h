@@ -4,7 +4,8 @@
 #include <windows.h>
 #include <stdbool.h>
 
-bool gfdm_storage_init(HMODULE boot);
+bool gfdm_storage_init(HMODULE boot, bool is_gf);
+bool gfdm_storage_prepare_root(void);
 bool gfdm_storage_prepare(void);
 const char *gfdm_storage_nvram(void);
 const char *gfdm_storage_raw(void);

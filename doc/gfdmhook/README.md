@@ -21,15 +21,23 @@ own boot XML, EA3 identity and mode-specific configuration.
 The hook selects its profile from the complete executable basename and rejects
 unknown executables. The default security code follows both version and `-g`
 mode; an explicit `security.mcode` still overrides it. Each version writes
-`gfdm-vN-hook.log` and uses its own directory's `CONF/NVRAM` and `CONF/RAW`.
+`gfdm-vN-hook.log`. Storage is always separated by launch mode beneath the
+executable directory: `DEV/GF` with `-g`, or `DEV/DM` otherwise. Each mode has
+its own `CACHE`, `CONF` and `TMP`, including `CONF/NVRAM`, `CONF/RAW` and
+`CACHE/PROXY`. There is no switch to disable this separation.
 The native boot module's early `E:/CONF` (or `./CONF`) directory creation is
-also redirected beside the executable before AVS starts. The NVRAM/raw AVS
+also redirected into that mode's `CONF` before AVS starts. The hook creates
+`DEV` and the selected mode directory before entering native boot, preserving
+native first-time `CONF` creation, then ensures all child directories before
+AVS starts. The NVRAM/raw AVS
 mount devices use those same absolute paths, independently of the working
-directory. Existing saves are retained; no drive-root save directory is
-deleted or automatically merged with a different game's saves.
+directory. Existing shared or drive-root save directories are retained but
+are no longer used; their contents are not automatically copied or merged
+into either mode. Migrate any desired settings only after checking their mode.
 Native `F:/TMP`, `F:/CACHE` and `F:/CACHE/PROXY` creation and the separate
 `/tmp/` and `/proxy/` mounts are likewise redirected to `TMP`, `CACHE` and
-`CACHE/PROXY` beside the executable. The asset root mount remains unchanged.
+`CACHE/PROXY` beneath the selected `DEV/GF` or `DEV/DM` directory. The asset
+root mount remains unchanged.
 
 COIN counts one insertion on each press edge. Holding the button does not
 repeat. Like the native V4-V8 libdevice APIs, `device_get_coinstock` consumes

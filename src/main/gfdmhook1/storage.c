@@ -9,6 +9,8 @@
 #include "util/defs.h"
 #include "util/log.h"
 
+static char gfdm_dev_path[MAX_PATH];
+static char gfdm_game_path[MAX_PATH];
 static char gfdm_conf_path[MAX_PATH];
 static char gfdm_nvram_path[MAX_PATH];
 static char gfdm_raw_path[MAX_PATH];
@@ -19,7 +21,7 @@ static BOOL (WINAPI *real_CreateDirectoryA)(LPCSTR, LPSECURITY_ATTRIBUTES);
 static int (__cdecl *real_avs_fs_mount)(
     const char *, const char *, const char *, void *);
 
-static bool gfdm_storage_set_paths(const char *executable)
+static bool gfdm_storage_set_paths(const char *executable, bool is_gf)
 {
     const char *slash;
     const char *forward;
@@ -34,19 +36,23 @@ static bool gfdm_storage_set_paths(const char *executable)
         return false;
     }
     base_len = slash - executable;
-    if (base_len + sizeof("\\CACHE\\PROXY") > MAX_PATH) {
+    if (base_len + sizeof("\\DEV\\GF\\CACHE\\PROXY") > MAX_PATH) {
         return false;
     }
+    snprintf(gfdm_dev_path, sizeof(gfdm_dev_path),
+             "%.*s\\DEV", (int) base_len, executable);
+    snprintf(gfdm_game_path, sizeof(gfdm_game_path),
+             "%s\\%s", gfdm_dev_path, is_gf ? "GF" : "DM");
     snprintf(gfdm_conf_path, sizeof(gfdm_conf_path),
-             "%.*s\\CONF", (int) base_len, executable);
+             "%s\\CONF", gfdm_game_path);
     snprintf(gfdm_nvram_path, sizeof(gfdm_nvram_path),
              "%s\\NVRAM", gfdm_conf_path);
     snprintf(gfdm_raw_path, sizeof(gfdm_raw_path),
              "%s\\RAW", gfdm_conf_path);
     snprintf(gfdm_tmp_path, sizeof(gfdm_tmp_path),
-             "%.*s\\TMP", (int) base_len, executable);
+             "%s\\TMP", gfdm_game_path);
     snprintf(gfdm_cache_path, sizeof(gfdm_cache_path),
-             "%.*s\\CACHE", (int) base_len, executable);
+             "%s\\CACHE", gfdm_game_path);
     snprintf(gfdm_proxy_path, sizeof(gfdm_proxy_path),
              "%s\\PROXY", gfdm_cache_path);
     return true;
@@ -150,14 +156,35 @@ static const struct hook_symbol gfdm_storage_avs_syms[] = {
      .link = (void **) &real_avs_fs_mount},
 };
 
-bool gfdm_storage_init(HMODULE boot)
+static bool gfdm_storage_ensure_directory(const char *path)
+{
+    if (real_CreateDirectoryA(path, NULL)) {
+        return true;
+    }
+
+    DWORD error = GetLastError();
+    DWORD attributes = GetFileAttributesA(path);
+
+    if (error == ERROR_ALREADY_EXISTS &&
+        attributes != INVALID_FILE_ATTRIBUTES &&
+        (attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+        return true;
+    }
+
+    log_warning("GFDM save directory unavailable: %s (error %lu)",
+                path, (unsigned long) error);
+    SetLastError(error);
+    return false;
+}
+
+bool gfdm_storage_init(HMODULE boot, bool is_gf)
 {
     char executable[MAX_PATH];
     DWORD size;
 
     size = GetModuleFileNameA(NULL, executable, sizeof(executable));
     if (boot == NULL || size == 0 || size >= sizeof(executable) ||
-        !gfdm_storage_set_paths(executable)) {
+        !gfdm_storage_set_paths(executable, is_gf)) {
         return false;
     }
     real_CreateDirectoryA = CreateDirectoryA;
@@ -167,27 +194,27 @@ bool gfdm_storage_init(HMODULE boot)
                      lengthof(gfdm_storage_syms));
     hook_table_apply(boot, "libavs-win32.dll", gfdm_storage_avs_syms,
                      lengthof(gfdm_storage_avs_syms));
+    log_info("GFDM %s storage root: %s", is_gf ? "GF" : "DM", gfdm_game_path);
     return true;
+}
+
+bool gfdm_storage_prepare_root(void)
+{
+    return gfdm_storage_ensure_directory(gfdm_dev_path) &&
+           gfdm_storage_ensure_directory(gfdm_game_path);
 }
 
 bool gfdm_storage_prepare(void)
 {
-    const char *paths[] = {gfdm_conf_path, gfdm_nvram_path, gfdm_raw_path,
-                          gfdm_tmp_path, gfdm_cache_path, gfdm_proxy_path};
+    const char *paths[] = {gfdm_cache_path, gfdm_conf_path, gfdm_tmp_path,
+                          gfdm_nvram_path, gfdm_raw_path, gfdm_proxy_path};
 
+    if (!gfdm_storage_prepare_root()) {
+        return false;
+    }
     for (size_t i = 0; i < lengthof(paths); i++) {
-        if (!real_CreateDirectoryA(paths[i], NULL)) {
-            DWORD error = GetLastError();
-            DWORD attributes = GetFileAttributesA(paths[i]);
-
-            if (error != ERROR_ALREADY_EXISTS ||
-                attributes == INVALID_FILE_ATTRIBUTES ||
-                !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
-                log_warning("GFDM save directory unavailable: %s (error %lu)",
-                            paths[i], (unsigned long) error);
-                SetLastError(error);
-                return false;
-            }
+        if (!gfdm_storage_ensure_directory(paths[i])) {
+            return false;
         }
     }
     return true;

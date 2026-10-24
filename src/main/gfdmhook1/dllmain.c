@@ -1676,12 +1676,13 @@ static void gfdm_init(void)
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
     InitializeCriticalSection(&gfdm_input_lock);
 
-    if (!gfdm_storage_init(GetModuleHandleA("boot.dll"))) {
+    cmdline = GetCommandLineA();
+    gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
+    if (!gfdm_storage_init(GetModuleHandleA("boot.dll"), gfdm_is_gf) ||
+        !gfdm_storage_prepare_root()) {
         log_fatal("Cannot resolve GFDM save paths beside the executable");
     }
 
-    cmdline = GetCommandLineA();
-    gfdm_is_gf = gfdm_command_has_switch(cmdline, 'g');
     default_mcode = gfdm_is_gf ? gfdm_profile->mcode_gf : gfdm_profile->mcode_dm;
 
     config = cconfig_init();
