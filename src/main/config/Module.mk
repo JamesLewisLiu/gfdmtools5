@@ -21,6 +21,7 @@ src_config      := \
     buttons.c \
     eam.c \
     gfdm-network.c \
+    gfdm-network-config.c \
     gametype.c \
     lights.c \
     main.c \

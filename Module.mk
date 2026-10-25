@@ -34,9 +34,6 @@ $(zipdir)/gfdm-v%.zip: \
 		dist/gfdm/config-dm.bat \
 		dist/gfdm/gamestart-v%-gf.bat \
 		dist/gfdm/gamestart-v%-dm.bat \
-		dist/gfdm/gfdm-v%-boot.xml \
-		dist/gfdm/gfdm-v%-ea3-ident-gf.xml \
-		dist/gfdm/gfdm-v%-ea3-ident-dm.xml \
 		dist/gfdm/gfdm-v%-gf.conf \
 		dist/gfdm/gfdm-v%-dm.conf \
 		dist/gfdm/assets/v%/CLVSD.ax \

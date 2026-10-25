@@ -17,3 +17,11 @@ Per-file lists, build logs, test logs, artifact SHA256 values, and the original 
 - A clean local x86 build, all five package checks, and all six existing Windows tests passed.
 - The existing external decoder integration harness was compiled against the updated codec.c. Missing, invalid, directory, no-export, old-class and new-class cases passed. The old-class case verified actual module identity, graph add/remove, a different working directory, concurrent creation and no registered decoder fallback.
 - These checks do not establish actual game video playback. No game installation was changed.
+
+## Built-in startup configuration and config.exe update (2026-10-25)
+
+- Removed the fifteen version-specific boot and EA3 identity XML files from `dist/gfdm` and all five archives. The x86 hook now serves the native parser's boot settings and version/mode identity documents from read-only memory files. Launchers keep the native `-b` and `-I` arguments, targeting virtual filenames; no physical XML files are required.
+- Config path selection recognizes the unique versioned package launcher, then the unique mode-specific configuration in the tool directory, and can use a matching game executable when multiple versions are present. A leftover V4 configuration from an older config.exe no longer hides the V7 package identity. It refuses to save if the version is ambiguous and displays the selected filename. The writer preserves existing comments and generates the documented defaults and comments for missing or incomplete files.
+- GF controls list RGB, Picks and Wail for both players before Start and Effector; each CCW follows its CW row. The display-row map translates back to the original persisted mapper action indices.
+- Local x86 build, five-package validation, all eight Windows tests, virtual XML CRT read/seek/reopen checks across ten version/mode pairs, configuration path/comment tests, and action-order/index checks passed. No game installation was changed; in-game boot from memory-served XML remains to be verified.
+- An external x86 UI harness opened the real V7 package config.exe in GF and DM modes, read all displayed button rows, selected the GFDM page, edited settings, switched pages to save, and verified each V7 filename and retained comments. It closed using Cancel to avoid changing the existing AppData input/EAM configuration.

@@ -21,6 +21,7 @@ libs_gfdmhook1 := \
 
 src_gfdmhook1 := \
     bios.c \
+    bootstrap.c \
     coin.c \
     codec.c \
     config.c \

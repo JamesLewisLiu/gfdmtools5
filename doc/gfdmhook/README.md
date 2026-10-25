@@ -8,8 +8,11 @@ Extract `gfdm-vN.zip` into a directory containing that version's original
 `gdvN.exe`, `boot.dll`, `game.dll` and supporting libraries. Keep the existing
 data directory at its original relative location. Start Asphyxia CORE, then
 run `gamestart-vN-gf.bat` or `gamestart-vN-dm.bat`. Each launcher selects its
-own boot XML, EA3 identity and mode-specific configuration: `gfdm-vN-gf.conf`
-or `gfdm-vN-dm.conf`. These files include the configuration comments; no generic
+mode-specific configuration: `gfdm-vN-gf.conf` or `gfdm-vN-dm.conf`.
+The boot settings and version/mode EA3 identity are built into the hook. The
+launcher uses virtual `gfdm-boot.xml` and `gfdm-ea3-ident.xml` paths served from
+memory before native startup; no external XML files need to be installed or edited.
+The two configuration files include the configuration comments; no generic
 `gfdm-vN.conf` is shipped.
 
 | Version | Executable | GF / DM models | Default GF / DM security codes |
@@ -57,6 +60,17 @@ Keep `gfx.frame_rate_limit=60` for normal play. A value of zero disables the
 OpenGL limiter and can make frame-driven game logic run too fast once input
 polling no longer limits performance; `gfx.forced_refresh_rate` alone does not
 limit the OpenGL presentation rate.
+
+The GFDM page in `config.exe` displays the selected version/mode configuration
+filename. It recognizes the package's versioned launcher, then the unique matching
+`.conf` beside the tool, including when testing an extracted package without the
+original game executable or with a stray V4 configuration from an older tool. If several
+versions cannot be distinguished, the page stays disabled instead of guessing V4.
+Saving preserves existing comments; missing settings receive the documented defaults.
+For GF the buttons page lists RGB, Picks and Wail for both players before Start
+and Effector. Each Effector CCW row follows its CW row. Existing binding files
+retain their original action indices.
+
 Do not mix libraries from different game images, or layer this over an old
 replacement `libdevice.dll` which supplies its own identity and input backend.
 
@@ -119,7 +133,7 @@ This also replaces V4's native fixed `0140` prefix and ROM-byte permutation.
 `eamuse.eamid` independently supplies the white roundplug ROM and its EEPROM
 signature; `eamuse.pcbid` also supplies the black roundplug ROM and signature.
 The injected V4 boot path initializes EA3 from the system identity, rather
-than taking the network PCBID from `gfdm-v4-boot.xml`'s legacy identity node.
+than taking the network PCBID from the built-in boot configuration's legacy identity node.
 HARDWARE ID is derived separately from the selected network adapter's MAC.
 
 All V4-V8 profiles, in both GF and DM modes, expose one network adapter to the

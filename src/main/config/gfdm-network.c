@@ -9,6 +9,7 @@
 
 #include "config/resource.h"
 #include "config/schema.h"
+#include "config/gfdm-network-config.h"
 
 #include "util/defs.h"
 #include "util/log.h"
@@ -20,6 +21,8 @@ struct gfdm_network_page {
     char adapter[64];
     wchar_t path[MAX_PATH];
     bool keyboard;
+    bool path_valid;
+    unsigned int version;
 };
 
 static INT_PTR CALLBACK gfdm_network_dlg_proc(
@@ -27,26 +30,15 @@ static INT_PTR CALLBACK gfdm_network_dlg_proc(
 
 static void gfdm_network_init_path(struct gfdm_network_page *page)
 {
-    wchar_t *name;
-    unsigned int version = 4;
+    wchar_t executable[MAX_PATH];
+    DWORD size;
 
-    GetModuleFileNameW(NULL, page->path, lengthof(page->path));
-    name = wcsrchr(page->path, L'\\');
-    if (name == NULL) {
-        name = page->path;
-    } else {
-        name++;
+    size = GetModuleFileNameW(NULL, executable, lengthof(executable));
+    if (size == 0 || size >= lengthof(executable)) {
+        return;
     }
-    for (unsigned int v = 4; v <= 8; v++) {
-        swprintf(name, lengthof(page->path) - (name - page->path),
-            L"gdv%u.exe", v);
-        if (GetFileAttributesW(page->path) != INVALID_FILE_ATTRIBUTES) {
-            version = v;
-            break;
-        }
-    }
-    swprintf(name, lengthof(page->path) - (name - page->path),
-        L"gfdm-v%u-%hs.conf", version, page->mode);
+    page->path_valid = gfdm_network_select_path(executable, page->mode,
+        page->path, lengthof(page->path), &page->version);
 }
 
 static void gfdm_network_load(struct gfdm_network_page *page)
@@ -57,6 +49,9 @@ static void gfdm_network_load(struct gfdm_network_page *page)
     strcpy(page->server, "localhost:80");
     page->adapter[0] = '\0';
     page->keyboard = false;
+    if (!page->path_valid) {
+        return;
+    }
     f = _wfopen(page->path, L"rb");
 
     if (f == NULL) {
@@ -83,13 +78,13 @@ static void gfdm_network_load(struct gfdm_network_page *page)
 static void gfdm_network_save(struct gfdm_network_page *page)
 {
     wchar_t tmp_path[MAX_PATH + 4];
-    char line[512];
     FILE *src;
     FILE *dst;
-    bool server_seen;
-    bool adapter_seen;
-    bool keyboard_seen;
-    bool needs_newline = false;
+
+    if (!page->path_valid) {
+        log_warning("Could not identify a unique GFDM configuration file");
+        return;
+    }
 
     GetDlgItemTextA(
         page->hwnd,
@@ -115,43 +110,25 @@ static void gfdm_network_save(struct gfdm_network_page *page)
         return;
     }
 
-    server_seen = false;
-    adapter_seen = false;
-    keyboard_seen = false;
+    if (src == NULL && GetFileAttributesW(page->path) != INVALID_FILE_ATTRIBUTES) {
+        log_warning("Could not read existing GFDM configuration");
+        fclose(dst);
+        DeleteFileW(tmp_path);
+        return;
+    }
 
-    if (src != NULL) {
-        while (fgets(line, sizeof(line), src) != NULL) {
-            needs_newline = false;
-            if (strncmp(line, "eamuse.server=", 14) == 0) {
-                fprintf(dst, "eamuse.server=%s\n", page->server);
-                server_seen = true;
-            } else if (strncmp(line, "adapter.override_ip=", 20) == 0) {
-                fprintf(dst, "adapter.override_ip=%s\n", page->adapter);
-                adapter_seen = true;
-            } else if (strncmp(line, "input.keyboard=", 15) == 0) {
-                fprintf(dst, "input.keyboard=%s\n", page->keyboard ? "true" : "false");
-                keyboard_seen = true;
-            } else {
-                size_t len = strlen(line);
-                fputs(line, dst);
-                needs_newline = len != 0 && line[len - 1] != '\n';
-            }
+    if (!gfdm_network_write_config(src, dst, page->version, page->mode,
+            page->server, page->adapter, page->keyboard)) {
+        log_warning("Could not write GFDM configuration contents");
+        if (src != NULL) {
+            fclose(src);
         }
+        fclose(dst);
+        DeleteFileW(tmp_path);
+        return;
+    }
+    if (src != NULL) {
         fclose(src);
-    }
-
-    if (needs_newline) {
-        fputc('\n', dst);
-    }
-    if (!server_seen) {
-        fprintf(dst, "eamuse.server=%s\n", page->server);
-    }
-    if (!adapter_seen) {
-        fprintf(dst, "adapter.override_ip=%s\n", page->adapter);
-    }
-
-    if (!keyboard_seen) {
-        fprintf(dst, "input.keyboard=%s\n", page->keyboard ? "true" : "false");
     }
 
     if (fclose(dst) != 0 || !MoveFileExW(tmp_path, page->path,
@@ -202,11 +179,24 @@ static INT_PTR CALLBACK gfdm_network_dlg_proc(
             page->hwnd = hwnd;
             gfdm_network_init_path(page);
             gfdm_network_load(page);
+            if (!page->path_valid) {
+                EnableWindow(GetDlgItem(hwnd, IDC_GFDM_SERVER), FALSE);
+                EnableWindow(GetDlgItem(hwnd, IDC_GFDM_ADAPTER), FALSE);
+                EnableWindow(GetDlgItem(hwnd, IDC_GFDM_KEYBOARD), FALSE);
+            }
             SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) page);
             SetDlgItemTextA(hwnd, IDC_GFDM_SERVER, page->server);
             SetDlgItemTextA(hwnd, IDC_GFDM_ADAPTER, page->adapter);
             CheckDlgButton(hwnd, IDC_GFDM_KEYBOARD,
                 page->keyboard ? BST_CHECKED : BST_UNCHECKED);
+            if (page->path_valid) {
+                SetDlgItemTextW(hwnd, IDC_GFDM_CONFIG_PATH,
+                    wcsrchr(page->path, L'\\') != NULL
+                        ? wcsrchr(page->path, L'\\') + 1 : page->path);
+            } else {
+                SetDlgItemTextW(hwnd, IDC_GFDM_CONFIG_PATH,
+                    L"Cannot select a version. Keep one version's .conf files beside config.exe.");
+            }
             return TRUE;
 
         case WM_NOTIFY:

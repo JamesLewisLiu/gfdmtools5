@@ -11,6 +11,7 @@
 
 #include "config/bind-adv.h"
 #include "config/bind.h"
+#include "config/action-order.h"
 #include "config/resource.h"
 #include "config/schema.h"
 #include "config/usages.h"
@@ -174,7 +175,9 @@ static INT_PTR buttons_handle_init(HWND hwnd, const PROPSHEETPAGE *psp)
         memset(&item, 0, sizeof(item));
 
         LoadString(
-            inst, self->schema->actions[i].name_rsrc, str, lengthof(str));
+            inst, self->schema->actions[
+                gfdm_action_for_display_row(self->schema, i)].name_rsrc,
+            str, lengthof(str));
 
         item.mask = LVIF_TEXT;
         item.iItem = (int) i;
@@ -263,7 +266,8 @@ static void buttons_update_bindings(HWND hwnd)
         memset(&item, 0, sizeof(item));
 
         item.mask = LVIF_TEXT;
-        item.iItem = (int) action_iter_get_action(pos);
+        item.iItem = (int) gfdm_display_row_for_action(
+            self->schema, action_iter_get_action(pos));
         item.iSubItem = 1;
         item.pszText = str;
 
@@ -349,6 +353,7 @@ static INT_PTR buttons_handle_binding_adv(HWND hwnd)
         return TRUE;
     }
 
+    action_no = gfdm_action_for_display_row(self->schema, action_no);
     bit = self->schema->actions[action_no].bit;
 
     is_valid = mapper_get_action_map((uint8_t) action_no, self->page_no, &ma);
@@ -373,6 +378,7 @@ static INT_PTR buttons_handle_binding_clear(HWND hwnd)
         return TRUE;
     }
 
+    action_no = gfdm_action_for_display_row(self->schema, action_no);
     mapper_clear_action_map((uint8_t) action_no, self->page_no);
     buttons_update(hwnd);
 
@@ -388,6 +394,7 @@ buttons_handle_binding_edit(HWND hwnd, BOOL bind_many, bool naive)
     struct mapped_action ma;
     int action_start;
     int action_no;
+    int row;
     uint8_t bit;
 
     inst = (HINSTANCE) GetWindowLongPtr(hwnd, GWLP_HINSTANCE);
@@ -401,13 +408,13 @@ buttons_handle_binding_edit(HWND hwnd, BOOL bind_many, bool naive)
         return TRUE;
     }
 
-    for (action_no = action_start; action_no < self->schema->nactions;
-         action_no++) {
+    for (row = action_start; row < self->schema->nactions; row++) {
         // Make sure the next listview item is visible
         ListView_SetItemState(
-            listview, action_no, LVIS_FOCUSED | LVIS_SELECTED, 0x000F);
-        ListView_EnsureVisible(listview, action_no, FALSE);
+            listview, row, LVIS_FOCUSED | LVIS_SELECTED, 0x000F);
+        ListView_EnsureVisible(listview, row, FALSE);
 
+        action_no = gfdm_action_for_display_row(self->schema, row);
         bit = self->schema->actions[action_no].bit;
 
         if (bind_control(
