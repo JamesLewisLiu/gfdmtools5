@@ -197,9 +197,9 @@ FONT 8, "Ms Shell Dlg"
     EDITTEXT        IDC_GFDM_ADAPTER, 95, 45, 145, 14, ES_AUTOHSCROLL
     LTEXT           "Leave adapter empty to use the Windows default route.", IDC_STATIC, 15, 73, 225, 8, SS_LEFT
     LTEXT           "", IDC_GFDM_CONFIG_PATH, 15, 85, 225, 18, SS_LEFT
-    GROUPBOX        "Input", IDC_STATIC, 5, 110, 250, 55
+    GROUPBOX        "Input and Display", IDC_STATIC, 5, 110, 250, 55
     AUTOCHECKBOX    "Enable built-in keyboard fallback", IDC_GFDM_KEYBOARD, 15, 125, 225, 10
-    LTEXT           "Leave off when using configured IO bindings.", IDC_STATIC, 15, 145, 225, 8, SS_LEFT
+    AUTOCHECKBOX    "Fullscreen (requires game restart)", IDC_GFDM_FULLSCREEN, 15, 145, 225, 10
 }
 
 

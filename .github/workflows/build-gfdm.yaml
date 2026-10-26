@@ -39,10 +39,10 @@ jobs:
         with:
           name: gfdm-tests-x86-${{ github.sha }}
           path: tests
-      - name: Run all eight x86 tests
+      - name: Run all nine x86 tests
         shell: pwsh
         run: |
-          $tests = @('geninput-naive', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config')
+          $tests = @('geninput-naive', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-display')
           foreach ($test in $tests) {
             & "./tests/$test-test.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-27: Add a per-version/mode Fullscreen checkbox and gfx.fullscreen setting. Use the native V4-V8 OpenGL fullscreen lifecycle or a fixed-size framed window; unsupported fullscreen modes fall back to a window. Restart the game to apply changes.
+
 2026-10-26: Fix the V4 fresh-data initialization notice repeating after TEST acknowledgement, with native validity/save-error guards. Keep V5-V8 behavior unchanged. Launchers create only DEV and the selected GF/DM root; remove unused XML arguments and the virtual-file implementation that native boot does not consume.
 
 2026-10-25: Embed boot and EA3 identity XML in the x86 hook, fix V7 config selection and comment persistence, and reorder GF controls without changing stored action indices.

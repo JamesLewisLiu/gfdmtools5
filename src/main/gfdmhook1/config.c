@@ -10,6 +10,7 @@
 #define EAMID_KEY "eamuse.eamid"
 #define MCODE_KEY "security.mcode"
 #define KEYBOARD_KEY "input.keyboard"
+#define FULLSCREEN_KEY "gfx.fullscreen"
 #define FRAME_RATE_LIMIT_KEY "gfx.frame_rate_limit"
 #define FORCED_REFRESH_RATE_KEY "gfx.forced_refresh_rate"
 
@@ -48,6 +49,11 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         KEYBOARD_KEY,
         false,
         "enable the default keyboard-to-panel mapping");
+    cconfig_util_set_bool(
+        config,
+        FULLSCREEN_KEY,
+        false,
+        "run the game fullscreen (false uses a fixed-size window; restart required)");
     cconfig_util_set_float(
         config,
         FRAME_RATE_LIMIT_KEY,
@@ -107,6 +113,7 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
+    cconfig_util_get_bool(config, FULLSCREEN_KEY, &out->fullscreen, false);
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
         log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);

@@ -27,3 +27,8 @@ src_gfdm-backup-test := backup-test.c
 testexes += gfdm-config-test
 srcdir_gfdm-config-test := src/test/gfdmhook1
 src_gfdm-config-test := config-test.c
+
+testexes += gfdm-display-test
+srcdir_gfdm-display-test := src/test/gfdmhook1
+src_gfdm-display-test := display-test.c
+ldflags_gfdm-display-test := -luser32

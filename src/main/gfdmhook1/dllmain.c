@@ -15,6 +15,7 @@
 #include "gfdmhook1/codec.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/debug.h"
+#include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
@@ -1752,6 +1753,7 @@ static void(__cdecl *real_boot_main)(HWND);
 static void __cdecl gfdm_boot_main(HWND hwnd)
 {
     gfdm_init();
+    gfdm_display_init(hwnd, gfdm_config.fullscreen);
     real_boot_main(hwnd);
 }
 

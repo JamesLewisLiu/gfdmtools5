@@ -26,6 +26,7 @@ src_gfdmhook1 := \
     codec.c \
     config.c \
     debug.c \
+    display.c \
     effect.c \
     dllmain.c \
     network.c \

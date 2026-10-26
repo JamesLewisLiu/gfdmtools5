@@ -19,6 +19,7 @@ bool gfdm_network_write_config(
     const char *mode,
     const char *server,
     const char *adapter,
-    bool keyboard);
+    bool keyboard,
+    bool fullscreen);
 
 #endif

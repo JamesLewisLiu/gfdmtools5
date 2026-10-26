@@ -67,6 +67,12 @@ filename. It recognizes the package's versioned launcher, then the unique matchi
 original game executable or with a stray V4 configuration from an older tool. If several
 versions cannot be distinguished, the page stays disabled instead of guessing V4.
 Saving preserves existing comments; missing settings receive the documented defaults.
+The GFDM page also provides a `Fullscreen` checkbox, saved independently in the
+selected version/mode file as `gfx.fullscreen`. It defaults to `false` (a fixed-size
+window with a title bar). Set it to `true` for the game's native fullscreen mode;
+restart the game after changing it. The hook keeps the native render dimensions
+and lets libsystem restore the previous desktop mode on exit. If the display
+rejects the native fullscreen mode, it logs a warning and uses a window.
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files
 retain their original action indices.
