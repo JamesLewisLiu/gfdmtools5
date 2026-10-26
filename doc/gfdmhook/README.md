@@ -15,6 +15,13 @@ need no `-I` or `-b` XML arguments and no XML files need to be installed or edit
 The two configuration files include the configuration comments; no generic
 `gfdm-vN.conf` is shipped.
 
+For a verified shared unpacked store, put the five program directories beside
+one `data` directory and set `layered.enabled=true` in their configurations.
+The shared content objects are selected through a separate manifest and original
+metadata for each version. The option remains off for ordinary packed installs.
+See [layered data](layered-data.md) for the required layout, exact-module checks,
+full startup verification and validation boundaries.
+
 | Version | Executable | GF / DM models | Default GF / DM security codes |
 | --- | --- | --- | --- |
 | V4 | gdv4.exe | G33 / G32 | GCG33JAA / GCG32JAA |

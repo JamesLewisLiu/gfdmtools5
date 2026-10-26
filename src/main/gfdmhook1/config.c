@@ -28,7 +28,7 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "e-amusement server URL or host:port");
     hooklib_config_adapter_init(config);
     cconfig_util_set_bool(config, LAYERED_KEY, false,
-        "V4 only: require verified unpacked objects and forbid packed fallback");
+        "V4-V8: require verified unpacked objects and forbid packed fallback");
     cconfig_util_set_data(
         config,
         PCBID_KEY,

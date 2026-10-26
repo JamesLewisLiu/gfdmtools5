@@ -1,4 +1,4 @@
-# V4 layered data export
+# Layered data export and shared V4-V8 routing
 
 The exporter in `scripts/export-v4-layered.py` reads the original V4
 `data/pack/packinfo.bin` and exports every indexed resource as an unchanged raw
@@ -89,13 +89,50 @@ duplicate keys, missing packs, malformed index headers, bad pack IDs, source
 and output overlap, successful resume, changed-index rejection, and corrupt
 existing objects of both matching and different length.
 
-## Native V4 resource routing
+## Native V4-V8 resource routing
 
-Copy the existing V4 program directory and its save directories to the sibling
-`binbt5` in the isolated test tree. Use the Actions-built `gfdmhook1.dll` there,
-and append `layered.enabled=true` to the mode-specific configuration. The option
-defaults to false; enabling it for V5-V8 refuses startup. Original game DLLs
-are unchanged. No game DLLs or resources are needed by CI.
+Use five original program directories beside a single shared data directory,
+install the Actions-built `gfdmhook1.dll`, and set `layered.enabled=true` in each
+mode-specific configuration. The option defaults to false for ordinary packed
+installs. Original game DLLs are unchanged. No game DLLs or resources are needed
+by CI. The existing `export-v4-layered.py` remains V4-only; runtime support for
+later versions does not make that exporter a V5-V8 decoder.
+
+```text
+GFDM/
+  V4/                              # gdv4.exe, original DLLs, config, DEV
+  V5/                              # gdv5.exe and its own config/DEV
+  V6/
+  V7/
+  V8/
+  data/
+    _loose/
+      objects/<sha256>.bin         # decoded original bytes; one content copy
+      v4/manifest.bin
+      v4/packinfo.bin              # exact original V4 index
+      v4/finfolist.bin
+      v5/manifest.bin              # likewise for V5, V6, V7, V8
+      v5/packinfo.bin
+      v5/finfolist.bin
+```
+
+Every version selects its own metadata below `_loose/vN`. Only original logical
+requests for `/data/pack/packinfo.bin` and `/data/finfolist.bin` are redirected to
+the selected metadata. The exact metadata path match also accepts Windows
+backslashes, case differences and an omitted leading slash; unrelated resource
+paths retain their native behavior. All AVS consumers receive this routing,
+including DLLs handled by the existing late-load hook pass. The libpackfs import
+has a separate wrapper that also checks the mounted index and rejects PAK reads.
+Other metadata consumers cannot acknowledge or invalidate native PKFS boot.
+Both wrappers call the real AVS export directly, so repeated hook application
+does not create a chain of wrappers.
+
+The old V4 tree remains supported: if neither versioned metadata file is present,
+V4 can still use `data/pack/packinfo.bin` and `data/finfolist.bin` alongside
+`data/_loose/v4/manifest.bin`. A partially installed versioned pair fails; V5-V8
+never fall back to root metadata. Common content does not imply common original
+paths: the version manifests can select different objects for the same CRC key.
+Keep configuration, NVRAM, RAW and caches in their own version/mode directories.
 
 V4's native boot builds its AVS property tree in a fixed 1512-byte buffer.
 Replacing short save paths with longer absolute paths can exhaust that tree,
@@ -106,8 +143,12 @@ passes that copy to AVS. AVS copies its settings and mount paths before return;
 the temporary tree is then destroyed and its buffer freed. Original settings
 and error handling remain in place. This change is confined to V4.
 
-The hook resolves `../data` from the executable directory, verifies the known
-V4 libpackfs SHA256, matches every manifest record to the original index,
+The hook resolves `../data` from the executable directory. It checks the current
+version's exact known libpackfs, packinfo and finfolist SHA256 values; V4-V7 use
+index magic `0x20041207`, while V8 uses `0x20110201`. Unknown or misplaced modules
+and metadata fail rather than selecting another version's files. Each manifest
+header is additionally bound to the full original index SHA256. The hook matches
+every manifest record to that index,
 rejects duplicate keys and verifies every object's length, MD5 and SHA256 before
 boot. This reads the complete object store at every startup and can take time.
 The preflight describes the bytes at startup; live editing or replacing the
@@ -128,6 +169,13 @@ validation; resource logs record requested names, keys, objects and native
 descriptors. A successful export proves all indexed contents were extracted,
 not that every song or game path was exercised. Runtime logs establish only
 the requests actually observed.
+
+The V7/V8 open function normalizes names before its exported path lookup;
+the hook reproduces that exact step before looking up the original request.
+It adds a leading slash for `data/`, and lowercases ASCII only when the resulting
+prefix is `/data/aep` (not `/data/product/aep`). Its 512-byte formatting buffer
+preserves the original truncation behavior. No backslash or dot-segment cleanup
+is added. V4-V6 keep their original direct lookup semantics.
 
 This implementation independently adapts the original-handle routing idea
 from [ifs_layeredfs](https://github.com/mon/ifs_layeredfs). It does not copy or
