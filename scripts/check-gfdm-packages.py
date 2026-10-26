@@ -42,9 +42,16 @@ def check(directory):
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",
-                              "-I gfdm-ea3-ident.xml",
-                              "-b gfdm-boot.xml", f"--config {prefix}-{mode}.conf"):
+                              f"--config {prefix}-{mode}.conf"):
                     assert token in launch, (version, mode, token)
+                lines = launch.splitlines()
+                assert 'cd /d "%~dp0"' in lines, (version, mode)
+                assert [line for line in lines if "mkdir" in line] == [
+                    "if not exist DEV mkdir DEV",
+                    f"if not exist DEV\\{mode.upper()} mkdir DEV\\{mode.upper()}",
+                ], (version, mode, lines)
+                assert ".xml" not in launch.lower(), (version, mode)
+                assert " -I " not in launch and " -b " not in launch, (version, mode)
             print(f"PASS {prefix}: files, decoder, shared hook, GF/DM model and launcher wiring")
 
 

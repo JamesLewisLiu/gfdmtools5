@@ -21,8 +21,8 @@ libs_gfdmhook1 := \
 
 src_gfdmhook1 := \
     avs-config.c \
+    backup.c \
     bios.c \
-    bootstrap.c \
     coin.c \
     codec.c \
     config.c \

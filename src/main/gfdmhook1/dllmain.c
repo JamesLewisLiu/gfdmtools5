@@ -10,8 +10,8 @@
 #include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/avs-config.h"
+#include "gfdmhook1/backup.h"
 #include "gfdmhook1/bios.h"
-#include "gfdmhook1/bootstrap.h"
 #include "gfdmhook1/coin.h"
 #include "gfdmhook1/codec.h"
 #include "gfdmhook1/config.h"
@@ -1194,6 +1194,7 @@ static const struct hook_symbol gfdm_audio_syms[] = {
 
 static void gfdm_apply_system_hooks(void)
 {
+    gfdm_backup_apply_hooks(gfdm_profile->version);
     /* game.dll may be loaded after libsystem.dll, so scan all consumers. */
     hook_table_apply(NULL, "libsystem.dll", gfdm_system_syms,
                      lengthof(gfdm_system_syms));
@@ -1804,11 +1805,6 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
         gfdm_module = mod;
         gfdm_open_log_file();
         log_to_writer(gfdm_log_writer, NULL);
-        if (!gfdm_bootstrap_init(gfdm_profile,
-                gfdm_command_has_switch(GetCommandLineA(), 'g'))) {
-            log_warning("Could not initialize built-in GFDM startup configuration");
-            return FALSE;
-        }
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
     }
 

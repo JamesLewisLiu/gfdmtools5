@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-26: Fix the V4 fresh-data initialization notice repeating after TEST acknowledgement, with native validity/save-error guards. Keep V5-V8 behavior unchanged. Launchers create only DEV and the selected GF/DM root; remove unused XML arguments and the virtual-file implementation that native boot does not consume.
+
 2026-10-25: Embed boot and EA3 identity XML in the x86 hook, fix V7 config selection and comment persistence, and reorder GF controls without changing stored action indices.
 
 2026-10-25: Place CLVSD.ax beside inject.exe, remove unused generic configurations, and document the GF/DM configurations.
