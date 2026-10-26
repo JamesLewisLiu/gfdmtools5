@@ -133,7 +133,9 @@ python scripts/probe-v4-pkfs.py --pid PID --runtime I:/GFDMV4-unpacked-test/binb
 ```
 
 It calls the original exports to test native loose-file descriptors separately
-from routing. It records sampled full-file digests, EOF, rewind, close, two
+from routing, on the registered rendering thread at `SwapBuffers` return.
+AVS operations must not be called directly from Frida's RPC worker thread.
+It records sampled full-file digests, EOF, rewind, close, two
 interleaved handles and a missing-file result. Interleaving does not establish
 simultaneous multithreaded coverage. Run the probe on a disposable test process;
 the failed-open check does not clear any resulting native error flag.

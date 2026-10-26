@@ -6,6 +6,9 @@ probe, not a synthetic CI test: no game DLLs or data are bundled. The caller
 must select a PID and its isolated runtime directory explicitly. It calls the
 original libpackfs exports, bypassing the routing hook, so it tests the native
 loose-file handle contract independently of the hook's own implementation.
+The game must already be presenting frames. Native AVS calls run once on the
+thread returning from SwapBuffers, preserving that game's AVS thread/TLS
+context instead of calling AVS from Frida's unregistered RPC worker thread.
 """
 import argparse
 import hashlib
@@ -43,7 +46,9 @@ const getHash = win('CryptGetHashParam', 'int', ['pointer', 'uint', 'pointer', '
 const destroyHash = win('CryptDestroyHash', 'int', ['pointer']);
 const buffer = Memory.alloc(65536);
 const statBuffer = Memory.alloc(256);
+let probeDeadline = 0;
 function check(ok, why) { if (!ok) throw new Error(why); }
+function checkDeadline() { check(Date.now() < probeDeadline, 'native probe exceeded its 30 second deadline'); }
 function hex(bytes) { return Array.from(new Uint8Array(bytes)).map(x => x.toString(16).padStart(2, '0')).join(''); }
 function fileStat(fd) {
     statBuffer.writeByteArray(new Uint8Array(256));
@@ -67,6 +72,7 @@ function digest(fd, length, algorithm, outputSize) {
         hash = hashOut.readPointer();
         let total = 0;
         while (total < length) {
+            checkDeadline();
             const count = read(fd, buffer, Math.min(65536, length - total));
             check(count > 0 && count <= Math.min(65536, length - total), 'native short/error read at ' + total);
             check(hashData(hash, buffer, count, 0), 'CryptHashData failed');
@@ -82,13 +88,13 @@ function digest(fd, length, algorithm, outputSize) {
         release(provider, 0);
     }
 }
-rpc.exports = {
+const api = {
     identity() {
         return {
             arch: Process.arch,
             executable: Process.mainModule.path,
             pkfs: pack.path,
-            imports: Process.enumerateModules().flatMap(m =>
+            imports: [Process.getModuleByName('libgftools.dll')].flatMap(m =>
                 m.enumerateImports().filter(i => i.name === '?pkfs_fs_open@@YAIPBD@Z').map(i => {
                     const target = i.slot ? i.slot.readPointer() : i.address;
                     const owner = target ? Process.findModuleByAddress(target) : null;
@@ -98,9 +104,11 @@ rpc.exports = {
                 }))
         };
     },
-    run(samples) {
+    runSamples(samples) {
+        checkDeadline();
         const results = [], before = hddError();
         for (const sample of samples) {
+            checkDeadline();
             const objectPath = Memory.allocUtf8String(sample.path);
             const objectCrc32 = hashKey(objectPath);
             const objectCrc16 = hashSubkey(objectPath);
@@ -127,6 +135,7 @@ rpc.exports = {
         }
         // Two independent descriptors, alternated reads; this does not claim
         // simultaneous multithreaded coverage. Native V4 has only eight slots.
+        checkDeadline();
         const pair = samples.find(s => s.length >= 96) || samples[0], a = openObject(pair.path);
         let b = 0, interleaved;
         try {
@@ -146,19 +155,93 @@ rpc.exports = {
                   'rewinding descriptor a changed descriptor b position');
             interleaved = {a: a, b: b, prefixBytes: n, prefixHex: ah, pass: true};
         } finally {
-            if (b) check(close(b) === 0, 'interleaved close b failed');
-            check(close(a) === 0, 'interleaved close a failed');
+            try {
+                if (b) check(close(b) === 0, 'interleaved close b failed');
+            } finally {
+                check(close(a) === 0, 'interleaved close a failed');
+            }
         }
         // Missing-file probing may set native error state; never clear a
         // global error flag to make an integration result appear successful.
+        checkDeadline();
         const missing = '/data/_loose/objects/nonexistent-probe-' + Process.id + '.bin';
         const missingFd = open(Memory.allocUtf8String(missing));
         if (missingFd) close(missingFd);
         check(missingFd === 0, 'missing loose object unexpectedly opened');
+        checkDeadline();
         return {samples: results, interleaved: interleaved,
                 missing: {path: missing, fd: missingFd},
                 hddErrorBefore: before, hddErrorAfter: hddError(),
                 coverage: 'native exports; streamed contents, EOF, rewind, close, interleaved handles; no simultaneous worker threads'};
+    }
+};
+
+let pendingProbe = null;
+rpc.exports = {
+    identity: api.identity,
+    run(samples) {
+        check(pendingProbe === null, 'a native probe is already pending');
+        const swap = Process.getModuleByName('gdi32.dll').getExportByName('SwapBuffers');
+        return new Promise((resolve, reject) => {
+            const task = {state: 'waiting', listener: null, timer: null};
+            pendingProbe = task;
+            probeDeadline = Date.now() + 30000;
+            function detach() {
+                if (task.listener !== null) {
+                    task.listener.detach();
+                    task.listener = null;
+                }
+            }
+            function cleanup() {
+                detach();
+                if (task.timer !== null) {
+                    clearTimeout(task.timer);
+                    task.timer = null;
+                }
+                task.state = 'finished';
+                if (pendingProbe === task) pendingProbe = null;
+            }
+            task.timer = setTimeout(() => {
+                // When no frame arrives, remove the hook and reject promptly.
+                // A native call already in flight cannot safely be interrupted;
+                // the read loop checks the same deadline between bounded reads
+                // and closes its native handles before the Promise rejects.
+                if (task.state === 'waiting') {
+                    cleanup();
+                    reject(new Error('No SwapBuffers callback within 30 seconds; initialize the isolated game render loop first'));
+                }
+            }, 30000);
+            try {
+                task.listener = Interceptor.attach(swap, {
+                    onLeave() {
+                        if (task.state !== 'waiting') return;
+                        task.state = 'running';
+                        // Claim exactly one callback and remove it before any
+                        // native work, avoiding nested or subsequent frames.
+                        detach();
+                        const threadId = Process.getCurrentThreadId();
+                        try {
+                            checkDeadline();
+                            const started = Date.now();
+                            const result = api.runSamples(samples);
+                            result.execution = {threadId: threadId,
+                                boundary: 'gdi32!SwapBuffers onLeave',
+                                durationMs: Date.now() - started,
+                                deadlineMs: 30000};
+                            cleanup();
+                            resolve(result);
+                        } catch (error) {
+                            cleanup();
+                            reject(error);
+                        }
+                    }
+                });
+                if (task.state !== 'waiting') detach();
+            } catch (error) {
+                cleanup();
+                reject(error);
+            }
+        });
     }
 };
 """
@@ -248,8 +331,14 @@ def main():
         raise
     finally:
         if script is not None:
-            script.unload()
-        session.detach()
+            try:
+                script.unload()
+            except frida.InvalidOperationError:
+                pass
+        try:
+            session.detach()
+        except frida.InvalidOperationError:
+            pass
         report["finished"] = time.time()
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(report, indent=2), encoding="utf-8")
