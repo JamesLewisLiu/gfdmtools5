@@ -27,9 +27,9 @@ const close = exp('?pkfs_fs_close@@YAHI@Z', 'int', ['uint']);
 const read = exp('?pkfs_fs_read@@YAHIPAXH@Z', 'int', ['uint', 'pointer', 'int']);
 const stat = exp('?pkfs_fs_fstat@@YAEIPAUT_AVS_FS_STAT@@@Z', 'uchar', ['uint', 'pointer']);
 const rewind = exp('?pkfs_fs_rewind@@YAHI@Z', 'int', ['uint']);
-const search = exp('?pkfs_search_pathtab@@YAPAUpkfs_pathtab@@IG@Z', 'pointer', ['uint', 'ushort']);
+const search = exp('?pkfs_search_pathtab@@YAPAUpkfs_pathtab@@IG@Z', 'pointer', ['uint', 'uint16']);
 const hashKey = exp('?pkfs_hash_key@@YAIPBD@Z', 'uint', ['pointer']);
-const hashSubkey = exp('?pkfs_hash_subkey@@YAGPBD@Z', 'ushort', ['pointer']);
+const hashSubkey = exp('?pkfs_hash_subkey@@YAGPBD@Z', 'uint16', ['pointer']);
 const hddError = exp('?pkfs_is_hdd_error@@YAEXZ', 'uchar', []);
 const advapi = Process.getModuleByName('advapi32.dll');
 function win(name, ret, args) {
@@ -212,12 +212,25 @@ def main():
     import frida
     session = frida.get_local_device().attach(args.pid)
     report = dict(pid=args.pid, runtime=str(runtime), manifest_sha256=sha256(manifest),
-                  started=time.time(), pass_=False)
+                  started=time.time(), pass_=False, script_messages=[])
     script = None
+
+    def on_message(message, data):
+        item = dict(time=time.time(), message=message)
+        if data is not None:
+            item["binary_bytes"] = len(data)
+            item["binary_sha256"] = hashlib.sha256(data).hexdigest()
+        report["script_messages"].append(item)
+
     try:
         # V4's own hash exports avoid assuming a subkey polynomial here.
         script = session.create_script(SCRIPT)
+        script.on("message", on_message)
         script.load()
+        errors = [item["message"] for item in report["script_messages"]
+                  if item["message"].get("type") == "error"]
+        if errors:
+            raise RuntimeError("Frida script load error: " + json.dumps(errors))
         identity = script.exports_sync.identity()
         report["identity"] = identity
         if identity["arch"] != "ia32":
