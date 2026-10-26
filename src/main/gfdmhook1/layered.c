@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 #include "gfdmhook1/layered.h"
 #include "hook/table.h"
@@ -65,6 +66,7 @@ typedef char layered_entry_size[(sizeof(struct layered_entry) == 64) ? 1 : -1];
 
 static bool layered_enabled;
 static bool layered_index_seen;
+static bool layered_full_verify;
 static const struct layered_profile *layered_profile;
 static char layered_root[MAX_PATH];
 static char layered_index_path[MAX_PATH];
@@ -158,20 +160,15 @@ static void layered_hex(char *out, const uint8_t *in, size_t size)
     out[2 * size] = 0;
 }
 
-static bool layered_hash_file(const char *path, uint8_t sha[32],
-                              uint8_t md5[16], uint64_t *size)
+static bool layered_hash_handle(HANDLE file, uint8_t sha[32],
+                                uint8_t md5[16], uint64_t *size)
 {
     HCRYPTPROV provider = 0;
     HCRYPTHASH hsha = 0, hmd5 = 0;
     uint8_t buffer[65536];
     DWORD got, digest_size;
     bool ok = false;
-    HANDLE file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
-                              OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
     *size = 0;
-    if (file == INVALID_HANDLE_VALUE) {
-        return false;
-    }
     if (!CryptAcquireContextA(&provider, NULL, NULL, PROV_RSA_AES,
                                CRYPT_VERIFYCONTEXT) ||
         !CryptCreateHash(provider, CALG_SHA_256, 0, 0, &hsha) ||
@@ -201,6 +198,16 @@ done:
     if (hmd5) CryptDestroyHash(hmd5);
     if (hsha) CryptDestroyHash(hsha);
     if (provider) CryptReleaseContext(provider, 0);
+    return ok;
+}
+
+static bool layered_hash_file(const char *path, uint8_t sha[32],
+                              uint8_t md5[16], uint64_t *size)
+{
+    HANDLE file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                              OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+    if (file == INVALID_HANDLE_VALUE) return false;
+    bool ok = layered_hash_handle(file, sha, md5, size);
     CloseHandle(file);
     return ok;
 }
@@ -233,6 +240,8 @@ static uint16_t layered_u16(const void *p)
     memcpy(&n, p, sizeof(n));
     return n;
 }
+
+#include "gfdmhook1/layered-cache.h"
 
 static int layered_compare(const void *a, const void *b)
 {
@@ -325,19 +334,28 @@ static bool layered_load_manifest(void)
         const struct layered_entry *entry = layered_find(record);
         if (entry == NULL || memcmp(&entry->record, record, 32) != 0) return false;
     }
-    log_info("GFDM layered: full SHA256/MD5 preflight of %u records", layered_count);
+    struct layered_cache cache;
+    DWORD started = GetTickCount();
+    layered_cache_begin(&cache);
+    log_info("GFDM layered: %s SHA256/MD5 preflight of %u records",
+             layered_full_verify ? "full" : "cached", layered_count);
     for (uint32_t i = 0; i < layered_count; i++) {
         char object[65];
         const struct layered_entry *entry = &layered_entries[i];
         layered_hex(object, entry->sha256, 32);
         snprintf(path, sizeof(path), "%s/_loose/objects/%s.bin", layered_root, object);
-        if (!layered_hash_file(path, sha, md5, &size) || size != entry->record.length ||
-            memcmp(sha, entry->sha256, 32) || memcmp(md5, entry->record.md5, 16)) {
+        if (!layered_cache_verify(&cache, path, entry, layered_full_verify)) {
             log_warning("GFDM layered: invalid object %s", object);
+            layered_cache_end(&cache, false);
             return false;
         }
         if ((i + 1) % 512 == 0) log_info("GFDM layered preflight: %u/%u", i + 1, layered_count);
     }
+    layered_cache_end(&cache, true);
+    layered_last_preflight_ms = GetTickCount() - started;
+    log_info("GFDM layered: preflight %lu ms; cached=%u hashed=%u bytes=%llu",
+             (unsigned long) layered_last_preflight_ms, layered_last_cache_hits,
+             layered_last_hashes, (unsigned long long) layered_last_hash_bytes);
     if (!layered_hash_file(layered_finfolist_path, sha, md5, &size)) return false;
     layered_hex(digest, sha, 32);
     if (strcmp(digest, layered_profile->finfolist_sha)) return false;
@@ -460,8 +478,9 @@ static const struct hook_symbol layered_metadata_syms[] = {
     {.name = "avs_fs_open", .patch = layered_open_metadata},
 };
 
-bool gfdm_layered_init(unsigned int version, bool enabled)
+bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify)
 {
+    layered_full_verify = full_verify;
     HMODULE pkfs, avs;
     char executable[MAX_PATH], module_path[MAX_PATH], digest[65];
     uint8_t sha[32], md5[16];

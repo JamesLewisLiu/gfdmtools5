@@ -148,11 +148,44 @@ version's exact known libpackfs, packinfo and finfolist SHA256 values; V4-V7 use
 index magic `0x20041207`, while V8 uses `0x20110201`. Unknown or misplaced modules
 and metadata fail rather than selecting another version's files. Each manifest
 header is additionally bound to the full original index SHA256. The hook matches
-every manifest record to that index,
-rejects duplicate keys and verifies every object's length, MD5 and SHA256 before
-boot. This reads the complete object store at every startup and can take time.
+every manifest record to that index and rejects duplicate keys. The first use
+verifies every object's length, MD5 and SHA256 before boot. Later starts can
+reuse the local NTFS verification cache described below.
 The preflight describes the bytes at startup; live editing or replacing the
 store during play is unsupported.
+
+### Verification cache
+
+`data/_loose/verified-cache.bin` is shared across versions and GF/DM. It records
+only successfully hashed contents. A hit requires the same expected SHA256,
+MD5 and length, volume/file ID, creation time, write time, NTFS ChangeTime and
+attributes. Each check opens the current file with sharing that excludes
+writers/deleters, so the identity and any needed content read use the same
+locked handle. Access time is deliberately excluded. A same-length overwrite
+with its ordinary write time restored is still rehashed because ChangeTime
+changes. Missing and invalid objects still refuse startup.
+
+Module/index/finfolist checks and manifest-to-index binding are always checked
+in full. Cache records have a payload SHA256 to detect accidental cache damage;
+they are not authenticated against someone deliberately forging both files
+and cache metadata. The store and cache must not be edited during play. Only
+NTFS identities with the required handle APIs are eligible; unsupported systems
+still hash the contents. Missing, damaged or unwritable cache files merely
+make startup slower. Updates use a flushed temporary file and atomic rename;
+concurrent launches can lose some cache hits but cannot bypass verification.
+
+For a manual complete scan of the selected version, use:
+
+```
+gamestart-v7-dm.bat -p layered.full_verify=true
+```
+
+Or set `layered.full_verify=true` in that mode's config, then restore it to
+`false` for normal cached starts. Full scans hash each distinct object once;
+multiple index records referencing the same object need no duplicate read.
+Deleting just `verified-cache.bin` also triggers fresh validation. Logs report
+preflight milliseconds, cache hits, hashed objects and bytes; game initialization
+after the preflight is measured separately.
 
 The native mounted index is compared byte-for-byte before PKFS initializes.
 For each original request, the hook uses the native `pkfs_get_pathtab` lookup,

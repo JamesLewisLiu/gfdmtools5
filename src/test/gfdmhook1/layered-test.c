@@ -424,8 +424,95 @@ static void check_native_name_normalization(void)
     write_fixture(); assert(layered_load_manifest());
 }
 
-int main(void)
+static void check_verification_cache(void)
 {
+    char path[MAX_PATH];
+    FILETIME created, accessed, written;
+    struct layered_cache cache;
+    uint32_t identity[12];
+    write_fixture();
+    root_file(path, sizeof(path), "_loose/verified-cache.bin");
+    DeleteFileA(path);
+    assert(layered_load_manifest());
+    HANDLE file = CreateFileA(object_path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    assert(file != INVALID_HANDLE_VALUE);
+    assert(layered_file_identity(file, identity));
+    assert(GetFileTime(file, &created, &accessed, &written)); CloseHandle(file);
+    assert(layered_last_hashes == 1 && layered_last_cache_hits == 1);
+    assert(layered_load_manifest());
+    assert(layered_last_hashes == 0 && layered_last_cache_hits == 2);
+    layered_cache_begin(&cache);
+    struct layered_entry alternate = layered_entries[0];
+    alternate.record.crc32 ^= 0x12345678; alternate.record.offset += 100;
+    assert(layered_cache_verify(&cache, object_path, &alternate, false));
+    assert(cache.hits == 1 && cache.hashes == 0); /* Shared across version records. */
+    layered_cache_end(&cache, true);
+    layered_full_verify = true;
+    assert(layered_load_manifest());
+    assert(layered_last_hashes == 1); /* Deduplicate within this scan. */
+    layered_full_verify = false;
+
+    /* A same-size overwrite with restored write time must still miss the
+       cache: NTFS ChangeTime is part of the identity, unlike LastAccessTime. */
+    Sleep(20);
+    char changed[sizeof(payload)]; memcpy(changed, payload, sizeof(payload)); changed[0] ^= 1;
+    write_bytes(object_path, changed, sizeof(payload) - 1);
+    file = CreateFileA(object_path, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    assert(file != INVALID_HANDLE_VALUE && SetFileTime(file, &created, NULL, &written)); CloseHandle(file);
+    assert(!layered_load_manifest());
+    assert(layered_last_hashes == 1);
+    write_fixture(); assert(layered_load_manifest());
+
+    /* Replacement with identical contents rehashes because its file ID is
+       different even if the caller restores creation and write times. */
+    assert(DeleteFileA(object_path));
+    write_bytes(object_path, payload, sizeof(payload) - 1);
+    file = CreateFileA(object_path, FILE_WRITE_ATTRIBUTES, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+    assert(file != INVALID_HANDLE_VALUE && SetFileTime(file, &created, NULL, &written)); CloseHandle(file);
+    assert(layered_load_manifest()); assert(layered_last_hashes == 1);
+    assert(DeleteFileA(object_path)); assert(!layered_load_manifest());
+    write_fixture(); assert(layered_load_manifest());
+
+    /* Corrupt/truncated caches are only hints: rebuild, do not bless files. */
+    write_bytes(path, "broken", 6);
+    assert(layered_load_manifest()); assert(layered_last_hashes == 1);
+    assert(layered_load_manifest()); assert(layered_last_hashes == 0);
+    FILE *f = fopen(path, "r+b"); assert(f); assert(!fseek(f, 48, SEEK_SET));
+    int byte = fgetc(f); assert(byte != EOF && !fseek(f, 48, SEEK_SET));
+    assert(fputc(byte ^ 1, f) != EOF && !fclose(f));
+    assert(layered_load_manifest()); assert(layered_last_hashes == 1);
+
+    /* A concurrent writer cannot race metadata comparison and content reads. */
+    layered_cache_begin(&cache);
+    file = CreateFileA(object_path, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
+    assert(file != INVALID_HANDLE_VALUE);
+    assert(!layered_cache_verify(&cache, object_path, &layered_entries[0], false));
+    CloseHandle(file); layered_cache_end(&cache, false);
+    /* No writable cache is required for correctness. */
+    assert(DeleteFileA(path)); assert(CreateDirectoryA(path, NULL));
+    assert(layered_load_manifest()); assert(layered_last_hashes == 1);
+    assert(RemoveDirectoryA(path));
+    puts("PASS: persistent cache hits, full override, same-size restored-time corruption, replacement, missing object, corrupt cache, writer exclusion and unwritable cache");
+}
+
+int main(int argc, char **argv)
+{
+    /* CI-built evidence helper, deliberately absent from game packages.
+       Uses the production data validator; never loads or patches a game. */
+    if (argc == 5 && strcmp(argv[1], "--benchmark-store") == 0) {
+        unsigned int version = (unsigned int) atoi(argv[3]);
+        layered_profile = layered_profile_find(version);
+        assert(layered_profile && strlen(argv[2]) < sizeof(layered_root));
+        assert(!strcmp(argv[4], "full") || !strcmp(argv[4], "cached"));
+        strcpy(layered_root, argv[2]); layered_full_verify = !strcmp(argv[4], "full");
+        DWORD began = GetTickCount();
+        bool ok = layered_load_manifest();
+        printf("{\"version\":%u,\"pass\":%s,\"ms\":%lu,\"cached\":%u,\"hashed\":%u,\"bytes\":%llu}\n",
+               version, ok ? "true" : "false", (unsigned long) (GetTickCount() - began),
+               layered_last_cache_hits, layered_last_hashes, (unsigned long long) layered_last_hash_bytes);
+        return ok ? 0 : 1;
+    }
+    assert(argc == 1);
     char temporary[MAX_PATH], path[MAX_PATH];
     const char *directories[] = {"pack", "_loose", "_loose/v4", "_loose/v5",
         "_loose/v6", "_loose/v7", "_loose/v8", "_loose/objects"};
@@ -437,19 +524,21 @@ int main(void)
     }
     assert(layered_profile_find(3) == NULL && layered_profile_find(9) == NULL);
     for (unsigned int version = 4; version <= 8; version++) {
-        assert(gfdm_layered_init(version, false));
+        assert(gfdm_layered_init(version, false, false));
         assert(layered_profile_find(version)->version == version);
     }
-    assert(!gfdm_layered_init(9, true));
+    assert(!gfdm_layered_init(9, true, false));
     hook_calls = 0; gfdm_layered_apply_hooks(); assert(hook_calls == 0);
     check_manifest_validation();
     check_native_routing();
     check_mounted_index_and_strictpak();
     check_version_metadata();
     check_native_name_normalization();
+    check_verification_cache();
     layered_enabled = true; gfdm_layered_apply_hooks(); assert(hook_calls == 3);
     release_loaded();
     assert(DeleteFileA(object_path));
+    root_file(path, sizeof(path), "_loose/verified-cache.bin"); DeleteFileA(path);
     root_file(path, sizeof(path), "pack/packinfo.bin"); assert(DeleteFileA(path));
     root_file(path, sizeof(path), "finfolist.bin"); assert(DeleteFileA(path));
     root_file(path, sizeof(path), "_loose/v4/manifest.bin"); assert(DeleteFileA(path));

@@ -11,6 +11,7 @@
 #define MCODE_KEY "security.mcode"
 #define KEYBOARD_KEY "input.keyboard"
 #define LAYERED_KEY "layered.enabled"
+#define LAYERED_FULL_VERIFY_KEY "layered.full_verify"
 #define FRAME_RATE_LIMIT_KEY "gfx.frame_rate_limit"
 #define FORCED_REFRESH_RATE_KEY "gfx.forced_refresh_rate"
 
@@ -29,6 +30,8 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
     hooklib_config_adapter_init(config);
     cconfig_util_set_bool(config, LAYERED_KEY, false,
         "V4-V8: require verified unpacked objects and forbid packed fallback");
+    cconfig_util_set_bool(config, LAYERED_FULL_VERIFY_KEY, false,
+        "Rehash all current-version objects instead of reusing unchanged NTFS verification");
     cconfig_util_set_data(
         config,
         PCBID_KEY,
@@ -111,6 +114,7 @@ void gfdmhook1_config_get(
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);
+    cconfig_util_get_bool(config, LAYERED_FULL_VERIFY_KEY, &out->layered_full_verify, false);
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
         log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);

@@ -1715,7 +1715,8 @@ static void gfdm_init(void)
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
     cconfig_finit(config);
 
-    if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered)) {
+    if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered,
+                          gfdm_config.layered_full_verify)) {
         log_fatal("GFDM layered data validation failed; refusing to start");
     }
     gfdm_layered_apply_hooks();

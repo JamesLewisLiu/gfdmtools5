@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-bool gfdm_layered_init(unsigned int version, bool enabled);
+bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify);
 void gfdm_layered_apply_hooks(void);
 
 #endif
