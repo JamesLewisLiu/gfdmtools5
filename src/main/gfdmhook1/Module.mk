@@ -20,6 +20,7 @@ libs_gfdmhook1 := \
     util \
 
 src_gfdmhook1 := \
+    avs-config.c \
     bios.c \
     bootstrap.c \
     coin.c \

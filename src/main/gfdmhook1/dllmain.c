@@ -9,6 +9,7 @@
 #include "bemanitools/input.h"
 #include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
+#include "gfdmhook1/avs-config.h"
 #include "gfdmhook1/bios.h"
 #include "gfdmhook1/bootstrap.h"
 #include "gfdmhook1/coin.h"
@@ -893,13 +894,22 @@ static void __cdecl gfdm_avs_boot(
 {
     const char *nvram = gfdm_storage_nvram();
     const char *raw = gfdm_storage_raw();
+    struct gfdm_avs_config expanded = {0};
 
     if (!gfdm_storage_prepare()) {
         log_fatal("Cannot prepare GFDM save directories beside the executable");
     }
 
-    gfdm_replace_property_str(config, "/fs/nvram/device", nvram);
-    gfdm_replace_property_str(config, "/fs/raw/device", raw);
+    if (gfdm_profile->version == 4) {
+        if (!gfdm_avs_config_prepare(&expanded, config, nvram, raw)) {
+            log_fatal("Cannot create and verify V4 AVS save configuration");
+        }
+        config = expanded.root;
+        log_info("GFDM V4 AVS config: expanded copy; NVRAM/RAW devices verified");
+    } else {
+        gfdm_replace_property_str(config, "/fs/nvram/device", nvram);
+        gfdm_replace_property_str(config, "/fs/raw/device", raw);
+    }
     log_info("GFDM V%u AVS paths: nvram=%s raw=%s",
              gfdm_profile->version, nvram, raw);
 
@@ -923,6 +933,10 @@ static void __cdecl gfdm_avs_boot(
             NULL);
 #endif
     }
+    /* V4's original boot buffer lives on the caller's stack. AVS imports
+       its values and copies mount paths before returning; it retains no
+       property nodes. The expanded copy follows that same lifetime. */
+    gfdm_avs_config_fini(&expanded);
 }
 
 static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)

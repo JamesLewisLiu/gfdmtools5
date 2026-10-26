@@ -33,3 +33,7 @@ testexes += gfdm-layered-test
 srcdir_gfdm-layered-test := src/test/gfdmhook1
 src_gfdm-layered-test := layered-test.c
 ldflags_gfdm-layered-test := -ladvapi32
+
+testexes += gfdm-avs-config-test
+srcdir_gfdm-avs-config-test := src/test/gfdmhook1
+src_gfdm-avs-config-test := avs-config-test.c

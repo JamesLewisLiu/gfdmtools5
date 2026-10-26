@@ -97,6 +97,15 @@ and append `layered.enabled=true` to the mode-specific configuration. The option
 defaults to false; enabling it for V5-V8 refuses startup. Original game DLLs
 are unchanged. No game DLLs or resources are needed by CI.
 
+V4's native boot builds its AVS property tree in a fixed 1512-byte buffer.
+Replacing short save paths with longer absolute paths can exhaust that tree,
+silently omit the RAW mount and repeatedly trigger BACKUP ERROR when hitchart
+loads from the wrong directory. The V4 hook now deep-copies the complete tree
+into a separate 64 KiB buffer, checks both device values after replacement and
+passes that copy to AVS. AVS copies its settings and mount paths before return;
+the temporary tree is then destroyed and its buffer freed. Original settings
+and error handling remain in place. This change is confined to V4.
+
 The hook resolves `../data` from the executable directory, verifies the known
 V4 libpackfs SHA256, matches every manifest record to the original index,
 rejects duplicate keys and verifies every object's length, MD5 and SHA256 before
