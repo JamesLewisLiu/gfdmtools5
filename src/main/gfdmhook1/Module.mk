@@ -28,6 +28,7 @@ src_gfdmhook1 := \
     debug.c \
     effect.c \
     dllmain.c \
+    layered.c \
     network.c \
     profile.c \
     storage.c \

@@ -19,6 +19,8 @@ jobs:
           sudo apt-get install -y gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686 make zip python3
       - name: Build packages and tests
         run: make -j1
+      - name: Test V4 layered exporter
+        run: python3 -m unittest discover -s scripts/tests
       - name: Validate all five packages
         run: python3 scripts/check-gfdm-packages.py build/zip
       - uses: actions/upload-artifact@v4
@@ -39,10 +41,10 @@ jobs:
         with:
           name: gfdm-tests-x86-${{ github.sha }}
           path: tests
-      - name: Run all eight x86 tests
+      - name: Run all nine x86 tests
         shell: pwsh
         run: |
-          $tests = @('geninput-naive', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-bootstrap', 'gfdm-config')
+          $tests = @('geninput-naive', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-bootstrap', 'gfdm-config', 'gfdm-layered')
           foreach ($test in $tests) {
             & "./tests/$test-test.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

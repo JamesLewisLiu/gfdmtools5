@@ -16,6 +16,7 @@
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/debug.h"
 #include "gfdmhook1/effect.h"
+#include "gfdmhook1/layered.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
 #include "gfdmhook1/storage.h"
@@ -954,6 +955,7 @@ static HMODULE STDCALL gfdm_LoadLibraryA(LPCSTR name)
            IAT is updated even when game.dll was loaded before libmovie. */
         gfdm_apply_movie_hooks(NULL);
         gfdm_codec_apply_hooks();
+        gfdm_layered_apply_hooks();
         gfdm_apply_system_hooks();
     }
 
@@ -1697,6 +1699,11 @@ static void gfdm_init(void)
     }
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
     cconfig_finit(config);
+
+    if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered)) {
+        log_fatal("GFDM layered data validation failed; refusing to start");
+    }
+    gfdm_layered_apply_hooks();
 
     gfdm_keyboard = gfdm_config.keyboard;
     gfdm_mcode = gfdm_config.mcode;
