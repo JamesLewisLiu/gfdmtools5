@@ -9,9 +9,9 @@ Extract `gfdm-vN.zip` into a directory containing that version's original
 data directory at its original relative location. Start Asphyxia CORE, then
 run `gamestart-vN-gf.bat` or `gamestart-vN-dm.bat`. Each launcher selects its
 mode-specific configuration: `gfdm-vN-gf.conf` or `gfdm-vN-dm.conf`.
-The boot settings and version/mode EA3 identity are built into the hook. The
-launcher uses virtual `gfdm-boot.xml` and `gfdm-ea3-ident.xml` paths served from
-memory before native startup; no external XML files need to be installed or edited.
+The hook supplies the version/mode identity and redirects native storage settings.
+The original boot module constructs the AVS configuration in memory. Launchers
+need no `-I` or `-b` XML arguments and no XML files need to be installed or edited.
 The two configuration files include the configuration comments; no generic
 `gfdm-vN.conf` is shipped.
 
@@ -219,7 +219,14 @@ V5-V7 error screens require the game's native `../sys/infodisp.exe` companion.
 Keep it in the expected sibling directory; a missing executable can leave
 the native error screen waiting indefinitely. V8 renders errors internally.
 On fresh NVRAM, `2500(1)` is the native initialization confirmation; press
-TEST once the error screen appears. A zero-byte `info.bin.new` is normal
+TEST once the error screen appears. V4 originally sets `NVRAM_CLEAR=1` again
+after that acknowledgement, so leaving TEST repeats the notice until a process
+restart. The V4 game consumer hook clears this flag only after acknowledgement,
+with valid native backup data, `NVRAM_ERROR=0` and no native save errors. It does
+not clear or rewrite save data. V5-V8 already clear the flag themselves and keep
+their native behavior. The real `2500(0)` data-error path is preserved.
+See [backup initialization evidence and verification](backup-initialization.md).
+A zero-byte `info.bin.new` is normal
 after a successful AVS mount and does not establish NVRAM corruption.
 
 The hook also installs the V4 `libdevice` security-status compatibility layer.

@@ -20,8 +20,8 @@ libs_gfdmhook1 := \
     util \
 
 src_gfdmhook1 := \
+    backup.c \
     bios.c \
-    bootstrap.c \
     coin.c \
     codec.c \
     config.c \
