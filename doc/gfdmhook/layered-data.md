@@ -170,6 +170,14 @@ descriptors. A successful export proves all indexed contents were extracted,
 not that every song or game path was exercised. Runtime logs establish only
 the requests actually observed.
 
+The original `finfolist.bin` is preserved as metadata, not rewritten to hide
+missing PAK files. Its native TEST **ROM CHECK** checks original PAK and program
+file sizes/MD5 values. A store containing no PAKs cannot pass that original PAK
+check, even when all shared content objects are valid. The full object preflight
+checks the unpacked resources against their original per-resource MD5 and SHA256;
+it is distinct from the original ROM CHECK. No checksum result or error flag is
+forced to success.
+
 The V7/V8 open function normalizes names before its exported path lookup;
 the hook reproduces that exact step before looking up the original request.
 It adds a leading slash for `data/`, and lowercases ASCII only when the resulting
