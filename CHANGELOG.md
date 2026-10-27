@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-27: Expand gfx.fullscreen to five numbered display modes: windowed, 4:3/stretched native fullscreen, and 4:3/stretched Borderless. Keep boolean compatibility and per-version/GF/DM saving. Add GFDM-scoped OpenGL viewport/scissor mapping, state-preserving black bars, context/framebuffer guards and window/DPI lifecycle handling.
+
 2026-10-27: Add a per-version/mode Fullscreen checkbox and gfx.fullscreen setting. Use the native V4-V8 OpenGL fullscreen lifecycle or a fixed-size framed window; unsupported fullscreen modes fall back to a window. Restart the game to apply changes.
 
 2026-10-26: Fix the V4 fresh-data initialization notice repeating after TEST acknowledgement, with native validity/save-error guards. Keep V5-V8 behavior unchanged. Launchers create only DEV and the selected GF/DM root; remove unused XML arguments and the virtual-file implementation that native boot does not consume.

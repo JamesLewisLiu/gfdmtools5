@@ -199,7 +199,8 @@ FONT 8, "Ms Shell Dlg"
     LTEXT           "", IDC_GFDM_CONFIG_PATH, 15, 85, 225, 18, SS_LEFT
     GROUPBOX        "Input and Display", IDC_STATIC, 5, 110, 250, 55
     AUTOCHECKBOX    "Enable built-in keyboard fallback", IDC_GFDM_KEYBOARD, 15, 125, 225, 10
-    AUTOCHECKBOX    "Fullscreen (requires game restart)", IDC_GFDM_FULLSCREEN, 15, 145, 225, 10
+    LTEXT           "Display (restart required)", IDC_STATIC, 15, 145, 85, 10, SS_LEFT
+    COMBOBOX        IDC_GFDM_DISPLAY_MODE, 105, 142, 140, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 }
 
 

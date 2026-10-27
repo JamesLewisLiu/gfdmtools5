@@ -195,6 +195,7 @@ static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
         }
     }
 
+    gfdm_display_present(hdc);
     return real_SwapBuffers != NULL ? real_SwapBuffers(hdc) : FALSE;
 }
 
@@ -210,6 +211,7 @@ static void gfdm_setup_gfx_hooks(void)
 {
     hook_table_apply(
         NULL, "gdi32.dll", gfdm_gdi_syms, lengthof(gfdm_gdi_syms));
+    gfdm_display_apply_hooks();
 }
 
 static void gfdm_setup_d3d9_hooks(void)
@@ -1753,7 +1755,7 @@ static void(__cdecl *real_boot_main)(HWND);
 static void __cdecl gfdm_boot_main(HWND hwnd)
 {
     gfdm_init();
-    gfdm_display_init(hwnd, gfdm_config.fullscreen);
+    gfdm_display_init(hwnd, gfdm_config.display_mode, gfdm_config.forced_refresh_rate);
     real_boot_main(hwnd);
 }
 
@@ -1786,6 +1788,7 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
         gfdm_module = mod;
         gfdm_open_log_file();
         log_to_writer(gfdm_log_writer, NULL);
+        gfdm_display_prepare();
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
     }
 

@@ -31,4 +31,5 @@ src_gfdm-config-test := config-test.c
 testexes += gfdm-display-test
 srcdir_gfdm-display-test := src/test/gfdmhook1
 src_gfdm-display-test := display-test.c
-ldflags_gfdm-display-test := -luser32
+ldflags_gfdm-display-test := -luser32 -lgdi32 -lopengl32
+libs_gfdm-display-test := hook

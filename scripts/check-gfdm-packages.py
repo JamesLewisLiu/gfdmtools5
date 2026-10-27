@@ -39,7 +39,7 @@ def check(directory):
                               if line and not line.startswith("#"))
                 assert config["security.mcode"] == f"GC{letter}{number}J{spec}A"
                 assert "adapter.override_ip" in config, (version, mode)
-                assert config["gfx.fullscreen"] == "false", (version, mode)
+                assert config["gfx.fullscreen"] == "0", (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",

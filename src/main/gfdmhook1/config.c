@@ -2,6 +2,7 @@
 
 #include "cconfig/cconfig-util.h"
 #include "gfdmhook1/config.h"
+#include "gfdmhook1/display-mode.h"
 #include "security/id.h"
 #include "util/log.h"
 
@@ -49,11 +50,12 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         KEYBOARD_KEY,
         false,
         "enable the default keyboard-to-panel mapping");
-    cconfig_util_set_bool(
+    cconfig_util_set_int(
         config,
         FULLSCREEN_KEY,
-        false,
-        "run the game fullscreen (false uses a fixed-size window; restart required)");
+        0,
+        "display mode: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch, "
+        "3 borderless 4:3, 4 borderless stretch (restart required)");
     cconfig_util_set_float(
         config,
         FRAME_RATE_LIMIT_KEY,
@@ -72,6 +74,7 @@ void gfdmhook1_config_get(
 {
     char server[1024];
     char mcode[sizeof(struct security_mcode) + 1];
+    char display_mode[32];
 
     memset(out, 0, sizeof(*out));
     out->server = default_server;
@@ -113,7 +116,12 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
-    cconfig_util_get_bool(config, FULLSCREEN_KEY, &out->fullscreen, false);
+    if (!cconfig_util_get_str(config, FULLSCREEN_KEY, display_mode,
+            sizeof(display_mode) - 1, "0") ||
+        !gfdm_display_parse_mode(display_mode, &out->display_mode)) {
+        log_warning("Invalid %s, using windowed mode (0)", FULLSCREEN_KEY);
+        out->display_mode = GFDM_DISPLAY_WINDOWED;
+    }
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
         log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);

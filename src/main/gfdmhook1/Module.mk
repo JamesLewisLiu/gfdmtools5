@@ -5,6 +5,7 @@ deplibs_gfdmhook1 := avs
 ldflags_gfdmhook1 := \
     -ladvapi32 \
     -liphlpapi \
+    -lopengl32 \
     -luser32 \
     -lws2_32 \
 

@@ -67,12 +67,41 @@ filename. It recognizes the package's versioned launcher, then the unique matchi
 original game executable or with a stray V4 configuration from an older tool. If several
 versions cannot be distinguished, the page stays disabled instead of guessing V4.
 Saving preserves existing comments; missing settings receive the documented defaults.
-The GFDM page also provides a `Fullscreen` checkbox, saved independently in the
-selected version/mode file as `gfx.fullscreen`. It defaults to `false` (a fixed-size
-window with a title bar). Set it to `true` for the game's native fullscreen mode;
-restart the game after changing it. The hook keeps the native render dimensions
-and lets libsystem restore the previous desktop mode on exit. If the display
-rejects the native fullscreen mode, it logs a warning and uses a window.
+The GFDM page provides five display modes, saved independently in the selected
+version/mode file as `gfx.fullscreen`. Restart the game after changing it.
+
+| Value | Display mode |
+| --- | --- |
+| `0` | Fixed-size framed window (default) |
+| `1` | Fullscreen, preserve 4:3 with black bars |
+| `2` | Fullscreen, stretch to fill |
+| `3` | Borderless fullscreen, preserve 4:3 with black bars |
+| `4` | Borderless fullscreen, stretch to fill |
+
+Old `false`/`true` values remain readable as `0`/`1`. The configuration tool
+saves the numeric value. The logical game dimensions and projection stay intact;
+the GFDM hook maps the OpenGL viewport and scissor to the output rectangle. At
+1920x1080, 4:3 content occupies 1440x1080 with 240-pixel side bars. Stretching
+fills the display and changes the aspect ratio. Scaling rasterizes at the output
+size; it does not add detail to the original textures.
+
+Modes 1/2 use the original libsystem fullscreen lifecycle on the primary display,
+requesting the current desktop pixel dimensions and the configured refresh rate
+(`0` retains the current refresh). This lets the hook enforce fit/stretch without
+depending on the monitor's low-resolution scaling policy. Native finalization
+restores the saved desktop mode. An unsupported fullscreen request falls back to
+a window. Modes 3/4 cover the window's monitor without requesting a display-mode
+or refresh-rate change; `gfx.forced_refresh_rate` does not change Borderless.
+
+OpenGL mapping applies to the game window's default framebuffer; helper windows
+and offscreen framebuffers retain their own coordinates. Black-bar clearing
+preserves GL state. The hook handles resize/display/DPI messages and context
+recreation. An early GFDM-only native-window wrapper requests per-monitor DPI
+awareness before window creation, respecting an already established DPI policy.
+Real gameplay/BGA, focus recovery, mixed-DPI monitors and high-refresh latency
+still need hardware testing; passing build/rendering probes does not establish
+those results. Shared graphics/input implementations remain unchanged.
+
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files
 retain their original action indices.
