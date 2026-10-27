@@ -16,6 +16,7 @@
 #include "gfdmhook1/codec.h"
 #include "gfdmhook1/config.h"
 #include "gfdmhook1/debug.h"
+#include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/network.h"
@@ -164,6 +165,7 @@ static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
     uint64_t frame_time;
 
     InterlockedIncrement(&gfdm_input_frame);
+    gfdm_display_present(hdc);
     gfdm_gl_present_count++;
     if (!gfdm_gl_present_logged) {
         log_info("GFDM OpenGL SwapBuffers hook active");
@@ -209,6 +211,7 @@ static const struct hook_symbol gfdm_gdi_syms[] = {
 
 static void gfdm_setup_gfx_hooks(void)
 {
+    gfdm_display_apply_hooks();
     hook_table_apply(
         NULL, "gdi32.dll", gfdm_gdi_syms, lengthof(gfdm_gdi_syms));
 }
@@ -1713,6 +1716,7 @@ static void gfdm_init(void)
         ExitProcess(EXIT_FAILURE);
     }
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
+    gfdm_display_init(gfdm_config.fullscreen);
     cconfig_finit(config);
 
     if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered,

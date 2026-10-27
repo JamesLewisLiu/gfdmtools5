@@ -4,6 +4,8 @@ deplibs_gfdmhook1 := avs
 
 ldflags_gfdmhook1 := \
     -ladvapi32 \
+    -lgdi32 \
+    -lopengl32 \
     -liphlpapi \
     -luser32 \
     -lws2_32 \
@@ -27,6 +29,7 @@ src_gfdmhook1 := \
     codec.c \
     config.c \
     debug.c \
+    display.c \
     effect.c \
     dllmain.c \
     layered.c \

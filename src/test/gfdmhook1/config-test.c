@@ -32,12 +32,13 @@ static void check_text(const char *input)
         rewind(src);
     }
     assert(gfdm_network_write_config(
-        src, dst, 7, "gf", "example:1234", "192.0.2.1", true));
+        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, true));
     rewind(dst);
     text[fread(text, 1, sizeof(text) - 1, dst)] = '\0';
     assert(strstr(text, "eamuse.server=example:1234\n"));
     assert(strstr(text, "adapter.override_ip=192.0.2.1\n"));
     assert(strstr(text, "input.keyboard=true\n"));
+    assert(strstr(text, "gfx.fullscreen=true\n"));
     if (input != NULL && strstr(input, "# User comment") != NULL) {
         assert(strstr(text, "# User comment\r\n"));
         assert(strstr(text, "security.mcode=GCJ33JBA\n"));
@@ -130,7 +131,9 @@ int main(void)
     check_text("# Incomplete configuration\n");
     check_text(
         "# User comment\r\neamuse.server=old\nadapter.override_ip=\n"
-        "input.keyboard=false\nsecurity.mcode=GCJ33JBA\n# Last comment");
+        "input.keyboard=false\ngfx.fullscreen=false\n"
+        "layered.enabled=true\nlayered.full_verify=false\n"
+        "security.mcode=GCJ33JBA\n# Last comment");
     puts(
         "PASS: package-only V7, mixed executables, ambiguous versions, GF/DM "
         "paths, preserved and regenerated comments");

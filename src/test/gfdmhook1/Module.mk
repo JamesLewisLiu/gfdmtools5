@@ -33,6 +33,11 @@ srcdir_gfdm-layered-test := src/test/gfdmhook1
 src_gfdm-layered-test := layered-test.c
 ldflags_gfdm-layered-test := -ladvapi32
 
+testexes += gfdm-display-test
+srcdir_gfdm-display-test := src/test/gfdmhook1
+src_gfdm-display-test := display-test.c
+ldflags_gfdm-display-test := -luser32 -lgdi32 -lopengl32
+
 testexes += gfdm-avs-config-test
 srcdir_gfdm-avs-config-test := src/test/gfdmhook1
 src_gfdm-avs-config-test := avs-config-test.c

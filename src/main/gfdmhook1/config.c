@@ -14,6 +14,7 @@
 #define LAYERED_FULL_VERIFY_KEY "layered.full_verify"
 #define FRAME_RATE_LIMIT_KEY "gfx.frame_rate_limit"
 #define FORCED_REFRESH_RATE_KEY "gfx.forced_refresh_rate"
+#define FULLSCREEN_KEY "gfx.fullscreen"
 
 static const struct net_addr default_server = {
     .type = NET_ADDR_TYPE_HOSTNAME,
@@ -28,6 +29,8 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "localhost:80",
         "e-amusement server URL or host:port");
     hooklib_config_adapter_init(config);
+    cconfig_util_set_bool(config, FULLSCREEN_KEY, false,
+        "Borderless fullscreen with 4:3 aspect ratio (Alt+Enter toggles)");
     cconfig_util_set_bool(config, LAYERED_KEY, false,
         "V4-V8: require verified unpacked objects and forbid packed fallback");
     cconfig_util_set_bool(config, LAYERED_FULL_VERIFY_KEY, false,
@@ -113,6 +116,7 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
+    cconfig_util_get_bool(config, FULLSCREEN_KEY, &out->fullscreen, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);
     cconfig_util_get_bool(config, LAYERED_FULL_VERIFY_KEY, &out->layered_full_verify, false);
     if (!cconfig_util_get_float(

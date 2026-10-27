@@ -63,6 +63,24 @@ asynchronous reader relies on a blocking hardware interrupt read; completing
 every emulated read immediately otherwise spins and contends with game input
 consumers. This wait is outside the input lock and independent of the graphics
 frame rate limit.
+### Fullscreen
+
+On the configuration tool's **GFDM** tab, enable **Fullscreen (keep 4:3 aspect
+ratio)** for the selected version and GF/DM mode, then save and restart the
+game. This writes `gfx.fullscreen=true`; the default is `false` to retain the
+original window. A one-run override is:
+
+```
+gamestart-v5-gf.bat -p gfx.fullscreen=true
+```
+
+**Alt+Enter** toggles while the game window is focused; this does not change
+the saved setting. Borderless fullscreen uses the current monitor at its
+desktop resolution/refresh rate, keeps the original 640x480 logical game
+coordinates, and centers a 4:3 image with black bars as needed. Returning to
+window mode restores the original position and style. Other windows, movie
+contexts and the real client rectangle are not overridden.
+
 Keep `gfx.frame_rate_limit=60` for normal play. A value of zero disables the
 OpenGL limiter and can make frame-driven game logic run too fast once input
 polling no longer limits performance; `gfx.forced_refresh_rate` alone does not

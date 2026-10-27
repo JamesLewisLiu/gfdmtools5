@@ -21,6 +21,7 @@ struct gfdm_network_page {
     char adapter[64];
     wchar_t path[MAX_PATH];
     bool keyboard;
+    bool fullscreen;
     bool path_valid;
     unsigned int version;
 };
@@ -49,6 +50,7 @@ static void gfdm_network_load(struct gfdm_network_page *page)
     strcpy(page->server, "localhost:80");
     page->adapter[0] = '\0';
     page->keyboard = false;
+    page->fullscreen = false;
     if (!page->path_valid) {
         return;
     }
@@ -64,6 +66,11 @@ static void gfdm_network_load(struct gfdm_network_page *page)
         } else if (strncmp(line, "adapter.override_ip=", 20) == 0) {
             page->adapter[0] = '\0';
             sscanf(line + 20, "%63[^\r\n]", page->adapter);
+        } else if (strncmp(line, "gfx.fullscreen=", 15) == 0) {
+            char value[16] = {0};
+            sscanf(line + 15, "%15s", value);
+            page->fullscreen = _stricmp(value, "true") == 0
+                || strcmp(value, "1") == 0;
         } else if (strncmp(line, "input.keyboard=", 15) == 0) {
             char value[16] = {0};
             sscanf(line + 15, "%15s", value);
@@ -98,6 +105,7 @@ static void gfdm_network_save(struct gfdm_network_page *page)
         sizeof(page->adapter));
 
     page->keyboard = IsDlgButtonChecked(page->hwnd, IDC_GFDM_KEYBOARD) == BST_CHECKED;
+    page->fullscreen = IsDlgButtonChecked(page->hwnd, IDC_GFDM_FULLSCREEN) == BST_CHECKED;
     swprintf(tmp_path, lengthof(tmp_path), L"%ls.tmp", page->path);
     src = _wfopen(page->path, L"rb");
     dst = _wfopen(tmp_path, L"wb");
@@ -118,7 +126,7 @@ static void gfdm_network_save(struct gfdm_network_page *page)
     }
 
     if (!gfdm_network_write_config(src, dst, page->version, page->mode,
-            page->server, page->adapter, page->keyboard)) {
+            page->server, page->adapter, page->keyboard, page->fullscreen)) {
         log_warning("Could not write GFDM configuration contents");
         if (src != NULL) {
             fclose(src);
@@ -183,12 +191,15 @@ static INT_PTR CALLBACK gfdm_network_dlg_proc(
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_SERVER), FALSE);
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_ADAPTER), FALSE);
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_KEYBOARD), FALSE);
+                EnableWindow(GetDlgItem(hwnd, IDC_GFDM_FULLSCREEN), FALSE);
             }
             SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) page);
             SetDlgItemTextA(hwnd, IDC_GFDM_SERVER, page->server);
             SetDlgItemTextA(hwnd, IDC_GFDM_ADAPTER, page->adapter);
             CheckDlgButton(hwnd, IDC_GFDM_KEYBOARD,
                 page->keyboard ? BST_CHECKED : BST_UNCHECKED);
+            CheckDlgButton(hwnd, IDC_GFDM_FULLSCREEN,
+                page->fullscreen ? BST_CHECKED : BST_UNCHECKED);
             if (page->path_valid) {
                 SetDlgItemTextW(hwnd, IDC_GFDM_CONFIG_PATH,
                     wcsrchr(page->path, L'\\') != NULL
