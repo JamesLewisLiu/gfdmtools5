@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <wchar.h>
 
+/* 1: complete physical line, 0: EOF, -1: allocation/read failure. */
+int gfdm_network_read_line(
+    FILE *file, char **line, size_t *capacity, size_t *length);
+
 bool gfdm_network_select_path(
     const wchar_t *executable,
     const char *mode,
