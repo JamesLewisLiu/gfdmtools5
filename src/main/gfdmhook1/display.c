@@ -214,10 +214,8 @@ static void display_context(HDC dc)
     if ((uintptr_t) binding <= 3 || (intptr_t) binding == -1)
         binding = wglGetProcAddress("glBindFramebufferEXT");
     display.framebuffer = (uintptr_t) binding > 3 && (intptr_t) binding != -1;
-    display.viewport[0] = display.viewport[1] = 0;
-    display.viewport[2] = display.width;
-    display.viewport[3] = display.height;
-    memcpy(display.scissor, display.viewport, sizeof(display.scissor));
+    /* libd3 caches these rectangles and may not reissue them after a context
+       change. Reapply the last logical state, including partial scissors. */
     display_apply_rectangles();
 }
 
@@ -383,6 +381,9 @@ void gfdm_display_init(HWND window, int mode, int refresh)
     display.mode = mode;
     display.width = client.right - client.left;
     display.height = client.bottom - client.top;
+    display.viewport[2] = display.width;
+    display.viewport[3] = display.height;
+    memcpy(display.scissor, display.viewport, sizeof(display.scissor));
     display.refresh = refresh;
     display.monitor = MonitorFromWindow(window, MONITOR_DEFAULTTOPRIMARY);
     system = GetModuleHandleA("libsystem.dll");

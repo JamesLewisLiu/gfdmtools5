@@ -277,6 +277,10 @@ static void check_window(int mode, bool available, int success)
         rc = wglCreateContext(dc);
         assert(rc && wglMakeCurrent(dc, rc));
         assert(display.context == rc);
+        GLint clip[4];
+        glGetIntegerv(GL_SCISSOR_BOX, clip);
+        assert(clip[2] == ((mode == 2 || mode == 4) ? 640 : 480));
+        assert(clip[3] == 360);
         glViewport(0, 0, 640, 480);
         GLint viewport[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
