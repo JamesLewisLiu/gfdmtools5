@@ -12,21 +12,18 @@ make -j1
 python3 scripts/check-gfdm-packages.py build/zip
 ```
 
-The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and nine `build/bin/indep-32/*-test.exe` files.
+The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and eleven `build/bin/indep-32/*-test.exe` files.
 Run `make packages` or `make tests` separately. Test EXEs run directly on Windows.
 `make build-docker` uses the same build graph. There is no x64 build target.
 Use a serial build: the inherited DLL/import-library rules can race during parallel linking.
 
-GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the nine x86 tests on Windows and the exporter fixtures on Linux.
+GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the eleven x86 tests on Windows.
 The workflow is `.github/workflows/build-gfdm.yaml`. Local validation and online Actions results are recorded separately.
-
-V4 can optionally run from fully exported resource objects. See the
-[layered data instructions](doc/gfdmhook/layered-data.md) for the independent
-exporter, strict native resource routing, and isolated verification procedure.
 
 ## Use and upstream migration
 
 See the [GFDM documentation](doc/gfdmhook/README.md). The original license applies.
+This AIO branch also supports [shared unpacked resources and verification caching](doc/gfdmhook/layered-data.md).
 GFDM, input mapping, EAMIO, security, and common hook code keep their original paths and contents.
 `iidxhook-util` is a shared GFDM graphics/configuration dependency and is retained as a whole; shared game definitions in `config` are also unchanged.
 Headers and import declarations for retained modules keep their original locations. Other games are not built.

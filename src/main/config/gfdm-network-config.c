@@ -2,6 +2,11 @@
 #include <windows.h>
 
 #include "config/gfdm-network-config.h"
+#include "gfdmhook1/display-mode.h"
+
+static const char display_comment[] =
+    "# gfx.fullscreen: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch,\n"
+    "# 3 borderless 4:3, 4 borderless stretch; restart required.\n";
 
 static bool regular_file(const wchar_t *path)
 {
@@ -93,7 +98,7 @@ bool gfdm_network_write_config(
     const char *server,
     const char *adapter,
     bool keyboard,
-    bool fullscreen)
+    int display_mode)
 {
     char line[512];
     bool comments = false, server_seen = false, adapter_seen = false;
@@ -101,11 +106,19 @@ bool gfdm_network_write_config(
     bool mcode_seen = false, frame_limit_seen = false, refresh_seen = false;
     bool needs_newline = false;
     bool fullscreen_seen = false;
+    bool display_documented = false;
+
+    if (display_mode < 0 || display_mode > 4) {
+        return false;
+    }
 
     if (src != NULL) {
         while (fgets(line, sizeof(line), src) != NULL) {
             if (line[0] == '#') {
                 comments = true;
+            }
+            if (strncmp(line, "# gfx.fullscreen: 0 window", 26) == 0) {
+                display_documented = true;
             }
         }
         if (ferror(src) || fseek(src, 0, SEEK_SET) != 0) {
@@ -126,16 +139,23 @@ bool gfdm_network_write_config(
             "# input.keyboard: built-in fallback, disabled when using "
             "configured IO.\n"
             "# gfx.frame_rate_limit: keep 60 for normal game speed.\n"
-            "# gfx.fullscreen: borderless 4:3 fullscreen; Alt+Enter toggles.\n"
+            "# gfx.fullscreen: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch,\n"
+            "# 3 borderless 4:3, 4 borderless stretch; restart required.\n"
             "# gfx.forced_refresh_rate: requested display refresh rate.\n\n",
             strcmp(mode, "gf") == 0 ? "Guitar Freaks" : "DrumMania",
             version);
+        display_documented = true;
     }
     if (src != NULL) {
         while (fgets(line, sizeof(line), src) != NULL) {
             size_t len = strlen(line);
             needs_newline = len != 0 && line[len - 1] != '\n';
-            if (strncmp(line, "eamuse.server=", 14) == 0) {
+            if (strncmp(line, "# gfx.fullscreen: true for fullscreen", 36) == 0 ||
+                strncmp(line, "# Fullscreen display. Set false for a fixed-size window.", 55) == 0) {
+                if (!display_documented) fputs(display_comment, dst);
+                display_documented = true;
+                needs_newline = false;
+            } else if (strncmp(line, "eamuse.server=", 14) == 0) {
                 fprintf(dst, "eamuse.server=%s\n", server);
                 server_seen = true;
                 needs_newline = false;
@@ -149,7 +169,9 @@ bool gfdm_network_write_config(
                 keyboard_seen = true;
                 needs_newline = false;
             } else if (strncmp(line, "gfx.fullscreen=", 15) == 0) {
-                fprintf(dst, "gfx.fullscreen=%s\n", fullscreen ? "true" : "false");
+                if (!display_documented) fputs(display_comment, dst);
+                display_documented = true;
+                fprintf(dst, "gfx.fullscreen=%d\n", display_mode);
                 fullscreen_seen = true;
                 needs_newline = false;
             } else if (strncmp(line, "eamuse.pcbid=", 13) == 0) {
@@ -188,7 +210,10 @@ bool gfdm_network_write_config(
         fprintf(dst, "input.keyboard=%s\n", keyboard ? "true" : "false");
     }
     if (!fullscreen_seen) {
-        fprintf(dst, "gfx.fullscreen=%s\n", fullscreen ? "true" : "false");
+        if (!display_documented) {
+            fputs(display_comment, dst);
+        }
+        fprintf(dst, "gfx.fullscreen=%d\n", display_mode);
     }
     if (!pcbid_seen) {
         fputs("eamuse.pcbid=0101020304050607086F\n", dst);

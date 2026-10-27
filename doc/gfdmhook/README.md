@@ -63,24 +63,6 @@ asynchronous reader relies on a blocking hardware interrupt read; completing
 every emulated read immediately otherwise spins and contends with game input
 consumers. This wait is outside the input lock and independent of the graphics
 frame rate limit.
-### Fullscreen
-
-On the configuration tool's **GFDM** tab, enable **Fullscreen (keep 4:3 aspect
-ratio)** for the selected version and GF/DM mode, then save and restart the
-game. This writes `gfx.fullscreen=true`; the default is `false` to retain the
-original window. A one-run override is:
-
-```
-gamestart-v5-gf.bat -p gfx.fullscreen=true
-```
-
-**Alt+Enter** toggles while the game window is focused; this does not change
-the saved setting. Borderless fullscreen uses the current monitor at its
-desktop resolution/refresh rate, keeps the original 640x480 logical game
-coordinates, and centers a 4:3 image with black bars as needed. Returning to
-window mode restores the original position and style. Other windows, movie
-contexts and the real client rectangle are not overridden.
-
 Keep `gfx.frame_rate_limit=60` for normal play. A value of zero disables the
 OpenGL limiter and can make frame-driven game logic run too fast once input
 polling no longer limits performance; `gfx.forced_refresh_rate` alone does not
@@ -92,6 +74,44 @@ filename. It recognizes the package's versioned launcher, then the unique matchi
 original game executable or with a stray V4 configuration from an older tool. If several
 versions cannot be distinguished, the page stays disabled instead of guessing V4.
 Saving preserves existing comments; missing settings receive the documented defaults.
+The GFDM page provides five display modes, saved independently in the selected
+version/mode file as `gfx.fullscreen`. Restart the game after changing it.
+For a one-run Borderless fit override: `gamestart-v5-gf.bat -p gfx.fullscreen=3`.
+This follows the mainline restart-based mode selection; the earlier AIO-only
+Alt+Enter switch is replaced by these five modes.
+
+| Value | Display mode |
+| --- | --- |
+| `0` | Fixed-size framed window (default) |
+| `1` | Fullscreen, preserve 4:3 with black bars |
+| `2` | Fullscreen, stretch to fill |
+| `3` | Borderless fullscreen, preserve 4:3 with black bars |
+| `4` | Borderless fullscreen, stretch to fill |
+
+Old `false`/`true` values remain readable as `0`/`1`. The configuration tool
+saves the numeric value. The logical game dimensions and projection stay intact;
+the GFDM hook maps the OpenGL viewport and scissor to the output rectangle. At
+1920x1080, 4:3 content occupies 1440x1080 with 240-pixel side bars. Stretching
+fills the display and changes the aspect ratio. Scaling rasterizes at the output
+size; it does not add detail to the original textures.
+
+Modes 1/2 use the original libsystem fullscreen lifecycle on the primary display,
+requesting the current desktop pixel dimensions and the configured refresh rate
+(`0` retains the current refresh). This lets the hook enforce fit/stretch without
+depending on the monitor's low-resolution scaling policy. Native finalization
+restores the saved desktop mode. An unsupported fullscreen request falls back to
+a window. Modes 3/4 cover the window's monitor without requesting a display-mode
+or refresh-rate change; `gfx.forced_refresh_rate` does not change Borderless.
+
+OpenGL mapping applies to the game window's default framebuffer; helper windows
+and offscreen framebuffers retain their own coordinates. Black-bar clearing
+preserves GL state. The hook handles resize/display/DPI messages and context
+recreation. An early GFDM-only native-window wrapper requests per-monitor DPI
+awareness before window creation, respecting an already established DPI policy.
+Real gameplay/BGA, focus recovery, mixed-DPI monitors and high-refresh latency
+still need hardware testing; passing build/rendering probes does not establish
+those results. Shared graphics/input implementations remain unchanged.
+
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files
 retain their original action indices.

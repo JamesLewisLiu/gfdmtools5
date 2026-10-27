@@ -21,7 +21,7 @@ static void touch(const wchar_t *directory, const wchar_t *name, bool remove)
     assert(fclose(file) == 0);
 }
 
-static void check_text(const char *input)
+static void check_text(const char *input, int display_mode)
 {
     FILE *src = input != NULL ? tmpfile() : NULL;
     FILE *dst = tmpfile();
@@ -32,13 +32,23 @@ static void check_text(const char *input)
         rewind(src);
     }
     assert(gfdm_network_write_config(
-        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, true));
+        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, display_mode));
     rewind(dst);
     text[fread(text, 1, sizeof(text) - 1, dst)] = '\0';
     assert(strstr(text, "eamuse.server=example:1234\n"));
     assert(strstr(text, "adapter.override_ip=192.0.2.1\n"));
     assert(strstr(text, "input.keyboard=true\n"));
-    assert(strstr(text, "gfx.fullscreen=true\n"));
+    char expected_setting[32];
+    snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d\n", display_mode);
+    assert(strstr(text, expected_setting));
+    if (input != NULL && strstr(input, "layered.enabled=true")) {
+        assert(strstr(text, "layered.enabled=true\n"));
+        assert(strstr(text, "layered.full_verify=false\n"));
+    }
+    assert(strstr(text, "# 3 borderless 4:3, 4 borderless stretch; restart required."));
+    assert(!strstr(text, "# gfx.fullscreen: true for fullscreen"));
+    const char *setting = strstr(text, "\ngfx.fullscreen=");
+    assert(setting != NULL && strstr(setting + 1, "\ngfx.fullscreen=") == NULL);
     if (input != NULL && strstr(input, "# User comment") != NULL) {
         assert(strstr(text, "# User comment\r\n"));
         assert(strstr(text, "security.mcode=GCJ33JBA\n"));
@@ -62,6 +72,20 @@ static void check_text(const char *input)
 
 int main(void)
 {
+    int display_mode;
+    for (int i = 0; i <= 4; i++) {
+        char value[] = {(char) ('0' + i), '\0'};
+        assert(gfdm_display_parse_mode(value, &display_mode) && display_mode == i);
+        check_text("# User setting\ngfx.fullscreen=0\n"
+                   "layered.enabled=true\nlayered.full_verify=false\n", i);
+    }
+    assert(gfdm_display_parse_mode(" true\r\n", &display_mode) && display_mode == 1);
+    assert(gfdm_display_parse_mode("FALSE", &display_mode) && display_mode == 0);
+    assert(!gfdm_display_parse_mode("5", &display_mode));
+    assert(!gfdm_display_parse_mode("-1", &display_mode));
+    assert(!gfdm_display_parse_mode("3junk", &display_mode));
+    assert(!gfdm_display_parse_mode("2 extra", &display_mode));
+    assert(!gfdm_display_parse_mode("", &display_mode));
     wchar_t base[MAX_PATH], directory[MAX_PATH], exe[MAX_PATH], path[MAX_PATH];
     const unsigned int expected[] = {
         IDS_GENERIC_TEST,        IDS_GENERIC_SERVICE,      IDS_GF_P1_RED,
@@ -125,15 +149,17 @@ int main(void)
     assert(wcsstr(path, L"gfdm-v7-dm.conf"));
     touch(directory, L"gdv7.exe", true);
     assert(RemoveDirectoryW(directory));
-    check_text(NULL);
+    check_text(NULL, false);
     check_text(
-        "eamuse.server=old\nadapter.override_ip=\ninput.keyboard=false\n");
-    check_text("# Incomplete configuration\n");
+        "eamuse.server=old\nadapter.override_ip=\ninput.keyboard=false\n", true);
+    check_text("# Incomplete configuration\n", false);
+    check_text("gfx.fullscreen=false\n", true);
+    check_text("gfx.fullscreen=true", false);
+    check_text("# gfx.fullscreen: true for fullscreen, false for a fixed-size window; restart required.\ngfx.fullscreen=true\n", 4);
+    check_text("# Fullscreen display. Set false for a fixed-size window. Restart the game after changing.\ngfx.fullscreen=false\n", 3);
     check_text(
         "# User comment\r\neamuse.server=old\nadapter.override_ip=\n"
-        "input.keyboard=false\ngfx.fullscreen=false\n"
-        "layered.enabled=true\nlayered.full_verify=false\n"
-        "security.mcode=GCJ33JBA\n# Last comment");
+        "input.keyboard=false\nsecurity.mcode=GCJ33JBA\n# Last comment", true);
     puts(
         "PASS: package-only V7, mixed executables, ambiguous versions, GF/DM "
         "paths, preserved and regenerated comments");

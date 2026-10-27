@@ -2,6 +2,7 @@
 
 #include "cconfig/cconfig-util.h"
 #include "gfdmhook1/config.h"
+#include "gfdmhook1/display-mode.h"
 #include "security/id.h"
 #include "util/log.h"
 
@@ -12,9 +13,9 @@
 #define KEYBOARD_KEY "input.keyboard"
 #define LAYERED_KEY "layered.enabled"
 #define LAYERED_FULL_VERIFY_KEY "layered.full_verify"
+#define FULLSCREEN_KEY "gfx.fullscreen"
 #define FRAME_RATE_LIMIT_KEY "gfx.frame_rate_limit"
 #define FORCED_REFRESH_RATE_KEY "gfx.forced_refresh_rate"
-#define FULLSCREEN_KEY "gfx.fullscreen"
 
 static const struct net_addr default_server = {
     .type = NET_ADDR_TYPE_HOSTNAME,
@@ -29,8 +30,6 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "localhost:80",
         "e-amusement server URL or host:port");
     hooklib_config_adapter_init(config);
-    cconfig_util_set_bool(config, FULLSCREEN_KEY, false,
-        "Borderless fullscreen with 4:3 aspect ratio (Alt+Enter toggles)");
     cconfig_util_set_bool(config, LAYERED_KEY, false,
         "V4-V8: require verified unpacked objects and forbid packed fallback");
     cconfig_util_set_bool(config, LAYERED_FULL_VERIFY_KEY, false,
@@ -57,6 +56,12 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         KEYBOARD_KEY,
         false,
         "enable the default keyboard-to-panel mapping");
+    cconfig_util_set_int(
+        config,
+        FULLSCREEN_KEY,
+        0,
+        "display mode: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch, "
+        "3 borderless 4:3, 4 borderless stretch (restart required)");
     cconfig_util_set_float(
         config,
         FRAME_RATE_LIMIT_KEY,
@@ -75,6 +80,7 @@ void gfdmhook1_config_get(
 {
     char server[1024];
     char mcode[sizeof(struct security_mcode) + 1];
+    char display_mode[32];
 
     memset(out, 0, sizeof(*out));
     out->server = default_server;
@@ -116,9 +122,14 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
-    cconfig_util_get_bool(config, FULLSCREEN_KEY, &out->fullscreen, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);
     cconfig_util_get_bool(config, LAYERED_FULL_VERIFY_KEY, &out->layered_full_verify, false);
+    if (!cconfig_util_get_str(config, FULLSCREEN_KEY, display_mode,
+            sizeof(display_mode) - 1, "0") ||
+        !gfdm_display_parse_mode(display_mode, &out->display_mode)) {
+        log_warning("Invalid %s, using windowed mode (0)", FULLSCREEN_KEY);
+        out->display_mode = GFDM_DISPLAY_WINDOWED;
+    }
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {
         log_warning("Invalid %s, using 60 Hz", FRAME_RATE_LIMIT_KEY);

@@ -7,6 +7,7 @@ ldflags_gfdmhook1 := \
     -lgdi32 \
     -lopengl32 \
     -liphlpapi \
+    -lopengl32 \
     -luser32 \
     -lws2_32 \
 

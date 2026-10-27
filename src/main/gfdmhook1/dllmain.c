@@ -165,7 +165,6 @@ static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
     uint64_t frame_time;
 
     InterlockedIncrement(&gfdm_input_frame);
-    gfdm_display_present(hdc);
     gfdm_gl_present_count++;
     if (!gfdm_gl_present_logged) {
         log_info("GFDM OpenGL SwapBuffers hook active");
@@ -198,6 +197,7 @@ static BOOL WINAPI gfdm_SwapBuffers(HDC hdc)
         }
     }
 
+    gfdm_display_present(hdc);
     return real_SwapBuffers != NULL ? real_SwapBuffers(hdc) : FALSE;
 }
 
@@ -211,9 +211,9 @@ static const struct hook_symbol gfdm_gdi_syms[] = {
 
 static void gfdm_setup_gfx_hooks(void)
 {
-    gfdm_display_apply_hooks();
     hook_table_apply(
         NULL, "gdi32.dll", gfdm_gdi_syms, lengthof(gfdm_gdi_syms));
+    gfdm_display_apply_hooks();
 }
 
 static void gfdm_setup_d3d9_hooks(void)
@@ -1716,7 +1716,6 @@ static void gfdm_init(void)
         ExitProcess(EXIT_FAILURE);
     }
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
-    gfdm_display_init(gfdm_config.fullscreen);
     cconfig_finit(config);
 
     if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered,
@@ -1778,6 +1777,7 @@ static void(__cdecl *real_boot_main)(HWND);
 static void __cdecl gfdm_boot_main(HWND hwnd)
 {
     gfdm_init();
+    gfdm_display_init(hwnd, gfdm_config.display_mode, gfdm_config.forced_refresh_rate);
     real_boot_main(hwnd);
 }
 
@@ -1810,6 +1810,7 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
         gfdm_module = mod;
         gfdm_open_log_file();
         log_to_writer(gfdm_log_writer, NULL);
+        gfdm_display_prepare();
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
     }
 

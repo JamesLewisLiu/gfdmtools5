@@ -18,7 +18,7 @@ struct gfdmhook1_config {
     bool keyboard;
     bool layered;
     bool layered_full_verify;
-    bool fullscreen;
+    int display_mode;
     float frame_rate_limit;
     int32_t forced_refresh_rate;
 };

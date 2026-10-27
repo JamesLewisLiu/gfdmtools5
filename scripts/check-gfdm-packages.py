@@ -12,6 +12,8 @@ def check(directory):
         prefix = f"gfdm-v{version}"
         with zipfile.ZipFile(directory / f"{prefix}.zip") as package:
             names = package.namelist()
+            # The runtime resolves exactly CLVSD.ax beside inject.exe.
+            assert all('/' not in name and '\\' not in name for name in names), names
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
                         "CLVSD.ax"}
@@ -39,6 +41,7 @@ def check(directory):
                               if line and not line.startswith("#"))
                 assert config["security.mcode"] == f"GC{letter}{number}J{spec}A"
                 assert "adapter.override_ip" in config, (version, mode)
+                assert config["gfx.fullscreen"] == "0", (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",
