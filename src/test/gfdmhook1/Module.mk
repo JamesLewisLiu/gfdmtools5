@@ -27,6 +27,8 @@ src_gfdm-backup-test := backup-test.c
 testexes += gfdm-config-test
 srcdir_gfdm-config-test := src/test/gfdmhook1
 src_gfdm-config-test := config-test.c
+libs_gfdm-config-test := hook
+ldflags_gfdm-config-test := -lsetupapi
 
 testexes += gfdm-display-test
 srcdir_gfdm-display-test := src/test/gfdmhook1

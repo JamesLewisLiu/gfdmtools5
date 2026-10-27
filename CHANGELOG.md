@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-27: Remove separate Borderless modes after reported song-video failures. Keep modes 0/1/2, default to 4:3 fullscreen, and migrate saved 3/4 values to 1/2. Clarify the adapter override for multi-adapter startup failures. Speed up config.exe by using cached Windows device names instead of blocking USB product/manufacturer queries, without changing shared geninput sources or input identities.
+
 2026-10-27: Expand gfx.fullscreen to five numbered display modes: windowed, 4:3/stretched native fullscreen, and 4:3/stretched Borderless. Keep boolean compatibility and per-version/GF/DM saving. Add GFDM-scoped OpenGL viewport/scissor mapping, state-preserving black bars, context/framebuffer guards and window/DPI lifecycle handling.
 
 2026-10-27: Add a per-version/mode Fullscreen checkbox and gfx.fullscreen setting. Use the native V4-V8 OpenGL fullscreen lifecycle or a fixed-size framed window; unsupported fullscreen modes fall back to a window. Restart the game to apply changes.

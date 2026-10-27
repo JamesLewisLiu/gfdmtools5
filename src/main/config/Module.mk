@@ -5,12 +5,14 @@ cppflags_config := -DUNICODE
 libs_config     := \
     eamio \
     geninput \
+    hook \
     util \
 
 ldflags_config  := \
     -lcomctl32 \
     -lcomdlg32 \
     -lgdi32 \
+    -lsetupapi \
     -mwindows \
 
 src_config      := \
@@ -22,6 +24,7 @@ src_config      := \
     eam.c \
     gfdm-network.c \
     gfdm-network-config.c \
+    hid-metadata.c \
     gametype.c \
     lights.c \
     main.c \

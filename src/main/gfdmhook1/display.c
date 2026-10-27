@@ -39,8 +39,7 @@ static bool display_scaled(void)
 
 static bool display_stretched(void)
 {
-    return display.mode == GFDM_DISPLAY_FULLSCREEN_STRETCH ||
-        display.mode == GFDM_DISPLAY_BORDERLESS_STRETCH;
+    return display.mode == GFDM_DISPLAY_FULLSCREEN_STRETCH;
 }
 
 static void display_output(void)
@@ -314,11 +313,6 @@ display_wndproc(HWND window, UINT msg, WPARAM wp, LPARAM lp)
 {
     WNDPROC previous = display.wndproc;
     bool unicode = display.unicode;
-    if (msg == WM_DPICHANGED && lp != 0 &&
-        display.mode >= GFDM_DISPLAY_BORDERLESS_FIT) {
-        display.monitor =
-            MonitorFromRect((const RECT *) lp, MONITOR_DEFAULTTONEAREST);
-    }
     if (msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
         display_place();
     if (msg == WM_SIZE || msg == WM_DISPLAYCHANGE || msg == WM_DPICHANGED)
@@ -372,7 +366,7 @@ void gfdm_display_init(HWND window, int mode, int refresh)
         return;
     }
     if (mode < GFDM_DISPLAY_WINDOWED ||
-        mode > GFDM_DISPLAY_BORDERLESS_STRETCH) {
+        mode > GFDM_DISPLAY_FULLSCREEN_STRETCH) {
         mode = GFDM_DISPLAY_WINDOWED;
         native = false;
     }

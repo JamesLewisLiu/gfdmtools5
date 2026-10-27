@@ -53,9 +53,9 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
     cconfig_util_set_int(
         config,
         FULLSCREEN_KEY,
-        0,
-        "display mode: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch, "
-        "3 borderless 4:3, 4 borderless stretch (restart required)");
+        1,
+        "display mode: 0 window, 1 fullscreen 4:3 (default), "
+        "2 fullscreen stretch (restart required)");
     cconfig_util_set_float(
         config,
         FRAME_RATE_LIMIT_KEY,
@@ -117,10 +117,10 @@ void gfdmhook1_config_get(
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
     if (!cconfig_util_get_str(config, FULLSCREEN_KEY, display_mode,
-            sizeof(display_mode) - 1, "0") ||
+            sizeof(display_mode) - 1, "1") ||
         !gfdm_display_parse_mode(display_mode, &out->display_mode)) {
-        log_warning("Invalid %s, using windowed mode (0)", FULLSCREEN_KEY);
-        out->display_mode = GFDM_DISPLAY_WINDOWED;
+        log_warning("Invalid %s, using fullscreen 4:3 (1)", FULLSCREEN_KEY);
+        out->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
     }
     if (!cconfig_util_get_float(
             config, FRAME_RATE_LIMIT_KEY, &out->frame_rate_limit, 60.0)) {

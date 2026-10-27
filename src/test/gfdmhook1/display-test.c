@@ -254,7 +254,7 @@ static void check_window(int mode, bool available, int success)
     assert(EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &original));
     gfdm_display_init(win, mode, 0);
     bool native = mode == 1 || mode == 2;
-    bool scaled = mode >= 3 || (native && available && success);
+    bool scaled = native && available && success;
     assert(native_fullscreen == (native && available && success));
     assert(window_calls == available && full_calls == (native && available));
     assert(requests == (native && available));
@@ -270,7 +270,7 @@ static void check_window(int mode, bool available, int success)
             client.right == monitor.rcMonitor.right - monitor.rcMonitor.left);
         assert(
             client.bottom == monitor.rcMonitor.bottom - monitor.rcMonitor.top);
-        draw(win, dc, mode == 2 || mode == 4);
+        draw(win, dc, mode == 2);
         /* A deleted/recreated context is adopted before its first draw. */
         assert(wglMakeCurrent(NULL, NULL) && wglDeleteContext(rc));
         assert(display.context == NULL);
@@ -279,12 +279,12 @@ static void check_window(int mode, bool available, int success)
         assert(display.context == rc);
         GLint clip[4];
         glGetIntegerv(GL_SCISSOR_BOX, clip);
-        assert(clip[2] == ((mode == 2 || mode == 4) ? 640 : 480));
+        assert(clip[2] == ((mode == 2) ? 640 : 480));
         assert(clip[3] == 360);
         glViewport(0, 0, 640, 480);
         GLint viewport[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
-        assert(viewport[2] == ((mode == 2 || mode == 4) ? 1280 : 960));
+        assert(viewport[2] == ((mode == 2) ? 1280 : 960));
         ShowWindow(win, SW_MINIMIZE);
         ShowWindow(win, SW_RESTORE);
         gfdm_display_present(dc);
@@ -310,16 +310,14 @@ int main(void)
         .lpszClassName = "GFDMDisplayTest"};
     assert(RegisterClassA(&cls));
     gfdm_display_apply_hooks();
-    for (int i = 0; i <= 4; i++)
+    for (int i = 0; i <= 2; i++)
         check_window(i, true, 1);
     check_window(1, true, 0);
     check_window(2, false, 1);
-    check_window(3, false, 1);
-    check_window(4, false, 1);
-    gfdm_display_init(NULL, 3, 0);
+    gfdm_display_init(NULL, 1, 0);
     assert(UnregisterClassA(cls.lpszClassName, cls.hInstance));
     puts(
-        "PASS: five modes, native mode requests/restoration/fallback, real GL "
+        "PASS: three modes, native mode requests/restoration/fallback, real GL "
         "fit/stretch/clipping, black-bar state, helper/FBO isolation, context "
         "recreation and resize");
     return 0;

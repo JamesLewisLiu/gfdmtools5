@@ -67,19 +67,19 @@ filename. It recognizes the package's versioned launcher, then the unique matchi
 original game executable or with a stray V4 configuration from an older tool. If several
 versions cannot be distinguished, the page stays disabled instead of guessing V4.
 Saving preserves existing comments; missing settings receive the documented defaults.
-The GFDM page provides five display modes, saved independently in the selected
+The GFDM page provides three display modes, saved independently in the selected
 version/mode file as `gfx.fullscreen`. Restart the game after changing it.
 
 | Value | Display mode |
 | --- | --- |
-| `0` | Fixed-size framed window (default) |
-| `1` | Fullscreen, preserve 4:3 with black bars |
+| `0` | Fixed-size framed window |
+| `1` | Fullscreen, preserve 4:3 with black bars (default) |
 | `2` | Fullscreen, stretch to fill |
-| `3` | Borderless fullscreen, preserve 4:3 with black bars |
-| `4` | Borderless fullscreen, stretch to fill |
 
 Old `false`/`true` values remain readable as `0`/`1`. The configuration tool
-saves the numeric value. The logical game dimensions and projection stay intact;
+saves the numeric value. Missing or invalid values default to `1`. Removed
+`3`/`4` settings migrate to `1`/`2` when loaded and saved. The logical game
+dimensions and projection stay intact;
 the GFDM hook maps the OpenGL viewport and scissor to the output rectangle. At
 1920x1080, 4:3 content occupies 1440x1080 with 240-pixel side bars. Stretching
 fills the display and changes the aspect ratio. Scaling rasterizes at the output
@@ -90,8 +90,8 @@ requesting the current desktop pixel dimensions and the configured refresh rate
 (`0` retains the current refresh). This lets the hook enforce fit/stretch without
 depending on the monitor's low-resolution scaling policy. Native finalization
 restores the saved desktop mode. An unsupported fullscreen request falls back to
-a window. Modes 3/4 cover the window's monitor without requesting a display-mode
-or refresh-rate change; `gfx.forced_refresh_rate` does not change Borderless.
+a window. The separate Borderless modes have been removed after reports of
+song-video playback failures; use fullscreen mode `1` or `2`.
 
 OpenGL mapping applies to the game window's default framebuffer; helper windows
 and offscreen framebuffers retain their own coordinates. Black-bar clearing
@@ -175,9 +175,16 @@ All V4-V8 profiles, in both GF and DM modes, expose one network adapter to the
 game through the shared `adapter.override_ip` configuration. The hook also
 filters consumers loaded after boot, so late network libraries use the same
 selected adapter. By default it selects the
-adapter used by Windows' default route. On systems with multiple active
-adapters, set `adapter.override_ip` to the IPv4 address of the adapter that
-should be visible to GFDM; the other adapters are hidden from the game.
+adapter used by Windows' default route. Use `adapter.override_ip` when the game
+cannot start on a machine with multiple network adapters, including VPN or
+virtual adapters. Set it to the IPv4 address of the adapter used to reach your
+server; only that adapter is exposed to GFDM. Leave it empty when automatic
+selection works.
+
+The configurator reads device display names from Windows' cached device
+properties. It avoids USB product/manufacturer string requests that can each
+time out for several seconds on some devices. Device paths, controls, bindings,
+Raw Input, Naive and game-side geninput behavior are unchanged.
 
 The built-in keyboard fallback is disabled by default. In `config.exe`, open
 **GFDM** and check **Enable built-in keyboard fallback** only when needed.

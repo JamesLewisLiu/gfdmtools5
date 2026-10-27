@@ -51,7 +51,7 @@ static void gfdm_network_load(struct gfdm_network_page *page)
     strcpy(page->server, "localhost:80");
     page->adapter[0] = '\0';
     page->keyboard = false;
-    page->display_mode = GFDM_DISPLAY_WINDOWED;
+    page->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
     if (!page->path_valid) {
         return;
     }
@@ -74,7 +74,7 @@ static void gfdm_network_load(struct gfdm_network_page *page)
                 || strcmp(value, "1") == 0;
         } else if (strncmp(line, "gfx.fullscreen=", 15) == 0) {
             if (!gfdm_display_parse_mode(line + 15, &page->display_mode)) {
-                page->display_mode = GFDM_DISPLAY_WINDOWED;
+                page->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
             }
         }
     }
@@ -107,8 +107,8 @@ static void gfdm_network_save(struct gfdm_network_page *page)
     page->keyboard = IsDlgButtonChecked(page->hwnd, IDC_GFDM_KEYBOARD) == BST_CHECKED;
     page->display_mode = (int) SendDlgItemMessage(page->hwnd,
         IDC_GFDM_DISPLAY_MODE, CB_GETCURSEL, 0, 0);
-    if (page->display_mode < 0 || page->display_mode > 4) {
-        page->display_mode = GFDM_DISPLAY_WINDOWED;
+    if (page->display_mode < 0 || page->display_mode > 2) {
+        page->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
     }
     swprintf(tmp_path, lengthof(tmp_path), L"%ls.tmp", page->path);
     src = _wfopen(page->path, L"rb");
@@ -207,8 +207,6 @@ static INT_PTR CALLBACK gfdm_network_dlg_proc(
                     "0 - Windowed",
                     "1 - Fullscreen (4:3)",
                     "2 - Fullscreen (stretch)",
-                    "3 - Borderless (4:3)",
-                    "4 - Borderless (stretch)",
                 };
                 for (size_t i = 0; i < lengthof(modes); i++) {
                     SendDlgItemMessageA(hwnd, IDC_GFDM_DISPLAY_MODE,

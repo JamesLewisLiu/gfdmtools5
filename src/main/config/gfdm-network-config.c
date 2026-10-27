@@ -5,8 +5,18 @@
 #include "gfdmhook1/display-mode.h"
 
 static const char display_comment[] =
-    "# gfx.fullscreen: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch,\n"
-    "# 3 borderless 4:3, 4 borderless stretch; restart required.\n";
+    "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen stretch.\n"
+    "# Restart the game after changing the display mode.\n";
+
+static const char adapter_comment[] =
+    "# If the game cannot start with multiple network adapters (including VPNs),\n"
+    "# set this to the IPv4 address of the adapter used to reach your server.\n"
+    "# Only that adapter is exposed to the game. Leave empty to use the default route.\n";
+
+static bool starts_with(const char *line, const char *prefix)
+{
+    return strncmp(line, prefix, strlen(prefix)) == 0;
+}
 
 static bool regular_file(const wchar_t *path)
 {
@@ -107,8 +117,9 @@ bool gfdm_network_write_config(
     bool needs_newline = false;
     bool fullscreen_seen = false;
     bool display_documented = false;
+    bool adapter_documented = false;
 
-    if (display_mode < 0 || display_mode > 4) {
+    if (display_mode < 0 || display_mode > 2) {
         return false;
     }
 
@@ -117,8 +128,11 @@ bool gfdm_network_write_config(
             if (line[0] == '#') {
                 comments = true;
             }
-            if (strncmp(line, "# gfx.fullscreen: 0 window", 26) == 0) {
+            if (starts_with(line, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default)")) {
                 display_documented = true;
+            }
+            if (starts_with(line, "# If the game cannot start with multiple network adapters")) {
+                adapter_documented = true;
             }
         }
         if (ferror(src) || fseek(src, 0, SEEK_SET) != 0) {
@@ -130,8 +144,6 @@ bool gfdm_network_write_config(
             dst,
             "# %s V%u configuration\n"
             "# eamuse.server: Asphyxia CORE host and port.\n"
-            "# adapter.override_ip: optional IPv4 adapter override; leave "
-            "empty for the default route.\n"
             "# eamuse.pcbid/eamid: roundplug IDs; defaults are valid BT5 test "
             "IDs.\n"
             "# security.mcode: keep the version and GF/DM model matched to the "
@@ -139,27 +151,36 @@ bool gfdm_network_write_config(
             "# input.keyboard: built-in fallback, disabled when using "
             "configured IO.\n"
             "# gfx.frame_rate_limit: keep 60 for normal game speed.\n"
-            "# gfx.fullscreen: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch,\n"
-            "# 3 borderless 4:3, 4 borderless stretch; restart required.\n"
             "# gfx.forced_refresh_rate: requested display refresh rate.\n\n",
             strcmp(mode, "gf") == 0 ? "Guitar Freaks" : "DrumMania",
             version);
-        display_documented = true;
     }
     if (src != NULL) {
         while (fgets(line, sizeof(line), src) != NULL) {
             size_t len = strlen(line);
             needs_newline = len != 0 && line[len - 1] != '\n';
-            if (strncmp(line, "# gfx.fullscreen: true for fullscreen", 36) == 0 ||
-                strncmp(line, "# Fullscreen display. Set false for a fixed-size window.", 55) == 0) {
+            if (starts_with(line, "# 3 borderless 4:3, 4 borderless stretch;") ||
+                strcmp(line, "# Leave empty to select the adapter used by the default route.\n") == 0 ||
+                strcmp(line, "# Leave empty to select the adapter used by the default route.\r\n") == 0) {
+                needs_newline = false;
+            } else if (starts_with(line, "# gfx.fullscreen: true for fullscreen") ||
+                starts_with(line, "# Fullscreen display. Set false for a fixed-size window.") ||
+                starts_with(line, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3,")) {
                 if (!display_documented) fputs(display_comment, dst);
                 display_documented = true;
+                needs_newline = false;
+            } else if (starts_with(line, "# Optional IPv4 address to expose as the only network adapter") ||
+                starts_with(line, "# adapter.override_ip: optional IPv4 adapter override;")) {
+                if (!adapter_documented) fputs(adapter_comment, dst);
+                adapter_documented = true;
                 needs_newline = false;
             } else if (strncmp(line, "eamuse.server=", 14) == 0) {
                 fprintf(dst, "eamuse.server=%s\n", server);
                 server_seen = true;
                 needs_newline = false;
             } else if (strncmp(line, "adapter.override_ip=", 20) == 0) {
+                if (!adapter_documented) fputs(adapter_comment, dst);
+                adapter_documented = true;
                 fprintf(dst, "adapter.override_ip=%s\n", adapter);
                 adapter_seen = true;
                 needs_newline = false;
@@ -204,6 +225,7 @@ bool gfdm_network_write_config(
         fprintf(dst, "eamuse.server=%s\n", server);
     }
     if (!adapter_seen) {
+        if (!adapter_documented) fputs(adapter_comment, dst);
         fprintf(dst, "adapter.override_ip=%s\n", adapter);
     }
     if (!keyboard_seen) {

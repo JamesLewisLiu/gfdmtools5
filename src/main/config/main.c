@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "config/gametype.h"
+#include "config/hid-metadata.h"
 #include "config/resource.h"
 #include "config/schema.h"
 #include "config/spinner.h"
@@ -96,6 +97,10 @@ int main(int argc, char **argv)
         if (schema == NULL) {
             return EXIT_FAILURE;
         }
+    }
+
+    if (strcmp(schema->name, "gf") == 0 || strcmp(schema->name, "dm") == 0) {
+        config_hid_metadata_init();
     }
 
     input_set_loggers(

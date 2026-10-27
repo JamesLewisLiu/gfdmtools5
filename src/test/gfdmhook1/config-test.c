@@ -7,6 +7,34 @@
 #include "config/action-order.h"
 #include "config/gfdm-network-config.c"
 #include "config/schema.c"
+#include "config/hid-metadata.c"
+
+static void check_metadata_lifetime(void)
+{
+    wchar_t text[256] = L"unchanged";
+    HANDLE handle = CreateEventW(NULL, FALSE, FALSE, NULL);
+    assert(handle != NULL);
+    InitializeCriticalSection(&metadata_lock);
+    /* Missing registry data must still give a stable label without a USB
+       string request. Closing/reusing a handle must not retain that label. */
+    cache_device(handle, "\\\\?\\gfdm-config-test-device");
+    assert(metadata_product(handle, text, sizeof(text)));
+    assert(wcscmp(text, L"\\\\?\\gfdm-config-test-device") == 0);
+    assert(!metadata_product(handle, text, 2));
+    assert(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+    assert(wcscmp(text, L"\\\\?\\gfdm-config-test-device") == 0);
+    assert(!metadata_product(handle, NULL, sizeof(text)));
+    assert(!metadata_manufacturer(handle, text, sizeof(text)));
+    assert(metadata_close(handle));
+    assert(metadata == NULL);
+    assert(!metadata_product(handle, text, sizeof(text)));
+    assert(GetLastError() == ERROR_NOT_FOUND);
+    handle = CreateEventW(NULL, FALSE, FALSE, NULL);
+    assert(handle != NULL);
+    assert(!metadata_product(handle, text, sizeof(text)));
+    assert(metadata_close(handle));
+    DeleteCriticalSection(&metadata_lock);
+}
 
 static void touch(const wchar_t *directory, const wchar_t *name, bool remove)
 {
@@ -41,7 +69,11 @@ static void check_text(const char *input, int display_mode)
     char expected_setting[32];
     snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d\n", display_mode);
     assert(strstr(text, expected_setting));
-    assert(strstr(text, "# 3 borderless 4:3, 4 borderless stretch; restart required."));
+    assert(strstr(text, "# Restart the game after changing the display mode."));
+    assert(strstr(text, "# If the game cannot start with multiple network adapters"));
+    assert(strstr(text, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen stretch."));
+    assert(!strstr(text, "# 3 borderless"));
+    assert(!strstr(text, "# Optional IPv4 address to expose"));
     assert(!strstr(text, "# gfx.fullscreen: true for fullscreen"));
     const char *setting = strstr(text, "\ngfx.fullscreen=");
     assert(setting != NULL && strstr(setting + 1, "\ngfx.fullscreen=") == NULL);
@@ -68,11 +100,12 @@ static void check_text(const char *input, int display_mode)
 
 int main(void)
 {
+    check_metadata_lifetime();
     int display_mode;
     for (int i = 0; i <= 4; i++) {
         char value[] = {(char) ('0' + i), '\0'};
-        assert(gfdm_display_parse_mode(value, &display_mode) && display_mode == i);
-        check_text("# User setting\ngfx.fullscreen=0\n", i);
+        assert(gfdm_display_parse_mode(value, &display_mode) && display_mode == (i <= 2 ? i : i - 2));
+        check_text("# User setting\ngfx.fullscreen=0\n", i <= 2 ? i : i - 2);
     }
     assert(gfdm_display_parse_mode(" true\r\n", &display_mode) && display_mode == 1);
     assert(gfdm_display_parse_mode("FALSE", &display_mode) && display_mode == 0);
@@ -150,8 +183,16 @@ int main(void)
     check_text("# Incomplete configuration\n", false);
     check_text("gfx.fullscreen=false\n", true);
     check_text("gfx.fullscreen=true", false);
-    check_text("# gfx.fullscreen: true for fullscreen, false for a fixed-size window; restart required.\ngfx.fullscreen=true\n", 4);
-    check_text("# Fullscreen display. Set false for a fixed-size window. Restart the game after changing.\ngfx.fullscreen=false\n", 3);
+    check_text("# gfx.fullscreen: true for fullscreen, false for a fixed-size window; restart required.\ngfx.fullscreen=true\n", 2);
+    check_text("# Fullscreen display. Set false for a fixed-size window. Restart the game after changing.\ngfx.fullscreen=false\n", 1);
+    check_text("# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen stretch.\n"
+        "# Restart the game after changing the display mode.\ngfx.fullscreen=1\n", 1);
+    check_text("# gfx.fullscreen: 0 window, 1 fullscreen 4:3, 2 fullscreen stretch,\n"
+        "# 3 borderless 4:3, 4 borderless stretch; restart required.\n"
+        "gfx.fullscreen=4\n"
+        "# Optional IPv4 address to expose as the only network adapter to the game.\n"
+        "# Leave empty to select the adapter used by the default route.\n"
+        "adapter.override_ip=\n", 2);
     check_text(
         "# User comment\r\neamuse.server=old\nadapter.override_ip=\n"
         "input.keyboard=false\nsecurity.mcode=GCJ33JBA\n# Last comment", true);
