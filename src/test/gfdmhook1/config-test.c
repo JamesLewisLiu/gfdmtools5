@@ -69,6 +69,10 @@ static void check_text(const char *input, int display_mode)
     char expected_setting[32];
     snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d\n", display_mode);
     assert(strstr(text, expected_setting));
+    if (input != NULL && strstr(input, "layered.enabled=true")) {
+        assert(strstr(text, "layered.enabled=true\n"));
+        assert(strstr(text, "layered.full_verify=false\n"));
+    }
     assert(strstr(text, "# Restart the game after changing the display mode."));
     assert(strstr(text, "# If the game cannot start with multiple network adapters"));
     assert(strstr(text, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen stretch."));
@@ -105,7 +109,9 @@ int main(void)
     for (int i = 0; i <= 4; i++) {
         char value[] = {(char) ('0' + i), '\0'};
         assert(gfdm_display_parse_mode(value, &display_mode) && display_mode == (i <= 2 ? i : i - 2));
-        check_text("# User setting\ngfx.fullscreen=0\n", i <= 2 ? i : i - 2);
+        check_text("# User setting\ngfx.fullscreen=0\n"
+                   "layered.enabled=true\nlayered.full_verify=false\n",
+                   i <= 2 ? i : i - 2);
     }
     assert(gfdm_display_parse_mode(" true\r\n", &display_mode) && display_mode == 1);
     assert(gfdm_display_parse_mode("FALSE", &display_mode) && display_mode == 0);

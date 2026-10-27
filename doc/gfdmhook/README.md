@@ -15,6 +15,13 @@ need no `-I` or `-b` XML arguments and no XML files need to be installed or edit
 The two configuration files include the configuration comments; no generic
 `gfdm-vN.conf` is shipped.
 
+For a verified shared unpacked store, put the five program directories beside
+one `data` directory and set `layered.enabled=true` in their configurations.
+The shared content objects are selected through a separate manifest and original
+metadata for each version. The option remains off for ordinary packed installs.
+See [layered data](layered-data.md) for the required layout, exact-module checks,
+full startup verification and validation boundaries.
+
 | Version | Executable | GF / DM models | Default GF / DM security codes |
 | --- | --- | --- | --- |
 | V4 | gdv4.exe | G33 / G32 | GCG33JAA / GCG32JAA |
@@ -69,6 +76,7 @@ versions cannot be distinguished, the page stays disabled instead of guessing V4
 Saving preserves existing comments; missing settings receive the documented defaults.
 The GFDM page provides three display modes, saved independently in the selected
 version/mode file as `gfx.fullscreen`. Restart the game after changing it.
+For a one-run fullscreen stretch override: `gamestart-v5-gf.bat -p gfx.fullscreen=2`.
 
 | Value | Display mode |
 | --- | --- |

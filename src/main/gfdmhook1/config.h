@@ -16,6 +16,8 @@ struct gfdmhook1_config {
     struct security_id eamid;
     struct security_mcode mcode;
     bool keyboard;
+    bool layered;
+    bool layered_full_verify;
     int display_mode;
     float frame_rate_limit;
     int32_t forced_refresh_rate;

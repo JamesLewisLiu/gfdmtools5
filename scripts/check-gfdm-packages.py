@@ -12,6 +12,8 @@ def check(directory):
         prefix = f"gfdm-v{version}"
         with zipfile.ZipFile(directory / f"{prefix}.zip") as package:
             names = package.namelist()
+            # The runtime resolves exactly CLVSD.ax beside inject.exe.
+            assert all('/' not in name and '\\' not in name for name in names), names
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
                         "CLVSD.ax"}
