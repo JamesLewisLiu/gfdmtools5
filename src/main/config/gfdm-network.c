@@ -45,7 +45,9 @@ static void gfdm_network_init_path(struct gfdm_network_page *page)
 
 static void gfdm_network_load(struct gfdm_network_page *page)
 {
-    char line[512];
+    char *line = NULL;
+    size_t capacity = 0, length;
+    int status;
     FILE *f;
 
     strcpy(page->server, "localhost:80");
@@ -61,7 +63,7 @@ static void gfdm_network_load(struct gfdm_network_page *page)
         return;
     }
 
-    while (fgets(line, sizeof(line), f) != NULL) {
+    while ((status = gfdm_network_read_line(f, &line, &capacity, &length)) > 0) {
         if (strncmp(line, "eamuse.server=", 14) == 0) {
             sscanf(line + 14, "%255[^\r\n]", page->server);
         } else if (strncmp(line, "adapter.override_ip=", 20) == 0) {
@@ -79,6 +81,10 @@ static void gfdm_network_load(struct gfdm_network_page *page)
         }
     }
 
+    if (status < 0) {
+        log_warning("Could not read complete GFDM configuration");
+    }
+    free(line);
     fclose(f);
 }
 

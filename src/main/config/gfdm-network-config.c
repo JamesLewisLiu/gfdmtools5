@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -5,18 +6,16 @@
 #include "gfdmhook1/display-mode.h"
 
 static const char display_comment[] =
-    "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen stretch.\n"
+    "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default), 2 fullscreen "
+    "stretch.\n"
     "# Restart the game after changing the display mode.\n";
 
 static const char adapter_comment[] =
-    "# If the game cannot start with multiple network adapters (including VPNs),\n"
+    "# If the game cannot start with multiple network adapters (including "
+    "VPNs),\n"
     "# set this to the IPv4 address of the adapter used to reach your server.\n"
-    "# Only that adapter is exposed to the game. Leave empty to use the default route.\n";
-
-static bool starts_with(const char *line, const char *prefix)
-{
-    return strncmp(line, prefix, strlen(prefix)) == 0;
-}
+    "# Only that adapter is exposed to the game. Leave empty to use the "
+    "default route.\n";
 
 static bool regular_file(const wchar_t *path)
 {
@@ -100,6 +99,48 @@ bool gfdm_network_select_path(
     return true;
 }
 
+/* Read complete physical lines so a long comment can never be mistaken for a
+ * setting when the next input chunk starts with a key name. */
+int gfdm_network_read_line(
+    FILE *file, char **line, size_t *capacity, size_t *length)
+{
+    int ch;
+    *length = 0;
+    while ((ch = fgetc(file)) != EOF) {
+        if (*length + 1 >= *capacity) {
+            size_t next = *capacity != 0 ? *capacity * 2 : 512;
+            if (next <= *capacity)
+                return -1;
+            char *buffer = realloc(*line, next);
+            if (buffer == NULL)
+                return -1;
+            *line = buffer;
+            *capacity = next;
+        }
+        (*line)[(*length)++] = (char) ch;
+        if (ch == '\n')
+            break;
+    }
+    if (ferror(file))
+        return -1;
+    if (*length == 0)
+        return 0;
+    (*line)[*length] = '\0';
+    return 1;
+}
+
+static void write_comment(FILE *dst, const char *comment, const char *newline)
+{
+    while (*comment != '\0') {
+        const char *end = strchr(comment, '\n');
+        size_t length =
+            end != NULL ? (size_t) (end - comment) : strlen(comment);
+        fwrite(comment, 1, length, dst);
+        fputs(newline, dst);
+        comment += length + (end != NULL);
+    }
+}
+
 bool gfdm_network_write_config(
     FILE *src,
     FILE *dst,
@@ -110,152 +151,143 @@ bool gfdm_network_write_config(
     bool keyboard,
     int display_mode)
 {
-    char line[512];
-    bool comments = false, server_seen = false, adapter_seen = false;
-    bool keyboard_seen = false, pcbid_seen = false, eamid_seen = false;
-    bool mcode_seen = false, frame_limit_seen = false, refresh_seen = false;
-    bool needs_newline = false;
-    bool fullscreen_seen = false;
-    bool display_documented = false;
-    bool adapter_documented = false;
+    char display_value[2], mcode[16];
+    char *line = NULL;
+    size_t capacity = 0, length = 0;
+    bool first = true, any_text = false, needs_newline = false;
+    bool newline_seen = false;
+    const char *newline = "\n";
+    int status = 0;
 
-    if (display_mode < 0 || display_mode > 2) {
+    if (display_mode < 0 || display_mode > 2)
         return false;
-    }
+    snprintf(display_value, sizeof(display_value), "%d", display_mode);
+    snprintf(
+        mcode,
+        sizeof(mcode),
+        "GC%c%dJ%cA",
+        'G' + version - 4,
+        strcmp(mode, "gf") == 0 ? 33 : 32,
+        version >= 7 ? 'B' : 'A');
 
-    if (src != NULL) {
-        while (fgets(line, sizeof(line), src) != NULL) {
-            if (line[0] == '#') {
-                comments = true;
-            }
-            if (starts_with(line, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3 (default)")) {
-                display_documented = true;
-            }
-            if (starts_with(line, "# If the game cannot start with multiple network adapters")) {
-                adapter_documented = true;
-            }
+    struct {
+        const char *key, *value, *comment;
+        bool editable, seen;
+    } settings[] = {
+        {"eamuse.server=",
+         server,
+         "# e-amusement endpoint. Use the host/port where your server "
+         "listens.\n",
+         true,
+         false},
+        {"adapter.override_ip=", adapter, adapter_comment, true, false},
+        {"eamuse.pcbid=",
+         "0101020304050607086F",
+         "# System/network PCBID and black roundplug ID.\n",
+         false,
+         false},
+        {"eamuse.eamid=",
+         "0101020304050607086F",
+         "# White roundplug EAMID.\n",
+         false,
+         false},
+        {"security.mcode=",
+         mcode,
+         "# Keep this code matched to the game version and GF/DM model.\n",
+         false,
+         false},
+        {"input.keyboard=",
+         keyboard ? "true" : "false",
+         "# Optional built-in keyboard fallback; disable when using configured "
+         "IO.\n",
+         true,
+         false},
+        {"gfx.frame_rate_limit=",
+         "60.0",
+         "# Keep the OpenGL frame rate at 60 for normal game speed.\n",
+         false,
+         false},
+        {"gfx.forced_refresh_rate=",
+         "60",
+         "# Requested fullscreen refresh rate in Hz.\n",
+         false,
+         false},
+        {"gfx.fullscreen=", display_value, display_comment, true, false},
+    };
+
+    while (src != NULL &&
+           (status = gfdm_network_read_line(src, &line, &capacity, &length)) >
+               0) {
+        size_t offset =
+            first && length >= 3 && memcmp(line, "\xEF\xBB\xBF", 3) == 0 ? 3 :
+                                                                           0;
+        size_t index;
+        first = false;
+        any_text = true;
+        if (!newline_seen && line[length - 1] == '\n') {
+            newline = length >= 2 && line[length - 2] == '\r' ? "\r\n" : "\n";
+            newline_seen = true;
         }
-        if (ferror(src) || fseek(src, 0, SEEK_SET) != 0) {
-            return false;
+        for (index = 0; index < sizeof(settings) / sizeof(settings[0]);
+             index++) {
+            size_t key_length = strlen(settings[index].key);
+            if (length - offset < key_length ||
+                memcmp(line + offset, settings[index].key, key_length) != 0)
+                continue;
+            if (!settings[index].editable) {
+                settings[index].seen = true;
+                break;
+            }
+            /* The UI loads the last occurrence. Write its selected value at
+               the first occurrence and discard only later editable-key lines.
+               Comments and blank lines around them remain byte-for-byte. */
+            if (!settings[index].seen) {
+                size_t suffix = length;
+                while (suffix > offset + key_length &&
+                       (line[suffix - 1] == '\n' || line[suffix - 1] == '\r' ||
+                        line[suffix - 1] == ' ' || line[suffix - 1] == '\t'))
+                    suffix--;
+                fwrite(line, 1, offset + key_length, dst);
+                fputs(settings[index].value, dst);
+                fwrite(line + suffix, 1, length - suffix, dst);
+                needs_newline = line[length - 1] != '\n';
+                settings[index].seen = true;
+            }
+            break;
+        }
+        if (index == sizeof(settings) / sizeof(settings[0]) ||
+            !settings[index].editable) {
+            fwrite(line, 1, length, dst);
+            needs_newline = line[length - 1] != '\n';
         }
     }
-    if (!comments) {
+    free(line);
+    if (status < 0)
+        return false;
+
+    if (!any_text) {
         fprintf(
             dst,
-            "# %s V%u configuration\n"
-            "# eamuse.server: Asphyxia CORE host and port.\n"
-            "# eamuse.pcbid/eamid: roundplug IDs; defaults are valid BT5 test "
-            "IDs.\n"
-            "# security.mcode: keep the version and GF/DM model matched to the "
-            "game image.\n"
-            "# input.keyboard: built-in fallback, disabled when using "
-            "configured IO.\n"
-            "# gfx.frame_rate_limit: keep 60 for normal game speed.\n"
-            "# gfx.forced_refresh_rate: requested display refresh rate.\n\n",
+            "# %s V%u configuration%s%s",
             strcmp(mode, "gf") == 0 ? "Guitar Freaks" : "DrumMania",
-            version);
+            version,
+            newline,
+            newline);
     }
-    if (src != NULL) {
-        while (fgets(line, sizeof(line), src) != NULL) {
-            size_t len = strlen(line);
-            needs_newline = len != 0 && line[len - 1] != '\n';
-            if (starts_with(line, "# 3 borderless 4:3, 4 borderless stretch;") ||
-                strcmp(line, "# Leave empty to select the adapter used by the default route.\n") == 0 ||
-                strcmp(line, "# Leave empty to select the adapter used by the default route.\r\n") == 0) {
-                needs_newline = false;
-            } else if (starts_with(line, "# gfx.fullscreen: true for fullscreen") ||
-                starts_with(line, "# Fullscreen display. Set false for a fixed-size window.") ||
-                starts_with(line, "# gfx.fullscreen: 0 window, 1 fullscreen 4:3,")) {
-                if (!display_documented) fputs(display_comment, dst);
-                display_documented = true;
-                needs_newline = false;
-            } else if (starts_with(line, "# Optional IPv4 address to expose as the only network adapter") ||
-                starts_with(line, "# adapter.override_ip: optional IPv4 adapter override;")) {
-                if (!adapter_documented) fputs(adapter_comment, dst);
-                adapter_documented = true;
-                needs_newline = false;
-            } else if (strncmp(line, "eamuse.server=", 14) == 0) {
-                fprintf(dst, "eamuse.server=%s\n", server);
-                server_seen = true;
-                needs_newline = false;
-            } else if (strncmp(line, "adapter.override_ip=", 20) == 0) {
-                if (!adapter_documented) fputs(adapter_comment, dst);
-                adapter_documented = true;
-                fprintf(dst, "adapter.override_ip=%s\n", adapter);
-                adapter_seen = true;
-                needs_newline = false;
-            } else if (strncmp(line, "input.keyboard=", 15) == 0) {
-                fprintf(
-                    dst, "input.keyboard=%s\n", keyboard ? "true" : "false");
-                keyboard_seen = true;
-                needs_newline = false;
-            } else if (strncmp(line, "gfx.fullscreen=", 15) == 0) {
-                if (!display_documented) fputs(display_comment, dst);
-                display_documented = true;
-                fprintf(dst, "gfx.fullscreen=%d\n", display_mode);
-                fullscreen_seen = true;
-                needs_newline = false;
-            } else if (strncmp(line, "eamuse.pcbid=", 13) == 0) {
-                fputs(line, dst);
-                pcbid_seen = true;
-            } else if (strncmp(line, "eamuse.eamid=", 13) == 0) {
-                fputs(line, dst);
-                eamid_seen = true;
-            } else if (strncmp(line, "security.mcode=", 15) == 0) {
-                fputs(line, dst);
-                mcode_seen = true;
-            } else if (strncmp(line, "gfx.frame_rate_limit=", 21) == 0) {
-                fputs(line, dst);
-                frame_limit_seen = true;
-            } else if (strncmp(line, "gfx.forced_refresh_rate=", 24) == 0) {
-                fputs(line, dst);
-                refresh_seen = true;
-            } else {
-                fputs(line, dst);
-            }
+    for (size_t index = 0; index < sizeof(settings) / sizeof(settings[0]);
+         index++) {
+        if (settings[index].seen)
+            continue;
+        if (needs_newline) {
+            fputs(newline, dst);
+            needs_newline = false;
         }
-        if (ferror(src)) {
-            return false;
-        }
-    }
-    if (needs_newline) {
-        fputc('\n', dst);
-    }
-    if (!server_seen) {
-        fprintf(dst, "eamuse.server=%s\n", server);
-    }
-    if (!adapter_seen) {
-        if (!adapter_documented) fputs(adapter_comment, dst);
-        fprintf(dst, "adapter.override_ip=%s\n", adapter);
-    }
-    if (!keyboard_seen) {
-        fprintf(dst, "input.keyboard=%s\n", keyboard ? "true" : "false");
-    }
-    if (!fullscreen_seen) {
-        if (!display_documented) {
-            fputs(display_comment, dst);
-        }
-        fprintf(dst, "gfx.fullscreen=%d\n", display_mode);
-    }
-    if (!pcbid_seen) {
-        fputs("eamuse.pcbid=0101020304050607086F\n", dst);
-    }
-    if (!eamid_seen) {
-        fputs("eamuse.eamid=0101020304050607086F\n", dst);
-    }
-    if (!mcode_seen) {
+        /* Explain newly added settings only. Never regenerate, upgrade or
+           remove any existing comment, even if it resembles a stock template.
+         */
+        write_comment(dst, settings[index].comment, newline);
         fprintf(
-            dst,
-            "security.mcode=GC%c%dJ%cA\n",
-            'G' + version - 4,
-            strcmp(mode, "gf") == 0 ? 33 : 32,
-            version >= 7 ? 'B' : 'A');
-    }
-    if (!frame_limit_seen) {
-        fputs("gfx.frame_rate_limit=60.0\n", dst);
-    }
-    if (!refresh_seen) {
-        fputs("gfx.forced_refresh_rate=60\n", dst);
+            dst, "%s%s%s", settings[index].key, settings[index].value, newline);
     }
     return !ferror(dst);
 }

@@ -73,7 +73,11 @@ filename. It recognizes the package's versioned launcher, then the unique matchi
 `.conf` beside the tool, including when testing an extracted package without the
 original game executable or with a stray V4 configuration from an older tool. If several
 versions cannot be distinguished, the page stays disabled instead of guessing V4.
-Saving preserves existing comments; missing settings receive the documented defaults.
+Saving preserves existing comments, blank lines, line endings and unrelated
+settings. Existing comments are never replaced with template text. Duplicate
+editable keys are consolidated using the value selected in the configurator;
+commented-out settings remain comments. New files and missing settings receive
+English descriptions and documented defaults.
 The GFDM page provides three display modes, saved independently in the selected
 version/mode file as `gfx.fullscreen`. Restart the game after changing it.
 For a one-run fullscreen stretch override: `gamestart-v5-gf.bat -p gfx.fullscreen=2`.
