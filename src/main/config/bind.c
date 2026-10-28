@@ -5,6 +5,7 @@
 #include "config/resource.h"
 #include "config/schema.h"
 #include "config/snap.h"
+#include "geninput/midi.h"
 
 #include "util/defs.h"
 
@@ -39,6 +40,7 @@ bool bind_control(
     self.cur_snap = 0;
     self.naive = naive;
 
+    midi_set_capture(true);
     snap_init(&self.snaps[1]);
     snap_init(&self.snaps[0]);
 
@@ -52,6 +54,7 @@ bool bind_control(
     snap_fini(&self.snaps[0]);
     snap_fini(&self.snaps[1]);
 
+    midi_set_capture(false);
     return result;
 }
 

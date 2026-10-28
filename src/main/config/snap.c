@@ -8,6 +8,7 @@
 
 #include "geninput/hid-mgr.h"
 #include "geninput/kbd-naive.h"
+#include "geninput/midi.h"
 
 #include "util/defs.h"
 #include "util/log.h"
@@ -60,6 +61,7 @@ void snap_init(struct snap *snap)
     struct hid_stub *pos;
 
     hid_mgr_lock();
+    midi_poll();
 
     ndevs = 0;
 

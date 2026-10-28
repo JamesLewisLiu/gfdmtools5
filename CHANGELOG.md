@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-28: Add native MIDI 1.0 input to GF/DM bindings and runtime. Queue short notes and repeated drum hits, retain held notes for GF, expose CC pedal buttons/values and pitch bend, and scan/reconnect devices asynchronously. Preserve existing mapping files and keyboard/HID backends.
+
 2026-10-28: Preserve all existing configuration comments and formatting when saving, including older generated descriptions, CRLF and long lines. Consolidate duplicate editable keys without changing surrounding comments or layered-data settings. Add descriptions only for new files or missing options.
 
 2026-10-27: Remove separate Borderless modes after reported song-video failures. Keep modes 0/1/2, default to 4:3 fullscreen, and migrate saved 3/4 values to 1/2. Clarify the adapter override for multi-adapter startup failures. Speed up config.exe by using cached Windows device names instead of blocking USB product/manufacturer queries, without changing shared geninput sources or input identities.

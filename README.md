@@ -12,18 +12,19 @@ make -j1
 python3 scripts/check-gfdm-packages.py build/zip
 ```
 
-The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and nine `build/bin/indep-32/*-test.exe` files.
+The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and ten `build/bin/indep-32/*-test.exe` files.
 Run `make packages` or `make tests` separately. Test EXEs run directly on Windows.
 `make build-docker` uses the same build graph. There is no x64 build target.
 Use a serial build: the inherited DLL/import-library rules can race during parallel linking.
 
-GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the nine x86 tests on Windows.
+GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the ten x86 tests on Windows.
 The workflow is `.github/workflows/build-gfdm.yaml`. Local validation and online Actions results are recorded separately.
 
 ## Use and upstream migration
 
 See the [GFDM documentation](doc/gfdmhook/README.md). The original license applies.
-GFDM, input mapping, EAMIO, security, and common hook code keep their original paths and contents.
+GFDM, input mapping, EAMIO, security, and common hook code keep their original paths.
+MIDI input adds a separate C device adapter with small lifecycle, polling and binding integrations; existing HID/keyboard backends and mapping serialization are retained.
 `iidxhook-util` is a shared GFDM graphics/configuration dependency and is retained as a whole; shared game definitions in `config` are also unchanged.
 Headers and import declarations for retained modules keep their original locations. Other games are not built.
 Future feature commits can be cherry-picked or exported as patches back to bemanitools; the standalone build-pruning commit does not need to be migrated.

@@ -12,6 +12,7 @@
 #include "geninput/io-thread.h"
 #include "geninput/mapper-s11n.h"
 #include "geninput/mapper.h"
+#include "geninput/midi.h"
 
 #include "util/fs.h"
 #include "util/log.h"
@@ -80,6 +81,7 @@ void input_init(
     log_info("Generic input subsystem is starting up");
 
     hid_mgr_init();
+    midi_init();
 
     mapper_inst = mapper_impl_create();
 
@@ -94,6 +96,7 @@ void input_fini(void)
         return;
     }
 
+    midi_fini();
     msg_thread_fini();
     io_thread_fini();
 
@@ -108,6 +111,7 @@ bool mapper_config_load(const char *game_type)
     struct mapper *m;
     FILE *f;
 
+    midi_enable(game_type);
     f = mapper_config_open(game_type, "rb");
 
     if (f == NULL) {

@@ -28,6 +28,8 @@ EXPORTS
     light_iter_is_valid
     light_iter_next
     light_iter_free
+    midi_poll
+    midi_set_capture
     mapper_config_load
     mapper_config_save
     mapper_clear_action_map

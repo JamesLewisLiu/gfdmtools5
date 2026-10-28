@@ -3,6 +3,7 @@ dlls                += geninput
 ldflags_geninput    := \
     -lhid \
     -lsetupapi \
+    -lwinmm \
 
 libs_geninput       := \
     util \
@@ -26,6 +27,8 @@ src_geninput        := \
     kbd-naive.c \
     mapper.c \
     mapper-s11n.c \
+    midi-state.c \
+    midi.c \
     mouse.c \
     msg-thread.c \
     pacdrive.c \

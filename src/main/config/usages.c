@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "config/resource.h"
+#include "geninput/midi-state.h"
 
 #include "util/array.h"
 #include "util/log.h"
@@ -137,6 +138,19 @@ void usages_get(char *chars, size_t nchars, uint32_t usage_id)
 
     hi = ((usage_id >> 16) & 0xFFFF);
     lo = ((usage_id >> 0) & 0xFFFF);
+
+    if ((hi == (MIDI_USAGE_NOTE >> 16) ||
+         hi == (MIDI_USAGE_CC_BUTTON >> 16) ||
+         hi == (MIDI_USAGE_CC_VALUE >> 16)) && lo < MIDI_NOTES) {
+        str_format(chars, nchars, "MIDI Ch %u %s %u%s", lo / 128 + 1,
+            hi == (MIDI_USAGE_NOTE >> 16) ? "Note" : "CC", lo % 128,
+            hi == (MIDI_USAGE_CC_VALUE >> 16) ? " (value)" : "");
+        return;
+    }
+    if (hi == (MIDI_USAGE_PITCH >> 16) && lo < MIDI_CHANNELS) {
+        str_format(chars, nchars, "MIDI Ch %u Pitch Bend", lo + 1);
+        return;
+    }
 
     for (i = 0; i < usages.nitems; i++) {
         page = array_item(struct usage_page, &usages, i);

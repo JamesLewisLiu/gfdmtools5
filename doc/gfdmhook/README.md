@@ -104,7 +104,58 @@ recreation. An early GFDM-only native-window wrapper requests per-monitor DPI
 awareness before window creation, respecting an already established DPI policy.
 Real gameplay/BGA, focus recovery, mixed-DPI monitors and high-refresh latency
 still need hardware testing; passing build/rendering probes does not establish
-those results. Shared graphics/input implementations remain unchanged.
+those results. Existing graphics and HID report implementations remain unchanged.
+
+## MIDI controllers
+
+MIDI 1.0 input ports are available in the normal buttons binding dialog for
+both GF and DM. Connect the controller, close other applications using its
+MIDI port, choose an action in config.exe and use the regular binding button.
+Strike the pad or press the key/pedal, then save. Use the regular binding
+button rather than the Naive keyboard button for MIDI. No MIDI-to-keyboard
+utility or game configuration option is required. `input.keyboard=false`
+does not disable configured input mappings, including MIDI.
+
+Device labels start with `MIDI:`. Controls are shown as `MIDI Ch 10 Note 38`
+or `MIDI Ch 10 CC 4`; channels are numbered 1-16, note/CC numbers 0-127.
+Mappings use the existing `%APPDATA%/DJHACKERS/gf.bin` or `dm.bin` format.
+They identify ports by the Windows device interface rather than enumeration
+order. For drivers without interface names, a manufacturer/product/name
+fallback is used; indistinguishable duplicate legacy ports can require
+rebinding after their order changes. No other application's mappings are
+imported.
+
+DM notes produce separate queued hits even when Note Off is very early,
+missing or overlaps the next Note On. GF notes can stay held until Note Off;
+Note On with zero velocity also releases a note. Each hit is visible for at
+least 20 ms, with a release phase of at least 2 ms between queued hits. Binding
+capture uses a 20 ms release phase for its 17 ms sampling timer. Very fast
+bursts can accumulate latency while the queue drains; the queue is bounded
+and overflow is logged. These timings require real controller/game validation
+for a particular kit, especially rapid rolls and simultaneous pads.
+
+Ordinary CC 0-119 controls offer a button at values 64-127 and a separate
+0-127 value for advanced range bindings. Pedals with the opposite polarity
+or a different threshold can use an advanced value-range binding. Pitch bend
+is exposed as a 0-16383 value (center 8192). Notes are digital game actions;
+strike velocity is not sent to the game as pressure. SysEx, MIDI 2.0 and
+polyphonic/channel aftertouch are not mapped. All Sound Off/All Notes Off
+clear the affected channel's notes; Reset All Controllers resets CC/pitch.
+
+Port scanning/opening runs on a worker, so a slow MIDI driver does not block
+the configuration window or input mapper. Ports are retried approximately
+every two seconds, including reconnects and ports previously busy in another
+application. Unplugging clears input when the next scan observes the removal.
+Driver close/reset runs outside input locks. Shutdown waits for the worker
+and driver calls to finish; a driver that never returns can still delay exit.
+
+The backend is a separate C adapter to geninput's existing device interface.
+spice2x's MIDI implementation was reviewed for behavior (including its drum
+mode, asynchronous enumeration and callback-safe teardown), but its GPLv3
+source is not copied into this Unlicense repository. Existing game/P3IO and
+mapping serialization contracts remain in use. Tests cover synthetic MIDI
+messages through the production mapper and binding snapshots; physical MIDI
+hardware and complete game songs have not been verified.
 
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files
@@ -188,7 +239,7 @@ selection works.
 The configurator reads device display names from Windows' cached device
 properties. It avoids USB product/manufacturer string requests that can each
 time out for several seconds on some devices. Device paths, controls, bindings,
-Raw Input, Naive and game-side geninput behavior are unchanged.
+Raw Input, Naive and existing HID device behavior are unchanged by this metadata adapter.
 
 The built-in keyboard fallback is disabled by default. In `config.exe`, open
 **GFDM** and check **Enable built-in keyboard fallback** only when needed.

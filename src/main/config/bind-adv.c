@@ -10,6 +10,7 @@
 #include "config/usages.h"
 
 #include "geninput/hid-mgr.h"
+#include "geninput/midi.h"
 
 #include "util/array.h"
 #include "util/defs.h"
@@ -254,6 +255,7 @@ static INT_PTR bind_adv_handle_tick(HWND hwnd)
 
     hid_mgr_lock();
 
+    midi_poll();
     if (hid_stub_get_value(state->cur_hid, ctl_no, &value)) {
         wstr_format(wchars, lengthof(wchars), L"%d", value);
 

@@ -3,6 +3,7 @@
 
 #include "geninput/hid-mgr.h"
 #include "geninput/mapper.h"
+#include "geninput/midi.h"
 
 #include "util/array.h"
 #include "util/log.h"
@@ -625,6 +626,7 @@ uint64_t mapper_impl_update(struct mapper *m)
     uint64_t result;
 
     hid_mgr_lock();
+    midi_poll();
 
     for (i = 0; i < m->light_maps.nitems; i++) {
         lm = array_item(struct light_mapping, &m->light_maps, i);
