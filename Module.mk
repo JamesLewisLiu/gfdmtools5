@@ -19,6 +19,7 @@ include src/main/util/Module.mk
 
 include src/test/geninput/Module.mk
 include src/test/gfdmhook1/Module.mk
+include src/test/inject/Module.mk
 
 zipdir := $(BUILDDIR)/zip
 $(zipdir)/:

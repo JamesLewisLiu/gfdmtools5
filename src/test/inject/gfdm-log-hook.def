@@ -1,0 +1,3 @@
+LIBRARY gfdm-log-hook
+EXPORTS
+    fixture_emit

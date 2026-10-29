@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "inject/options.h"
 
 #include "util/defs.h"
+#include "util/log-file.h"
 
 void options_init(struct options *options)
 {
@@ -18,21 +20,26 @@ bool options_read_cmdline(struct options *options, int argc, char **argv)
         if (argv[i][0] == '-') {
             switch (argv[i][1]) {
                 case 'D':
-                    options->debug = true;
+                    if (!strcmp(argv[i], "-D")) {
+                        options->debug = true;
+                    }
 
                     break;
 
                 case 'Y':
-                    if (i + 1 >= argc) {
+                    if (strcmp(argv[i], "-Y")) {
+                        break;
+                    }
+                    if (!log_file_option(argc, argv, &i, options->log_file,
+                                         sizeof(options->log_file))) {
                         return false;
                     }
-
-                    strcpy(options->log_file, argv[++i]);
-
                     break;
 
                 case 'R':
-                    options->remote_debugger = true;
+                    if (!strcmp(argv[i], "-R")) {
+                        options->remote_debugger = true;
+                    }
 
                     break;
 
@@ -60,5 +67,5 @@ void options_print_usage(void)
         "\n"
         "       -D Enable debugging output\n"
         "       -R Halt the injected process until a debugger is attached\n"
-        "       -Y [filename]   Log to a file in addition to the console\n");
+        "       -Y [filename]   Also write a file (default: log.log)\n");
 }
