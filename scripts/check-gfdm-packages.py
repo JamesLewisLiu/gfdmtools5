@@ -6,12 +6,14 @@ import zipfile
 
 
 def check(directory):
-    hook = None
+    shared_binaries = {}
     for version, letter, spec in [(4, "G", "A"), (5, "H", "A"),
                                   (6, "I", "A"), (7, "J", "B"), (8, "K", "B")]:
         prefix = f"gfdm-v{version}"
         with zipfile.ZipFile(directory / f"{prefix}.zip") as package:
             names = package.namelist()
+            # The runtime resolves exactly CLVSD.ax beside inject.exe.
+            assert all('/' not in name and '\\' not in name for name in names), names
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
                         "CLVSD.ax"}
@@ -30,9 +32,15 @@ def check(directory):
             )
             assert hashlib.sha256(decoder).hexdigest().upper() == expected_decoder
             assert decoder[:2] == b"MZ"
-            if hook is not None:
-                assert binary == hook, "all versions must ship the same common hook"
-            hook = binary
+            for name in ("gfdmhook1.dll", "config.exe", "geninput.dll", "inject.exe", "eamio.dll"):
+                executable = package.read(name)
+                assert executable[:2] == b"MZ", name
+                pe = int.from_bytes(executable[0x3c:0x40], "little")
+                assert executable[pe:pe + 4] == b"PE\0\0", name
+                assert int.from_bytes(executable[pe + 4:pe + 6], "little") == 0x14c, name
+                if name in shared_binaries:
+                    assert executable == shared_binaries[name], (version, name)
+                shared_binaries[name] = executable
             for mode, number, switch in [("gf", 33, "g"), ("dm", 32, "d")]:
                 config = dict(line.split("=", 1) for line in
                               package.read(f"{prefix}-{mode}.conf").decode().splitlines()
@@ -40,6 +48,8 @@ def check(directory):
                 assert config["security.mcode"] == f"GC{letter}{number}J{spec}A"
                 assert "adapter.override_ip" in config, (version, mode)
                 assert config["gfx.fullscreen"] == "1", (version, mode)
+                assert config["layered.enabled"] == "false", (version, mode)
+                assert config["layered.full_verify"] == "false", (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",

@@ -21,6 +21,7 @@ libs_gfdmhook1 := \
     util \
 
 src_gfdmhook1 := \
+    avs-config.c \
     backup.c \
     bios.c \
     coin.c \
@@ -31,6 +32,7 @@ src_gfdmhook1 := \
     effect.c \
     dllmain.c \
     guitar.c \
+    layered.c \
     logging.c \
     network.c \
     profile.c \

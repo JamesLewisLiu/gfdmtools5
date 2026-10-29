@@ -9,16 +9,38 @@ Ubuntu/Debian:
 ```sh
 sudo apt-get install gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686 make zip python3
 make -j1
+python3 -m unittest discover -s scripts/tests
 python3 scripts/check-gfdm-packages.py build/zip
 ```
 
-The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and ten `build/bin/indep-32/*-test.exe` files.
+The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and fourteen `build/bin/indep-32/*-test.exe` files.
 Run `make packages` or `make tests` separately. Test EXEs run directly on Windows.
 `make build-docker` uses the same build graph. There is no x64 build target.
 Use a serial build: the inherited DLL/import-library rules can race during parallel linking.
 
-GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the ten x86 tests on Windows.
+GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the fourteen x86 tests on Windows and seventeen Python exporter fixtures.
 The workflow is `.github/workflows/build-gfdm.yaml`. Local validation and online Actions results are recorded separately.
+
+## One build for both resource layouts
+
+The `gfdm` branch builds the same x86 tools for original packed installs and
+verified shared unpacked stores, including MIDI input, console logging and
+the controller Pick A/B fix. Separate AIO binaries are no longer required.
+The former `aio-layered-data` branch is a historical integration baseline;
+use `gfdm` for future builds and fixes.
+
+All ten shipped GF/DM configurations default to `layered.enabled=false` and
+`layered.full_verify=false`. Keep routing off with the complete original PAK
+layout. Set `layered.enabled=true` only for a prepared shared store; those
+installs require the setting to remain enabled. Restart after changing it.
+The same binaries support both choices; no new resources or saves are created
+by selecting the disabled resource path. Existing configurations can omit both
+keys and retain the same false defaults.
+
+The common V4 AVS configuration expansion fix is retained for both layouts.
+See [shared resources](doc/gfdmhook/layered-data.md) for setup, verification
+caching and the native ROM-check limitation. CI covers both resource paths
+with fixtures; it does not certify all versions, modes or complete songs.
 
 ## Use and upstream migration
 

@@ -15,6 +15,17 @@ need no `-I` or `-b` XML arguments and no XML files need to be installed or edit
 The two configuration files include the configuration comments; no generic
 `gfdm-vN.conf` is shipped.
 
+For a verified shared unpacked store, put the five program directories beside
+one `data` directory and set `layered.enabled=true` in their configurations.
+The shared content objects are selected through a separate manifest and original
+metadata for each version. The same x86 binaries support both layouts, including MIDI. Both layered
+options default to false in ordinary packages; existing configurations that
+omit the keys have the same defaults. Disabled routing needs the complete
+original PAK layout. A zero-PAK shared store cannot be switched back just by
+changing this flag. Restart the game after changing it.
+See [layered data](layered-data.md) for the required layout, exact-module checks,
+startup verification, caching and validation boundaries.
+
 | Version | Executable | GF / DM models | Default GF / DM security codes |
 | --- | --- | --- | --- |
 | V4 | gdv4.exe | G33 / G32 | GCG33JAA / GCG32JAA |
@@ -85,6 +96,7 @@ commented-out settings remain comments. New files and missing settings receive
 English descriptions and documented defaults.
 The GFDM page provides three display modes, saved independently in the selected
 version/mode file as `gfx.fullscreen`. Restart the game after changing it.
+For a one-run fullscreen stretch override: `gamestart-v5-gf.bat -p gfx.fullscreen=2`.
 
 | Value | Display mode |
 | --- | --- |
@@ -176,6 +188,13 @@ source is not copied into this Unlicense repository. Existing game/P3IO and
 mapping serialization contracts remain in use. Tests cover synthetic MIDI
 messages through the production mapper and binding snapshots; physical MIDI
 hardware and complete game songs have not been verified.
+
+GF `Pick A` and `Pick B` are two controller binding slots for the same game
+Pick input, for controllers with separate up/down strum switches. Bind either
+or both as needed; both feed the native Pick signal for that player. Pick B
+does not trigger Wail. Existing saved A/B bindings retain their indices.
+Holding either switch keeps Pick held; overlapping switches remain one held
+Pick until both are released. No extra pulses or automatic repeats are added.
 
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files

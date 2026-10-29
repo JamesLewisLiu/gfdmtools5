@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-29: Unify packed and shared-data support in the gfdm x86 build. Retain MIDI, logging and Pick A/B fixes, explicitly disable layered routing in default configurations, and retain the common V4 AVS save-path expansion. Run fourteen native tests and seventeen exporter fixtures in one workflow, including disabled resource-path instrumentation.
+
 2026-10-29: Fix both GF Pick A/B controller bindings to drive the same native Pick input for each player. Stop Pick B from triggering Wail, retain existing mapping indices, and preserve native held/edge semantics without synthetic repeats.
 
 2026-10-29: Show hook and AVS logs in the inject console by default. Create a combined inject/hook log file only with -Y: default to log.log when no filename is supplied, accept quoted custom paths, and retain console output without duplicating debugger messages.

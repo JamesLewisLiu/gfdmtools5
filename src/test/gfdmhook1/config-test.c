@@ -69,6 +69,10 @@ static void check_text(const char *input, int display_mode)
     char expected_setting[32];
     snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d", display_mode);
     assert(strstr(text, expected_setting));
+    if (input != NULL && strstr(input, "layered.enabled=true")) {
+        assert(strstr(text, "layered.enabled=true\n"));
+        assert(strstr(text, "layered.full_verify=false\n"));
+    }
     const char *setting = strncmp(text, "gfx.fullscreen=", 15) == 0 ? text :
         strstr(text, "\ngfx.fullscreen=");
     assert(setting != NULL && strstr(setting + 1, "\ngfx.fullscreen=") == NULL);
@@ -148,6 +152,7 @@ static void check_preservation(void)
         "\r\n"
         "# Isolated V4 object-store test\r\n"
         "layered.enabled=true\r\n"
+        "layered.full_verify=false\r\n"
         "# gfx.fullscreen: true for fullscreen, false for a fixed-size window; restart required.\r\n"
         "gfx.fullscreen=2";
     char *text = rewrite(base);
@@ -203,7 +208,9 @@ int main(void)
     for (int i = 0; i <= 4; i++) {
         char value[] = {(char) ('0' + i), '\0'};
         assert(gfdm_display_parse_mode(value, &display_mode) && display_mode == (i <= 2 ? i : i - 2));
-        check_text("# User setting\ngfx.fullscreen=0\n", i <= 2 ? i : i - 2);
+        check_text("# User setting\ngfx.fullscreen=0\n"
+                   "layered.enabled=true\nlayered.full_verify=false\n",
+                   i <= 2 ? i : i - 2);
     }
     assert(gfdm_display_parse_mode(" true\r\n", &display_mode) && display_mode == 1);
     assert(gfdm_display_parse_mode("FALSE", &display_mode) && display_mode == 0);
