@@ -18,6 +18,7 @@
 #include "gfdmhook1/debug.h"
 #include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
+#include "gfdmhook1/guitar.h"
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/logging.h"
 #include "gfdmhook1/network.h"
@@ -1385,25 +1386,8 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
     if (state & (1u << 2)) result |= 0x01; /* COIN */
 
     if (gfdm_is_gf) {
-        if (player != 1) {
-            if (state & (1u << 8)) result |= 0x0004;  /* START */
-            if (state & (1u << 12)) result |= 0x0040; /* WAIL (DOWN) */
-            if (state & (1u << 18)) result |= 0x0200; /* RED (BUTTON0) */
-            if (state & (1u << 20)) result |= 0x0400; /* GREEN (BUTTON1) */
-            if (state & (1u << 22)) result |= 0x0800; /* BLUE (BUTTON2) */
-            if (state & (1u << 24)) result |= 0x0020; /* PICK A (UP) */
-            if (state & (1u << 25)) result |= 0x0040; /* PICK B (DOWN) */
-            result |= gfdm_get_effector_input(0);
-        } else {
-            if (state & (1u << 9)) result |= 0x0004;
-            if (state & (1u << 13)) result |= 0x0040;
-            if (state & (1u << 19)) result |= 0x0200;
-            if (state & (1u << 21)) result |= 0x0400;
-            if (state & (1u << 23)) result |= 0x0800;
-            if (state & (1u << 26)) result |= 0x0020;
-            if (state & (1u << 27)) result |= 0x0040;
-            result |= gfdm_get_effector_input(1);
-        }
+        result |= gfdm_guitar_input(state, player);
+        result |= gfdm_get_effector_input(player == 1);
     } else {
         if (state & (1u << 8)) result |= 0x0004;  /* START */
         if (state & (1u << 15)) result |= 0x0080; /* MENU LEFT */

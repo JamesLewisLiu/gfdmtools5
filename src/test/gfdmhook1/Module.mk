@@ -1,5 +1,9 @@
 testexes += gfdm-profile-test
 
+testexes += gfdm-guitar-test
+srcdir_gfdm-guitar-test := src/test/gfdmhook1
+src_gfdm-guitar-test := guitar-test.c
+
 srcdir_gfdm-profile-test := src/test/gfdmhook1
 src_gfdm-profile-test := profile-test.c
 libs_gfdm-profile-test := security

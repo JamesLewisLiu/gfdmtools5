@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-10-29: Fix both GF Pick A/B controller bindings to drive the same native Pick input for each player. Stop Pick B from triggering Wail, retain existing mapping indices, and preserve native held/edge semantics without synthetic repeats.
+
 2026-10-29: Show hook and AVS logs in the inject console by default. Create a combined inject/hook log file only with -Y: default to log.log when no filename is supplied, accept quoted custom paths, and retain console output without duplicating debugger messages.
 
 2026-10-28: Preserve all existing configuration comments and formatting when saving, including older generated descriptions, CRLF and long lines. Consolidate duplicate editable keys without changing surrounding comments or layered-data settings. Add descriptions only for new files or missing options.

@@ -126,6 +126,13 @@ Real gameplay/BGA, focus recovery, mixed-DPI monitors and high-refresh latency
 still need hardware testing; passing build/rendering probes does not establish
 those results. Shared graphics/input implementations remain unchanged.
 
+GF `Pick A` and `Pick B` are two controller binding slots for the same game
+Pick input, for controllers with separate up/down strum switches. Bind either
+or both as needed; both feed the native Pick signal for that player. Pick B
+does not trigger Wail. Existing saved A/B bindings retain their indices.
+Holding either switch keeps Pick held; overlapping switches remain one held
+Pick until both are released. No extra pulses or automatic repeats are added.
+
 For GF the buttons page lists RGB, Picks and Wail for both players before Start
 and Effector. Each Effector CCW row follows its CW row. Existing binding files
 retain their original action indices.

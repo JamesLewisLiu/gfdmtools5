@@ -31,6 +31,7 @@ src_gfdmhook1 := \
     display.c \
     effect.c \
     dllmain.c \
+    guitar.c \
     layered.c \
     logging.c \
     network.c \
