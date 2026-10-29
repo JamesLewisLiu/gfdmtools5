@@ -29,7 +29,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: gfdm-tests-x86-${{ github.sha }}
-          path: build/bin/indep-32/*-test.exe
+          path: |
+            build/bin/indep-32/*-test.exe
+            build/bin/indep-32/gfdm-log-game.exe
+            build/bin/indep-32/gfdm-log-hook.dll
+            build/bin/indep-32/inject.exe
           if-no-files-found: error
   test:
     needs: build
@@ -39,10 +43,10 @@ jobs:
         with:
           name: gfdm-tests-x86-${{ github.sha }}
           path: tests
-      - name: Run all ten x86 tests
+      - name: Run all eleven x86 tests
         shell: pwsh
         run: |
-          $tests = @('geninput-naive', 'geninput-midi', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-display')
+          $tests = @('geninput-naive', 'geninput-midi', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-display', 'gfdm-logging')
           foreach ($test in $tests) {
             & "./tests/$test-test.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

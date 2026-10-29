@@ -25,8 +25,20 @@ The two configuration files include the configuration comments; no generic
 
 The hook selects its profile from the complete executable basename and rejects
 unknown executables. The default security code follows both version and `-g`
-mode; an explicit `security.mcode` still overrides it. Each version writes
-`gfdm-vN-hook.log`. Storage is always separated by launch mode beneath the
+mode; an explicit `security.mcode` still overrides it.
+
+Hook and AVS logs appear in the inject console by default. No hook log file is
+created automatically. Add `-Y` to a launcher to also write `log.log`, or
+`-Y "my log.txt"` to choose a filename. Relative paths use the launcher's working
+directory; quote paths containing spaces. The file is replaced on each launch
+and contains both inject and hook output. Console output remains enabled.
+For example, run `gamestart-v4-dm.bat -Y` or
+`gamestart-v4-dm.bat -Y "logs/session.log"` (create `logs` first).
+`-D` retains inject's debugger forwarding without duplicate hook messages.
+Existing `gfdm-vN-hook.log` files are retained but no longer updated. Native
+game-owned files such as `assert.log` are independent of this option.
+
+Storage is always separated by launch mode beneath the
 executable directory: `DEV/GF` with `-g`, or `DEV/DM` otherwise. Each mode has
 its own `CACHE`, `CONF` and `TMP`, including `CONF/NVRAM`, `CONF/RAW` and
 `CACHE/PROXY`. There is no switch to disable this separation.

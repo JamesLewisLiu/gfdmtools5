@@ -30,6 +30,7 @@ src_gfdmhook1 := \
     display.c \
     effect.c \
     dllmain.c \
+    logging.c \
     network.c \
     profile.c \
     storage.c \

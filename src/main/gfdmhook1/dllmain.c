@@ -17,6 +17,7 @@
 #include "gfdmhook1/debug.h"
 #include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
+#include "gfdmhook1/logging.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
 #include "gfdmhook1/storage.h"
@@ -50,8 +51,6 @@ static bool gfdm_initialized;
 static bool gfdm_keyboard;
 static bool gfdm_mapper_loaded;
 static bool gfdm_is_gf;
-static FILE *gfdm_log_file;
-static HMODULE gfdm_module;
 static const struct gfdm_profile *gfdm_profile;
 static bool gfdm_d3d9_initialized;
 static uint64_t gfdm_gl_present_time;
@@ -381,44 +380,6 @@ static bool gfdm_command_has_switch(const char *cmdline, char wanted)
     }
 
     return false;
-}
-
-static void gfdm_open_log_file(void)
-{
-    char module_path[MAX_PATH];
-    char *separator;
-    char log_path[MAX_PATH];
-
-    if (gfdm_log_file != NULL) {
-        return;
-    }
-
-    if (GetModuleFileNameA(gfdm_module, module_path,
-                           lengthof(module_path)) > 0 &&
-        (separator = strrchr(module_path, '\\')) != NULL) {
-        separator[1] = '\0';
-        str_format(log_path, sizeof(log_path),
-                   "%sgfdm-v%u-hook.log", module_path, gfdm_profile->version);
-        gfdm_log_file = fopen(log_path, "a");
-    }
-
-    if (gfdm_log_file == NULL) {
-        str_format(log_path, sizeof(log_path), "gfdm-v%u-hook.log",
-                   gfdm_profile->version);
-        gfdm_log_file = fopen(log_path, "a");
-    }
-}
-
-static void gfdm_log_writer(void *ctx, const char *chars, size_t nchars)
-{
-    (void) ctx;
-
-    OutputDebugStringA(chars);
-
-    if (gfdm_log_file != NULL) {
-        fwrite(chars, 1, nchars, gfdm_log_file);
-        fflush(gfdm_log_file);
-    }
 }
 
 /*
@@ -912,8 +873,8 @@ static void __cdecl gfdm_avs_boot(
             com_heap,
             sz_com_heap,
             reserved,
-            log_writer,
-            log_context);
+            gfdm_log_writer,
+            NULL);
 #else
         real_avs_boot(
             config,
@@ -921,7 +882,7 @@ static void __cdecl gfdm_avs_boot(
             sz_std_heap,
             avs_heap,
             sz_avs_heap,
-            log_writer_debug,
+            gfdm_log_writer,
             NULL);
 #endif
     }
@@ -1676,7 +1637,7 @@ static void gfdm_init(void)
     }
     gfdm_initialized = true;
 
-    gfdm_open_log_file();
+    gfdm_logging_init();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
     InitializeCriticalSection(&gfdm_input_lock);
@@ -1785,8 +1746,7 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
             OutputDebugStringA("gfdmhook1: expected gdv4.exe through gdv8.exe\n");
             return FALSE;
         }
-        gfdm_module = mod;
-        gfdm_open_log_file();
+        gfdm_logging_init();
         log_to_writer(gfdm_log_writer, NULL);
         gfdm_display_prepare();
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));

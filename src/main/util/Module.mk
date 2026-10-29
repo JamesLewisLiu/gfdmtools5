@@ -10,6 +10,7 @@ src_util        := \
     iobuf.c \
     list.c \
     log.c \
+    log-file.c \
     math.c \
     mem.c \
     msg-thread.c \

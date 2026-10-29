@@ -11,8 +11,9 @@
 #include "inject/version.h"
 
 #include "util/log.h"
+#include "util/log-file.h"
 
-static FILE *log_file;
+static HANDLE log_file = INVALID_HANDLE_VALUE;
 static HANDLE log_mutex;
 
 static const char *logger_get_formatted_timestamp(void)
@@ -132,10 +133,12 @@ static void logger_console(
 static void logger_file(
     void *ctx, const char *chars, size_t nchars, const char *timestamp_str)
 {
-    if (ctx) {
-        fwrite(timestamp_str, 1, strlen(timestamp_str), (FILE *) ctx);
-        fwrite(chars, 1, nchars, (FILE *) ctx);
-        fflush((FILE *) ctx);
+    char record[65792];
+    size_t prefix = strlen(timestamp_str);
+    if (prefix + nchars <= sizeof(record)) {
+        memcpy(record, timestamp_str, prefix);
+        memcpy(record + prefix, chars, nchars);
+        log_file_append((HANDLE) ctx, record, prefix + nchars);
     }
 }
 
@@ -153,6 +156,7 @@ static void logger_writer(void *ctx, const char *chars, size_t nchars)
     logger_console(ctx, chars, nchars, timestamp_str);
     logger_file(ctx, chars, nchars, timestamp_str);
 
+    fflush(stdout);
     ReleaseMutex(log_mutex);
 }
 
@@ -173,11 +177,11 @@ static void logger_log_header()
 
 bool logger_init(const char *log_file_path)
 {
-    if (log_file_path) {
-        log_file = fopen(log_file_path, "w+");
-    } else {
-        log_file = NULL;
+    log_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (!log_mutex) {
+        return false;
     }
+    log_file = log_file_open(log_file_path, true);
 
     log_to_writer(logger_writer, log_file);
 
@@ -186,16 +190,14 @@ bool logger_init(const char *log_file_path)
     if (log_file_path) {
         log_info("Log file: %s", log_file_path);
 
-        if (!log_file) {
+        if (log_file == INVALID_HANDLE_VALUE) {
             log_warning(
                 "ERROR: Opening log file %s failed: %s",
                 log_file_path,
-                strerror(errno));
+                "check the path and permissions");
             return false;
         }
     }
-
-    log_mutex = CreateMutex(NULL, FALSE, NULL);
 
     return true;
 }
@@ -209,8 +211,9 @@ void logger_finit()
 {
     log_misc("Logger finit");
 
-    if (log_file) {
-        fclose(log_file);
+    if (log_file != INVALID_HANDLE_VALUE) {
+        CloseHandle(log_file);
+        log_file = INVALID_HANDLE_VALUE;
     }
 
     CloseHandle(log_mutex);
