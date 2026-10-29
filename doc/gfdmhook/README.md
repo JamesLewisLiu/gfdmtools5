@@ -118,7 +118,15 @@ Real gameplay/BGA, focus recovery, mixed-DPI monitors and high-refresh latency
 still need hardware testing; passing build/rendering probes does not establish
 those results. Existing graphics and HID report implementations remain unchanged.
 
+GF `Pick A` and `Pick B` are two controller binding slots for the same game
+Pick input, for controllers with separate up/down strum switches. Bind either
+or both as needed; both feed the native Pick signal for that player. Pick B
+does not trigger Wail. Existing saved A/B bindings retain their indices.
+Holding either switch keeps Pick held; overlapping switches remain one held
+Pick until both are released. No extra pulses or automatic repeats are added.
+
 ## MIDI controllers
+
 
 MIDI 1.0 input ports are available in the normal buttons binding dialog for
 both GF and DM. Connect the controller, close other applications using its
