@@ -835,6 +835,11 @@ static void gfdm_replace_property_str(
     }
 }
 
+static AVS_LOG_WRITER(gfdm_avs_log_writer, chars, nchars, ctx)
+{
+    gfdm_log_writer(ctx, chars, nchars);
+}
+
 #if AVS_VERSION >= 1600
 static void __cdecl gfdm_avs_boot(
     struct property_node *config,
@@ -873,7 +878,7 @@ static void __cdecl gfdm_avs_boot(
             com_heap,
             sz_com_heap,
             reserved,
-            gfdm_log_writer,
+            gfdm_avs_log_writer,
             NULL);
 #else
         real_avs_boot(
@@ -882,7 +887,7 @@ static void __cdecl gfdm_avs_boot(
             sz_std_heap,
             avs_heap,
             sz_avs_heap,
-            gfdm_log_writer,
+            gfdm_avs_log_writer,
             NULL);
 #endif
     }
