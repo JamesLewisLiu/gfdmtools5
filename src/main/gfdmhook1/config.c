@@ -11,6 +11,7 @@
 #define EAMID_KEY "eamuse.eamid"
 #define MCODE_KEY "security.mcode"
 #define KEYBOARD_KEY "input.keyboard"
+#define CARDIO_KEY "cardio.enabled"
 #define LAYERED_KEY "layered.enabled"
 #define LAYERED_FULL_VERIFY_KEY "layered.full_verify"
 #define FULLSCREEN_KEY "gfx.fullscreen"
@@ -30,6 +31,8 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "localhost:80",
         "e-amusement server URL or host:port");
     hooklib_config_adapter_init(config);
+    cconfig_util_set_bool(config, CARDIO_KEY, false,
+        "enable CardIO HID readers (restart required; disabled by default)");
     cconfig_util_set_bool(config, LAYERED_KEY, false,
         "V4-V8: require verified unpacked objects and forbid packed fallback");
     cconfig_util_set_bool(config, LAYERED_FULL_VERIFY_KEY, false,
@@ -122,6 +125,7 @@ void gfdmhook1_config_get(
     }
 
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
+    cconfig_util_get_bool(config, CARDIO_KEY, &out->cardio, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);
     cconfig_util_get_bool(config, LAYERED_FULL_VERIFY_KEY, &out->layered_full_verify, false);
     if (!cconfig_util_get_str(config, FULLSCREEN_KEY, display_mode,

@@ -1,5 +1,11 @@
 testexes += gfdm-profile-test
 
+testexes += gfdm-cardio-test
+srcdir_gfdm-cardio-test := src/test/gfdmhook1
+src_gfdm-cardio-test := cardio-test.c
+libs_gfdm-cardio-test := util
+ldflags_gfdm-cardio-test := -lhid -lsetupapi
+
 testexes += gfdm-guitar-test
 srcdir_gfdm-guitar-test := src/test/gfdmhook1
 src_gfdm-guitar-test := guitar-test.c

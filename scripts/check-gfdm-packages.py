@@ -48,6 +48,7 @@ def check(directory):
                 assert config["security.mcode"] == f"GC{letter}{number}J{spec}A"
                 assert "adapter.override_ip" in config, (version, mode)
                 assert config["gfx.fullscreen"] == "1", (version, mode)
+                assert config["cardio.enabled"] == "false", (version, mode)
                 assert config["layered.enabled"] == "false", (version, mode)
                 assert config["layered.full_verify"] == "false", (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20

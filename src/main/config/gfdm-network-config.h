@@ -24,6 +24,7 @@ bool gfdm_network_write_config(
     const char *server,
     const char *adapter,
     bool keyboard,
-    int display_mode);
+    int display_mode,
+    bool cardio);
 
 #endif

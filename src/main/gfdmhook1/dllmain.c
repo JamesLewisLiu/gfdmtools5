@@ -280,6 +280,13 @@ static void gfdm_setup_eamio(void)
     }
 
     log_info("GFDM card reader/keypad backend initialized");
+    if (gfdm_config.cardio) {
+        bool (*start_cardio)(void) = (void *) GetProcAddress(
+            gfdm_eamio_module, "eam_io_cardio_start");
+        if (start_cardio == NULL || !start_cardio()) {
+            log_warning("CardIO could not start; retaining file-card/keypad backend");
+        }
+    }
 }
 
 static uint8_t gfdm_card_sensor_state(int unit_no)

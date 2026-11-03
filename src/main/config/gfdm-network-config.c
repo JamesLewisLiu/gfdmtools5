@@ -149,7 +149,8 @@ bool gfdm_network_write_config(
     const char *server,
     const char *adapter,
     bool keyboard,
-    int display_mode)
+    int display_mode,
+    bool cardio)
 {
     char display_value[2], mcode[16];
     char *line = NULL;
@@ -213,6 +214,8 @@ bool gfdm_network_write_config(
          false,
          false},
         {"gfx.fullscreen=", display_value, display_comment, true, false},
+        {"cardio.enabled=", cardio ? "true" : "false",
+         "# Optional CardIO HID readers. Restart after changing this option.\n", true, false},
     };
 
     while (src != NULL &&

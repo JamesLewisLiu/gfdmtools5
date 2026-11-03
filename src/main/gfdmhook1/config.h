@@ -16,6 +16,7 @@ struct gfdmhook1_config {
     struct security_id eamid;
     struct security_mcode mcode;
     bool keyboard;
+    bool cardio;
     bool layered;
     bool layered_full_verify;
     int display_mode;

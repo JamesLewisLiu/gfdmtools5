@@ -22,6 +22,7 @@ struct gfdm_network_page {
     char adapter[64];
     wchar_t path[MAX_PATH];
     bool keyboard;
+    bool cardio;
     int display_mode;
     bool path_valid;
     unsigned int version;
@@ -53,6 +54,7 @@ static void gfdm_network_load(struct gfdm_network_page *page)
     strcpy(page->server, "localhost:80");
     page->adapter[0] = '\0';
     page->keyboard = false;
+    page->cardio = false;
     page->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
     if (!page->path_valid) {
         return;
@@ -74,6 +76,10 @@ static void gfdm_network_load(struct gfdm_network_page *page)
             sscanf(line + 15, "%15s", value);
             page->keyboard = _stricmp(value, "true") == 0
                 || strcmp(value, "1") == 0;
+        } else if (strncmp(line, "cardio.enabled=", 15) == 0) {
+            char value[16] = {0};
+            sscanf(line + 15, "%15s", value);
+            page->cardio = _stricmp(value, "true") == 0 || strcmp(value, "1") == 0;
         } else if (strncmp(line, "gfx.fullscreen=", 15) == 0) {
             if (!gfdm_display_parse_mode(line + 15, &page->display_mode)) {
                 page->display_mode = GFDM_DISPLAY_FULLSCREEN_FIT;
@@ -110,6 +116,7 @@ static void gfdm_network_save(struct gfdm_network_page *page)
         page->adapter,
         sizeof(page->adapter));
 
+    page->cardio = IsDlgButtonChecked(page->hwnd, IDC_GFDM_CARDIO) == BST_CHECKED;
     page->keyboard = IsDlgButtonChecked(page->hwnd, IDC_GFDM_KEYBOARD) == BST_CHECKED;
     page->display_mode = (int) SendDlgItemMessage(page->hwnd,
         IDC_GFDM_DISPLAY_MODE, CB_GETCURSEL, 0, 0);
@@ -136,7 +143,7 @@ static void gfdm_network_save(struct gfdm_network_page *page)
     }
 
     if (!gfdm_network_write_config(src, dst, page->version, page->mode,
-            page->server, page->adapter, page->keyboard, page->display_mode)) {
+            page->server, page->adapter, page->keyboard, page->display_mode, page->cardio)) {
         log_warning("Could not write GFDM configuration contents");
         if (src != NULL) {
             fclose(src);
@@ -201,11 +208,14 @@ static INT_PTR CALLBACK gfdm_network_dlg_proc(
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_SERVER), FALSE);
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_ADAPTER), FALSE);
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_KEYBOARD), FALSE);
+                EnableWindow(GetDlgItem(hwnd, IDC_GFDM_CARDIO), FALSE);
                 EnableWindow(GetDlgItem(hwnd, IDC_GFDM_DISPLAY_MODE), FALSE);
             }
             SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR) page);
             SetDlgItemTextA(hwnd, IDC_GFDM_SERVER, page->server);
             SetDlgItemTextA(hwnd, IDC_GFDM_ADAPTER, page->adapter);
+            CheckDlgButton(hwnd, IDC_GFDM_CARDIO,
+                page->cardio ? BST_CHECKED : BST_UNCHECKED);
             CheckDlgButton(hwnd, IDC_GFDM_KEYBOARD,
                 page->keyboard ? BST_CHECKED : BST_UNCHECKED);
             {

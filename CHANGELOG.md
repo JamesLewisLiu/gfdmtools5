@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-03: Add opt-in CardIO HID input through stock EAMIO with a GFDM configuration checkbox and cardio.enabled=false by default. Receive and validate eight-byte card reports asynchronously, preserve technology/UID and existing file/keypad fallback, and support per-player queued taps and reconnects. Add native simulated protocol/lifecycle tests; physical reader and game login/save validation remain pending.
+
 2026-10-29: Unify packed and shared-data support in the gfdm x86 build. Retain MIDI, logging and Pick A/B fixes, explicitly disable layered routing in default configurations, and retain the common V4 AVS save-path expansion. Run fourteen native tests and seventeen exporter fixtures in one workflow, including disabled resource-path instrumentation.
 
 2026-10-29: Fix both GF Pick A/B controller bindings to drive the same native Pick input for each player. Stop Pick B from triggering Wail, retain existing mapping indices, and preserve native held/edge semantics without synthetic repeats.

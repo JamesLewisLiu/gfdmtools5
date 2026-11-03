@@ -13,12 +13,12 @@ python3 -m unittest discover -s scripts/tests
 python3 scripts/check-gfdm-packages.py build/zip
 ```
 
-The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and fourteen `build/bin/indep-32/*-test.exe` files.
+The default build generates `build/zip/gfdm-v4.zip` through `gfdm-v8.zip` and fifteen `build/bin/indep-32/*-test.exe` files.
 Run `make packages` or `make tests` separately. Test EXEs run directly on Windows.
 `make build-docker` uses the same build graph. There is no x64 build target.
 Use a serial build: the inherited DLL/import-library rules can race during parallel linking.
 
-GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the fourteen x86 tests on Windows and seventeen Python exporter fixtures.
+GitHub Actions builds and validates all five packages on push, pull_request, and manual runs, then runs the fifteen x86 tests on Windows and seventeen Python exporter fixtures.
 The workflow is `.github/workflows/build-gfdm.yaml`. Local validation and online Actions results are recorded separately.
 
 ## One build for both resource layouts

@@ -1,6 +1,7 @@
 LIBRARY eamio
 
 EXPORTS
+    eam_io_cardio_start
     eam_io_fini
     eam_io_init
     eam_io_get_config_api

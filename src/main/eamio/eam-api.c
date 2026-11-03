@@ -12,6 +12,7 @@
 #include "bemanitools/input.h"
 
 #include "eamio/eam-config.h"
+#include "eamio/cardio.h"
 #include "eamio/eam-impl.h"
 #include "eamio/eam-s11n.h"
 
@@ -158,6 +159,7 @@ open_fail:
 
 void eam_io_fini(void)
 {
+    cardio_stop();
     msg_thread_fini();
     eam_impl_destroy(eam_inst);
     input_fini();
@@ -229,6 +231,9 @@ uint16_t eam_io_get_keypad_state(uint8_t unit_no)
 
 uint8_t eam_io_get_sensor_state(uint8_t unit_no)
 {
+    bool owned;
+    uint8_t sensor = cardio_sensor(unit_no, &owned);
+    if (owned) return sensor;
     if (eam_impl_get_sensor_state(eam_inst, unit_no)) {
         return (1 << EAM_IO_SENSOR_FRONT) | (1 << EAM_IO_SENSOR_BACK);
     } else {
@@ -238,6 +243,8 @@ uint8_t eam_io_get_sensor_state(uint8_t unit_no)
 
 uint8_t eam_io_read_card(uint8_t unit_no, uint8_t *card_id, uint8_t nbytes)
 {
+    uint8_t type = cardio_read(unit_no, card_id, nbytes);
+    if (type != EAM_IO_CARD_NONE) return type;
     return eam_impl_read_card(eam_inst, unit_no, card_id, nbytes);
 }
 
