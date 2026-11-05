@@ -288,6 +288,13 @@ value when available, then falls back to `System\\BIOS`'s `BIOSReleaseDate`
 on newer PCs. If neither provides valid text, it displays `UNKNOWN`. This
 avoids the original V4 reader's uninitialized text on a failed registry read.
 
+V7's native EA3 XRPC workspace defaults to 4 KiB. The hook raises its minimum
+to 64 KiB before `ea3_boot`, using a deep copy of the configuration and
+preserving larger configured values. This allows Asphyxia CORE service lists
+to expand into AVS property nodes without startup error `5-2002-0000`.
+Other versions keep their original EA3 configuration. A successful service
+discovery does not by itself validate card login or score saving.
+
 `eamuse.pcbid` supplies the complete system/network identity, matching the
 IIDX launcher convention. The hook sets V4's `/env/profile/sysid` to that
 validated 20-character value when the device layer publishes it, so TEST,

@@ -18,5 +18,9 @@ bool gfdm_avs_config_prepare(
     struct gfdm_avs_config *config, struct property_node *source,
     const char *nvram, const char *raw);
 void gfdm_avs_config_fini(struct gfdm_avs_config *config);
+/* V7 EA3 consumes this deep copy synchronously. Raise only the XRPC
+   workspace minimum, preserving larger values and the original property. */
+bool gfdm_ea3_config_prepare(
+    struct gfdm_avs_config *config, struct property_node *source);
 
 #endif

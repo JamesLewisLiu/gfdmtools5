@@ -15,8 +15,10 @@ struct property_node {
 };
 
 static struct property arena;
-static struct property_node original, copy, devices[2];
+static struct property_node original, copy, devices[3];
 static int failure, allocated, freed, destroyed, creates;
+static bool ea3_mode;
+static uint32_t original_xrpc;
 
 static void *fixture_calloc(size_t count, size_t size)
 {
@@ -55,12 +57,16 @@ struct property_node *property_node_clone(
         devices[i].type = PROPERTY_TYPE_STR;
         strcpy(devices[i].value, "original short device");
     }
+    devices[2].present = original_xrpc != 0;
+    devices[2].type = PROPERTY_TYPE_U32;
+    memcpy(devices[2].value, &original_xrpc, sizeof(original_xrpc));
     return &copy;
 }
 
 static int device_index(const char *path)
 {
     if (strcmp(path, "/fs/nvram/device") == 0) return 0;
+    if (strcmp(path, "/network/sz_xrpc_buf") == 0) return 2;
     assert(strcmp(path, "/fs/raw/device") == 0);
     return 1;
 }
@@ -75,7 +81,7 @@ struct property_node *property_search(
 
 void property_node_remove(struct property_node *node)
 {
-    assert(node == &devices[0] || node == &devices[1]);
+    assert(node == &devices[0] || node == &devices[1] || node == &devices[2]);
     assert(node->present);
     node->present = false;
 }
@@ -84,13 +90,23 @@ struct property_node *property_node_create(
     struct property *prop, struct property_node *root, int type,
     const char *path, ...)
 {
-    assert(prop == NULL && root == &copy && type == PROPERTY_TYPE_STR);
+    assert(prop == NULL && root == &copy);
     int i = device_index(path);
+    assert(type == (i == 2 ? PROPERTY_TYPE_U32 : PROPERTY_TYPE_STR));
     assert(!devices[i].present);
     creates++;
+    if (failure == 9 && i == 2) return NULL;
     if ((failure == 3 && i == 0) || (failure == 4 && i == 1)) return NULL;
     va_list args;
     va_start(args, path);
+    if (i == 2) {
+        uint32_t value = va_arg(args, uint32_t);
+        memcpy(devices[i].value, &value, sizeof(value));
+        va_end(args);
+        devices[i].present = true;
+        devices[i].type = PROPERTY_TYPE_U32;
+        return &devices[i];
+    }
     const char *value = va_arg(args, const char *);
     assert(strlen(value) < sizeof(devices[i].value));
     strcpy(devices[i].value, value);
@@ -98,6 +114,14 @@ struct property_node *property_node_create(
     devices[i].present = true;
     devices[i].type = failure == 6 ? PROPERTY_TYPE_VOID : PROPERTY_TYPE_STR;
     return &devices[i];
+}
+
+int property_node_read(struct property_node *node, enum property_type type, void *data, uint32_t size)
+{
+    assert(ea3_mode && node == &devices[2] && type == PROPERTY_TYPE_U32 && size == 4);
+    memcpy(data, node->value, 4);
+    if (failure == 10 && creates != 0) *(uint32_t *) data = 0;
+    return failure == 8 ? -1 : 4;
 }
 
 enum property_type property_node_type(struct property_node *node)
@@ -145,6 +169,28 @@ int main(void)
     allocated = 0;
     assert(!gfdm_avs_config_prepare(&config, NULL, nvram, raw));
     assert(allocated == 0);
-    puts("PASS: independent V4 AVS config, deep clone, exact save paths, original preservation and allocation/clone/create/readback failure cleanup");
+    ea3_mode = true;
+    const uint32_t sizes[] = {0, 4096, 65536, 131072};
+    for (unsigned i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+        original_xrpc = sizes[i];
+        allocated = freed = destroyed = creates = 0;
+        assert(gfdm_ea3_config_prepare(&config, &original));
+        uint32_t result;
+        memcpy(&result, devices[2].value, 4);
+        assert(result == (sizes[i] > 65536 ? sizes[i] : 65536));
+        assert(creates == (sizes[i] >= 65536 ? 0 : 1));
+        gfdm_avs_config_fini(&config);
+        assert(allocated == freed && destroyed == 1);
+    }
+    for (failure = 1; failure <= 10; failure++) {
+        if (failure != 1 && failure != 2 && failure != 7 && failure != 8 &&
+            failure != 9 && failure != 10) continue;
+        allocated = freed = destroyed = creates = 0;
+        original_xrpc = 4096;
+        assert(!gfdm_ea3_config_prepare(&config, &original));
+        assert(allocated == freed);
+        assert(config.root == NULL && config.property == NULL && config.buffer == NULL);
+    }
+    puts("PASS: independent V4 AVS/V7 EA3 config, deep clone, exact save paths, XRPC minimum/larger values, original preservation and failure cleanup");
     return 0;
 }

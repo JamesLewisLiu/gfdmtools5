@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-06: Raise V7's EA3 XRPC workspace minimum from 4 KiB to 64 KiB through a deep configuration copy. This fixes startup 5-2002-0000 when Asphyxia CORE's service discovery response exceeds the native property arena. Preserve larger configured sizes and other versions' native EA3 configuration. Cover initial and late-loaded imports and add allocation/clone/create/readback cleanup tests. Local GF V7 startup reaches attract mode; card login, song saving and shared XG1 Classic data still require game validation.
+
 2026-11-03: Add opt-in CardIO HID input through stock EAMIO with a GFDM configuration checkbox and cardio.enabled=false by default. Receive and validate eight-byte card reports asynchronously, preserve technology/UID and existing file/keypad fallback, and support per-player queued taps and reconnects. Add native simulated protocol/lifecycle tests; physical reader and game login/save validation remain pending.
 
 2026-10-29: Unify packed and shared-data support in the gfdm x86 build. Retain MIDI, logging and Pick A/B fixes, explicitly disable layered routing in default configurations, and retain the common V4 AVS save-path expansion. Run fourteen native tests and seventeen exporter fixtures in one workflow, including disabled resource-path instrumentation.

@@ -850,6 +850,33 @@ static AVS_LOG_WRITER(gfdm_avs_log_writer, chars, nchars, ctx)
     gfdm_log_writer(ctx, chars, nchars);
 }
 
+static int (__cdecl *real_ea3_boot)(struct property_node *config);
+static int __cdecl gfdm_ea3_boot(struct property_node *config)
+{
+    struct gfdm_avs_config expanded = {0};
+    int result;
+
+    if (gfdm_profile->version != 7) return real_ea3_boot(config);
+    /* V7 defaults to a 4 KiB XRPC workspace. CORE's service list fits on
+       the wire but exceeds that size when expanded into AVS property nodes.
+       EA3 imports this configuration synchronously; retain larger values. */
+    if (!gfdm_ea3_config_prepare(&expanded, config)) {
+        log_fatal("Cannot prepare V7 EA3 XRPC buffer configuration");
+    }
+    log_info("GFDM V7 EA3 XRPC workspace: minimum 65536 bytes");
+    result = real_ea3_boot(expanded.root);
+    gfdm_avs_config_fini(&expanded);
+    return result;
+}
+
+static const struct hook_symbol gfdm_ea3_syms[] = {
+    {
+        .name = "ea3_boot",
+        .patch = gfdm_ea3_boot,
+        .link = (void **) &real_ea3_boot,
+    },
+};
+
 #if AVS_VERSION >= 1600
 static void __cdecl gfdm_avs_boot(
     struct property_node *config,
@@ -1215,6 +1242,8 @@ static void gfdm_apply_avs_hooks(HMODULE target)
     /* A newly loaded game module can bring libdevice in as a dependency. */
     hook_table_apply(NULL, "libavs-win32.dll", gfdm_avs_syms,
                      lengthof(gfdm_avs_syms));
+    hook_table_apply(NULL, "libavs-win32-ea3.dll", gfdm_ea3_syms,
+                     lengthof(gfdm_ea3_syms));
 }
 
 static void gfdm_apply_movie_hooks(HMODULE target)
