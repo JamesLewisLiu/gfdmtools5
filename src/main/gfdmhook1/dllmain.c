@@ -19,6 +19,7 @@
 #include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
 #include "gfdmhook1/guitar.h"
+#include "gfdmhook1/drum.h"
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/logging.h"
 #include "gfdmhook1/network.h"
@@ -1425,15 +1426,7 @@ static unsigned int __cdecl gfdm_device_get_input(int player)
         result |= gfdm_guitar_input(state, player);
         result |= gfdm_get_effector_input(player == 1);
     } else {
-        if (state & (1u << 8)) result |= 0x0004;  /* START */
-        if (state & (1u << 15)) result |= 0x0080; /* MENU LEFT */
-        if (state & (1u << 17)) result |= 0x0100; /* MENU RIGHT */
-        if (state & (1u << 10)) result |= 0x0020; /* HI-HAT (UP) */
-        if (state & (1u << 12)) result |= 0x0040; /* SNARE (DOWN) */
-        if (state & (1u << 14)) result |= 0x0080; /* HIGH TOM */
-        if (state & (1u << 16)) result |= 0x0100; /* LOW TOM */
-        if (state & (1u << 18)) result |= 0x0200; /* CYMBAL (BUTTON0) */
-        if (state & (1u << 22)) result |= 0x0800; /* BASS (BUTTON2) */
+        result |= gfdm_drum_input(state, player);
     }
 
     /* Mapper debug actions control software DIPs. The compact 0x20000 and

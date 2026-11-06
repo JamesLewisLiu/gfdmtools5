@@ -1,5 +1,20 @@
 # gfdmhook1
 
+## DM input and Naive navigation keys
+
+DM pads and START use native input bank 0; Menu Left/Right use bank 1.
+The same compact left/right bit positions have separate meanings in those
+banks. The hook keeps them separate for all V4-V8 builds, including layered
+mode. Existing mapper action indices and binding files remain compatible.
+
+Naive uses Windows logical virtual-key codes. Dedicated arrow, Home/End,
+Page Up/Down and Insert/Delete keys keep extended navigation identities in
+both metadata and displayed names, even if the keyboard layout returns a
+keypad scan code. Existing arrow bindings need no migration. Keep NumLock on
+when binding separate keypad digits with Naive. Windows reports keypad
+navigation as the same logical navigation keys with NumLock off (or temporary
+Shift remapping); select Raw when physical-key separation is required.
+
 ## Optional CardIO readers
 
 In config.exe's GFDM tab, check **Enable CardIO readers (restart required)**,

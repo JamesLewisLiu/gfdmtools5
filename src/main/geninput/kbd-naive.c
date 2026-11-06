@@ -117,7 +117,7 @@ static uint32_t kbd_naive_usage(unsigned int vkey)
             return 0x00070053;
     }
 
-    scan = MapVirtualKeyW(vkey, MAPVK_VK_TO_VSC_EX);
+    scan = kbd_naive_scan_code(vkey);
     code = 0;
 
     if ((scan & 0xFF00) == 0xE000) {

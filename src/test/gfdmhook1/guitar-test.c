@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "gfdmhook1/guitar.c"
+#include "gfdmhook1/drum.h"
 
 /* V4-V8 libsystem sys_input_update: rising = current & ~previous.
    libshare-pj gf_input_pick uses UP (0x20); Wail uses DOWN (0x40). */
@@ -88,8 +89,40 @@ static void check_player(unsigned int player)
     }
 }
 
+static void check_drums(void)
+{
+    /* Native DM consumers: toms use sys_input_left/right(0), menu uses (1).
+       Verify all four combinations independently, including edge isolation. */
+    const unsigned int bits[] = {14, 16, 15, 17};
+    for (unsigned int combination = 0; combination < 16; combination++) {
+        uint32_t state = 0;
+        for (unsigned int i = 0; i < 4; i++)
+            if (combination & (1u << i)) state |= 1u << bits[i];
+        uint32_t pads = (combination & 1 ? 0x80 : 0)
+            | (combination & 2 ? 0x100 : 0);
+        uint32_t menu = (combination & 4 ? 0x80 : 0)
+            | (combination & 8 ? 0x100 : 0);
+        assert(gfdm_drum_input(state, 0) == pads);
+        assert(gfdm_drum_input(state, 1) == menu);
+        assert(gfdm_drum_input(state, -1) == 0);
+        assert(gfdm_drum_input(state, 2) == 0);
+    }
+    const unsigned int pad_bits[] = {8, 10, 12, 14, 16, 18, 22};
+    const uint32_t masks[] = {4, 0x20, 0x40, 0x80, 0x100, 0x200, 0x800};
+    for (unsigned int bit = 0; bit < 32; bit++) {
+        uint32_t expected = 0;
+        for (unsigned int i = 0; i < 7; i++)
+            if (bit == pad_bits[i]) expected = masks[i];
+        assert(gfdm_drum_input(1u << bit, 0) == expected);
+        assert(gfdm_drum_input(1u << bit, 1)
+            == (bit == 15 ? 0x80u : bit == 17 ? 0x100u : 0));
+    }
+    puts("PASS: DM pad/menu banks isolated for every mapper bit and all Tom/menu combinations");
+}
+
 int main(void)
 {
+    check_drums();
     check_player(0);
     check_player(1);
     assert(gfdm_guitar_input(UINT32_MAX, 0) == 0xE64);

@@ -90,7 +90,39 @@ static void test_keyboard(void)
     assert(hid_stub_get_controls(stub, NULL, &ncontrols));
     assert(ncontrols == KBD_NAIVE_NCONTROLS);
     assert(hid_stub_get_controls(stub, controls, &ncontrols));
+    /* Dedicated navigation keys must not acquire keypad HID usages. */
+    const UINT navigation[] = {VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN,
+        VK_HOME, VK_END, VK_PRIOR, VK_NEXT, VK_INSERT, VK_DELETE};
+    const uint32_t usages[] = {0x50, 0x4F, 0x52, 0x51,
+        0x4A, 0x4D, 0x4B, 0x4E, 0x49, 0x4C};
+    for (size_t i = 0; i < lengthof(navigation); i++) {
+        UINT key = navigation[i];
+        assert(controls[key].usage == (0x00070000 | usages[i]));
+        assert((kbd_naive_scan_code(key) & 0xFF00) == 0xE000);
+        test_keys[key] = (SHORT) 0x8000;
+        assert(test_read(stub, key) == 1);
+        for (UINT num = VK_NUMPAD0; num <= VK_NUMPAD9; num++)
+            assert(test_read(stub, num) == 0);
+        test_keys[key] = 0;
+    }
     assert(controls[VK_NUMPAD0].usage == 0x00070062);
+    const UINT arrows[] = {VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN};
+    const UINT numbers[] = {VK_NUMPAD4, VK_NUMPAD6, VK_NUMPAD8, VK_NUMPAD2};
+    for (size_t i = 0; i < lengthof(arrows); i++) {
+        wchar_t arrow_name[64], number_name[64];
+        UINT scan = kbd_naive_scan_code(arrows[i]);
+        assert(GetKeyNameTextW((scan & 255) << 16 | 1 << 24,
+            arrow_name, lengthof(arrow_name)) > 0);
+        scan = kbd_naive_scan_code(numbers[i]);
+        assert(GetKeyNameTextW((scan & 255) << 16,
+            number_name, lengthof(number_name)) > 0);
+        assert(wcscmp(arrow_name, number_name) != 0);
+        assert(controls[arrows[i]].usage != controls[numbers[i]].usage);
+        test_keys[numbers[i]] = (SHORT) 0x8000;
+        assert(test_read(stub, numbers[i]) == 1);
+        assert(test_read(stub, arrows[i]) == 0);
+        test_keys[numbers[i]] = 0;
+    }
     assert(controls[VK_NUMPAD9].usage == 0x00070061);
     assert(controls[VK_ADD].usage == 0x00070057);
     assert(controls[VK_DECIMAL].usage == 0x00070063);

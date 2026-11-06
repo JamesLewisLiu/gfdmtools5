@@ -304,7 +304,7 @@ static bool buttons_get_control_name(
     usages_get(chars, lengthof(chars), controls[ma->control_no].usage);
 
     if (strcmp(hid_stub_get_dev_node(ma->hid), KBD_NAIVE_DEV_NODE) == 0) {
-        scan = MapVirtualKeyW(ma->control_no, MAPVK_VK_TO_VSC_EX);
+        scan = kbd_naive_scan_code(ma->control_no);
 
         if (scan != 0 &&
             GetKeyNameTextW(
