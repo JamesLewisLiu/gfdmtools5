@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-14: Retain CardIO card presence and UID/type until the game explicitly ejects the card. A finished input pulse or successful UID read no longer cancels V4 title-to-entry card login. Drain additional taps without replacing an active card, preserve repeated CHECK exit/re-entry, and keep its native green OK page until START exits. This supersedes the automatic snapshot release in the previous update; physical V4 regression is pending.
+
 2026-11-13: Release consumed CardIO tap snapshots when the input pulse ends so IC CARD CHECK can leave OK and accept another card. Retain unread UIDs and legacy file-card eject behavior. Re-arm identical UID reports after a one-second report-free gap for firmware without removal reports, preserve held-report deduplication, and make raw sensors and repeated eject completion consistent. Update hook and EAMIO together; physical V4 regression is pending.
 
 2026-11-06: Separate DM pad/START bank 0 from menu navigation bank 1 so High/Low Tom no longer trigger Menu Left/Right. Preserve action indices and saved bindings. Correct Naive navigation scan codes for HID usages and displayed names on layouts that return keypad scans for dedicated navigation keys. Use NumLock on for distinct Naive keypad digits, or Raw for physical keypad navigation with NumLock off.

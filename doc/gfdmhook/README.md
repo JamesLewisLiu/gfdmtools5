@@ -42,10 +42,17 @@ the optional extension retain their previous behavior and log a warning
 only when CardIO was requested.
 
 Reports are received on a worker outside game/UI threads. Repeated identical
-UID reports are deduplicated until a zero UID, disconnect or changed UID.
+UID reports are deduplicated until a zero UID, disconnect, changed UID or a
+full second without a valid report. The silence threshold is a tap heuristic;
+firmware without removal reports can coalesce faster taps or repeat slow held reports.
 Each player has a bounded queue of 16 taps. Events force a sensor-low interval,
 then keep a stable UID/type available until read; the high pulse lasts at least
-250 ms, followed by a low interval. Logical card eject remains game-managed.
+250 ms, followed by a low interval. That backend pulse is separate from the
+logical inserted card: the GFDM hook retains its UID/type and inserted sensors
+until the game explicitly ejects it, including across title-to-entry transitions.
+Further taps are drained without replacing an active CardIO card. IC CARD CHECK
+intentionally keeps green OK until START exits; its exit/eject permits the next
+CHECK session without restarting the reader.
 If a queue fills, additional new taps are dropped with a warning; remove and
 tap again. Hardware/driver behavior, UID order, real login/save and TEST
 transitions still need validation with an actual reader and card.

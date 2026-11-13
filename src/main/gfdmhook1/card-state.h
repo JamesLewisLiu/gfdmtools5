@@ -6,7 +6,7 @@
 
 struct gfdm_card_state {
     uint8_t uid[8], type;
-    bool present, tap, read;
+    bool present, tap;
     int pending;
 };
 
@@ -14,14 +14,21 @@ static inline void gfdm_card_clear(struct gfdm_card_state *s)
 {
     memset(s->uid, 0, sizeof(s->uid));
     s->type = 0;
-    s->present = s->tap = s->read = false;
+    s->present = s->tap = false;
 }
 
-static inline void gfdm_card_sample(struct gfdm_card_state *s, bool sensor)
+static inline bool gfdm_card_insert(
+    struct gfdm_card_state *s, const uint8_t uid[8], uint8_t type, bool tap)
 {
-    /* A contactless tap is released after the game consumes its cached UID.
-       File-card insertion retains the existing explicit-eject lifecycle. */
-    if (s->tap && s->read && !sensor)
-        gfdm_card_clear(s);
+    /* CardIO reports a tap, but the game expects a motorized reader that keeps
+       the card inside until explicit eject. Reading or RF silence is not eject.
+       Drain later taps without replacing the card in an active session. */
+    if (s->present && s->tap)
+        return false;
+    memcpy(s->uid, uid, sizeof(s->uid));
+    s->type = type;
+    s->present = true;
+    s->tap = tap;
+    return true;
 }
 #endif

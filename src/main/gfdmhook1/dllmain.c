@@ -312,6 +312,7 @@ static void gfdm_cardunit_poll(void)
     int unit_no;
     uint8_t sensor;
     uint8_t result;
+    uint8_t uid[8];
     int tap_sensor;
 
     if (gfdm_eam_get_sensor_state == NULL || gfdm_eam_read_card == NULL) {
@@ -323,21 +324,18 @@ static void gfdm_cardunit_poll(void)
             ? gfdm_cardio_sensor((uint8_t) unit_no) : -1;
         sensor = tap_sensor >= 0 ? (uint8_t) tap_sensor
             : gfdm_cards[unit_no].tap ? 0 : gfdm_card_sensor_state(unit_no);
-        gfdm_card_sample(&gfdm_cards[unit_no], sensor != 0);
-
         if (sensor != 0 && !gfdm_card_sensor_seen[unit_no]) {
             result = gfdm_eam_read_card(
-                (uint8_t) unit_no, gfdm_cards[unit_no].uid, 8);
+                (uint8_t) unit_no, uid, sizeof(uid));
             if (result != EAM_IO_CARD_NONE) {
-                gfdm_cards[unit_no].present = true;
-                gfdm_cards[unit_no].tap = tap_sensor >= 0;
-                gfdm_cards[unit_no].read = false;
-                gfdm_cards[unit_no].type = result;
-                log_info(
-                    "GFDM card reader %d inserted (type %u)",
-                    unit_no,
-                    result);
-            } else {
+                if (gfdm_card_insert(
+                        &gfdm_cards[unit_no], uid, result, tap_sensor >= 0)) {
+                    log_info(
+                        "GFDM card reader %d inserted (type %u)",
+                        unit_no,
+                        result);
+                }
+            } else if (!gfdm_cards[unit_no].tap) {
                 gfdm_cards[unit_no].present = false;
                 gfdm_cards[unit_no].type = EAM_IO_CARD_NONE;
                 memset(gfdm_cards[unit_no].uid, 0, 8);
@@ -345,10 +343,8 @@ static void gfdm_cardunit_poll(void)
             }
         }
 
-        /* EAMIO's sensor is a short insert/tap pulse, not a persistent
-           presence switch.  A low level only arms the next rising edge;
-           file-card removal is driven by cardunit_card_eject(); CardIO
-           clears its consumed cache on the low sample above. */
+        /* EAMIO's short pulse only arms the next event. Both file and CardIO
+           cards remain inserted until the game explicitly ejects them. */
         gfdm_card_sensor_seen[unit_no] = sensor != 0;
     }
 }
@@ -614,7 +610,6 @@ static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
     }
 
     memcpy(card, gfdm_cards[unit_no].uid, 8);
-    gfdm_cards[unit_no].read = true;
     if (!gfdm_card_read_logged[unit_no]) {
         log_info("GFDM card reader %d read: card present", unit_no);
         gfdm_card_read_logged[unit_no] = true;
@@ -644,7 +639,6 @@ static int __cdecl gfdm_cardunit_card_read2(
     }
 
     memcpy(card, gfdm_cards[unit_no].uid, 8);
-    gfdm_cards[unit_no].read = true;
     if (card_type != NULL) {
         *card_type = gfdm_cards[unit_no].type;
     }

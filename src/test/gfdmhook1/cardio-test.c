@@ -220,30 +220,32 @@ static void check_native_check(void)
     struct cardio_state backend = {0};
     struct gfdm_card_state reader = {0};
     bool owned;
-    uint8_t uid[8];
-    /* Native V4 CHECK waits at state 5/OK until card_sensor is zero.
-       Reproduce repeated CHECK sessions and same-card taps without zero reports. */
+    uint8_t uid[8], other[8] = {0xe0, 4, 9, 8, 7, 6, 5, 4};
+    /* V4 game_demo state 2 still requires sensor presence after a successful
+       read. The RF pulse ending must not eject a motorized-reader snapshot. */
     for (unsigned int session = 0; session < 20; session++) {
-        uint32_t now = session * 2000;
+        uint32_t now = session * 100000;
         assert(cardio_state_offer_timed(&backend, fake_uid, 1, now));
         assert(!cardio_state_sensor(&backend, now, &owned));
         assert(cardio_state_sensor(&backend, now + 50, &owned));
-        reader.type = cardio_state_read(&backend, reader.uid, 8);
-        reader.present = reader.tap = true;
-        reader.read = false;
+        uint8_t type = cardio_state_read(&backend, uid, sizeof(uid));
+        assert(gfdm_card_insert(&reader, uid, type, true));
         assert(!memcmp(reader.uid, fake_uid, 8));
-        /* Slow consumer: backend low must not erase an unread UID. */
         assert(!cardio_state_sensor(&backend, now + 500, &owned));
-        gfdm_card_sample(&reader, false);
-        assert(reader.present);
-        memcpy(uid, reader.uid, 8);
-        reader.read = true;
+        /* Both a delayed first read and the following title-to-entry handoff
+           retain presence and the exact UID/type, without a hold timeout. */
+        assert(reader.present && reader.type == 1);
+        memcpy(uid, reader.uid, sizeof(uid));
         assert(!memcmp(uid, fake_uid, 8));
-        gfdm_card_sample(&reader, false);
-        assert(!reader.present && reader.type == 0);
-        assert(!cardio_state_sensor(&backend, now + 600, &owned));
-        /* CHECK exit/eject then ready; no backend restart needed. */
+        assert(!cardio_state_sensor(&backend, now + 60000, &owned));
+        assert(reader.present && reader.type == 1);
+        assert(!gfdm_card_insert(&reader, other, 2, true));
+        assert(!memcmp(reader.uid, fake_uid, 8) && reader.type == 1);
+        /* CHECK deliberately holds green OK until START requests eject.
+           Eject, not RF silence or UID read, releases the snapshot. */
+        reader.pending = 1;
         gfdm_card_clear(&reader);
+        assert(!reader.present && reader.type == 0 && reader.pending == 1);
         reader.pending = 0;
     }
     memset(&backend, 0, sizeof(backend));
@@ -256,13 +258,12 @@ static void check_native_check(void)
     assert(cardio_state_offer_timed(&backend, zero, 1, 5901));
     assert(cardio_state_offer_timed(&backend, fake_uid, 1, 5902));
     assert(backend.count == 3);
-    reader.present = reader.read = true;
-    reader.tap = false;
-    gfdm_card_sample(&reader, false);
-    assert(reader.present); /* Existing file-card explicit eject preserved. */
+    assert(gfdm_card_insert(&reader, fake_uid, 1, false));
+    assert(gfdm_card_insert(&reader, other, 2, false));
+    assert(reader.present && !reader.tap && !memcmp(reader.uid, other, 8));
     gfdm_card_clear(&reader);
     assert(!reader.present);
-    puts("PASS: native V4 CHECK OK/removal/re-entry, twenty same-card sessions, delayed reads, held dedup and legacy file-card lifecycle");
+    puts("PASS: V4 title-to-entry presence, stable UID/type until eject, twenty CHECK exit/re-entry sessions, held dedup and legacy file-card lifecycle");
 }
 
 int main(void)
