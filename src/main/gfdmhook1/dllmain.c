@@ -310,6 +310,7 @@ static uint8_t gfdm_card_sensor_state(int unit_no)
 static void gfdm_cardunit_poll(void)
 {
     int unit_no;
+    int card_unit;
     uint8_t sensor;
     uint8_t result;
     uint8_t uid[8];
@@ -328,12 +329,17 @@ static void gfdm_cardunit_poll(void)
             result = gfdm_eam_read_card(
                 (uint8_t) unit_no, uid, sizeof(uid));
             if (result != EAM_IO_CARD_NONE) {
+                card_unit = gfdm_card_target(
+                    unit_no, gfdm_is_gf, tap_sensor >= 0,
+                    gfdm_is_gf && tap_sensor >= 0 &&
+                        (GetKeyState(VK_NUMLOCK) & 1) != 0);
                 if (gfdm_card_insert(
-                        &gfdm_cards[unit_no], uid, result, tap_sensor >= 0)) {
+                        &gfdm_cards[card_unit], uid, result, tap_sensor >= 0)) {
                     log_info(
-                        "GFDM card reader %d inserted (type %u)",
-                        unit_no,
-                        result);
+                        "GFDM card reader %d inserted (type %u, source %d)",
+                        card_unit,
+                        result,
+                        unit_no);
                 }
             } else if (!gfdm_cards[unit_no].tap) {
                 gfdm_cards[unit_no].present = false;

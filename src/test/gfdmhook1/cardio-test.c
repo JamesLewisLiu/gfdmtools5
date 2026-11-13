@@ -266,12 +266,42 @@ static void check_native_check(void)
     puts("PASS: V4 title-to-entry presence, stable UID/type until eject, twenty CHECK exit/re-entry sessions, held dedup and legacy file-card lifecycle");
 }
 
+static void check_player_routing(void)
+{
+    struct gfdm_card_state readers[2] = {0};
+    uint8_t other[8] = {0xe0, 4, 9, 8, 7, 6, 5, 4};
+    int target = gfdm_card_target(0, true, true, true);
+    assert(gfdm_card_insert(&readers[target], fake_uid, 1, true));
+    assert(!readers[0].present && readers[1].present);
+    /* A later event follows the new selection, without moving P2's card. */
+    target = gfdm_card_target(0, true, true, false);
+    assert(gfdm_card_insert(&readers[target], other, 2, true));
+    assert(readers[0].type == 2 && !memcmp(readers[0].uid, other, 8));
+    assert(readers[1].type == 1 && !memcmp(readers[1].uid, fake_uid, 8));
+    /* Both physical sources use the GF selector; an occupied target is stable. */
+    target = gfdm_card_target(1, true, true, true);
+    assert(!gfdm_card_insert(&readers[target], other, 2, true));
+    gfdm_card_clear(&readers[0]);
+    assert(readers[1].present);
+    target = gfdm_card_target(1, true, true, false);
+    assert(gfdm_card_insert(&readers[target], other, 2, true));
+    for (int source = 0; source < 2; source++) {
+        for (int numlock = 0; numlock < 2; numlock++) {
+            assert(gfdm_card_target(source, false, true, numlock) == source);
+            assert(gfdm_card_target(source, true, false, numlock) == source);
+            assert(gfdm_card_target(source, false, false, numlock) == source);
+        }
+    }
+    puts("PASS: GF CardIO NumLock off P1/on P2, fixed active cards, independent eject, occupied target, both sources, unchanged DM/file routing");
+}
+
 int main(void)
 {
     bool owned;
     uint8_t uid[8], type;
     check_state();
     check_native_check();
+    check_player_routing();
     assert(cardio_sensor(0, &owned) == 0 && !owned);
     assert(cardio_read(0, uid, 8) == 0);
     cardio_stop();

@@ -10,6 +10,14 @@ struct gfdm_card_state {
     int pending;
 };
 
+static inline int gfdm_card_target(
+    int source, bool guitar, bool tap, bool numlock)
+{
+    /* Match EAMIO keypad multiplexing: NumLock off = P1, on = P2.
+       Resolve only a new CardIO event; never move an inserted card. */
+    return guitar && tap ? (numlock ? 1 : 0) : source;
+}
+
 static inline void gfdm_card_clear(struct gfdm_card_state *s)
 {
     memset(s->uid, 0, sizeof(s->uid));
