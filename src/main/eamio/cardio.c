@@ -226,7 +226,7 @@ static bool poll_device(struct cardio_device *d, int unit)
     uint8_t uid[8], type;
     if (decode_report(d, size, uid, &type)) {
         EnterCriticalSection(&state_lock);
-        bool accepted = cardio_state_offer(&states[unit], uid, type);
+        bool accepted = cardio_state_offer_timed(&states[unit], uid, type, GetTickCount());
         LeaveCriticalSection(&state_lock);
         if (!accepted)
             log_warning(
@@ -319,4 +319,12 @@ uint8_t cardio_read(uint8_t unit, uint8_t *uid, uint8_t size)
     uint8_t type = cardio_state_read(&states[unit], uid, size);
     LeaveCriticalSection(&state_lock);
     return type;
+}
+
+/* -1 means no CardIO event owns the sensor; use the ordinary EAMIO backend. */
+int eam_io_cardio_get_sensor_state(uint8_t unit)
+{
+    bool owned;
+    uint8_t sensor = cardio_sensor(unit, &owned);
+    return owned ? sensor : -1;
 }

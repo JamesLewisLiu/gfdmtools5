@@ -6,6 +6,7 @@
 #include <hidsdi.h>
 // clang-format on
 #include "eamio/cardio-state.c"
+#include "gfdmhook1/card-state.h"
 #include "util/thread.h"
 #include <assert.h>
 #include <stdbool.h>
@@ -214,11 +215,62 @@ static void check_state(void)
         "bounded ordered queue, sensor/read snapshot, low gaps and timer wrap");
 }
 
+static void check_native_check(void)
+{
+    struct cardio_state backend = {0};
+    struct gfdm_card_state reader = {0};
+    bool owned;
+    uint8_t uid[8];
+    /* Native V4 CHECK waits at state 5/OK until card_sensor is zero.
+       Reproduce repeated CHECK sessions and same-card taps without zero reports. */
+    for (unsigned int session = 0; session < 20; session++) {
+        uint32_t now = session * 2000;
+        assert(cardio_state_offer_timed(&backend, fake_uid, 1, now));
+        assert(!cardio_state_sensor(&backend, now, &owned));
+        assert(cardio_state_sensor(&backend, now + 50, &owned));
+        reader.type = cardio_state_read(&backend, reader.uid, 8);
+        reader.present = reader.tap = true;
+        reader.read = false;
+        assert(!memcmp(reader.uid, fake_uid, 8));
+        /* Slow consumer: backend low must not erase an unread UID. */
+        assert(!cardio_state_sensor(&backend, now + 500, &owned));
+        gfdm_card_sample(&reader, false);
+        assert(reader.present);
+        memcpy(uid, reader.uid, 8);
+        reader.read = true;
+        assert(!memcmp(uid, fake_uid, 8));
+        gfdm_card_sample(&reader, false);
+        assert(!reader.present && reader.type == 0);
+        assert(!cardio_state_sensor(&backend, now + 600, &owned));
+        /* CHECK exit/eject then ready; no backend restart needed. */
+        gfdm_card_clear(&reader);
+        reader.pending = 0;
+    }
+    memset(&backend, 0, sizeof(backend));
+    for (uint32_t now = 0; now < 5000; now += 100)
+        assert(cardio_state_offer_timed(&backend, fake_uid, 1, now));
+    assert(backend.count == 1); /* Continuous held reports never reinsert. */
+    assert(cardio_state_offer_timed(&backend, fake_uid, 1, 5900));
+    assert(backend.count == 2); /* One second with no report re-arms a tap. */
+    uint8_t zero[8] = {0};
+    assert(cardio_state_offer_timed(&backend, zero, 1, 5901));
+    assert(cardio_state_offer_timed(&backend, fake_uid, 1, 5902));
+    assert(backend.count == 3);
+    reader.present = reader.read = true;
+    reader.tap = false;
+    gfdm_card_sample(&reader, false);
+    assert(reader.present); /* Existing file-card explicit eject preserved. */
+    gfdm_card_clear(&reader);
+    assert(!reader.present);
+    puts("PASS: native V4 CHECK OK/removal/re-entry, twenty same-card sessions, delayed reads, held dedup and legacy file-card lifecycle");
+}
+
 int main(void)
 {
     bool owned;
     uint8_t uid[8], type;
     check_state();
+    check_native_check();
     assert(cardio_sensor(0, &owned) == 0 && !owned);
     assert(cardio_read(0, uid, 8) == 0);
     cardio_stop();

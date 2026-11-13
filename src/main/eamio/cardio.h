@@ -5,6 +5,7 @@
 
 /* Optional stock-EAMIO extension. No work occurs before explicit start. */
 bool eam_io_cardio_start(void);
+int eam_io_cardio_get_sensor_state(uint8_t unit);
 void cardio_stop(void);
 uint8_t cardio_sensor(uint8_t unit, bool *owned);
 uint8_t cardio_read(uint8_t unit, uint8_t *uid, uint8_t size);

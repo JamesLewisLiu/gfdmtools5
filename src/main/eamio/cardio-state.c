@@ -30,6 +30,21 @@ bool cardio_state_offer(
     return true;
 }
 
+/* Some firmware sends only a UID on each tap, without a zero removal report.
+   Continuous held reports remain deduplicated; a one-second report-free gap
+   permits the same card again. This is a tap heuristic, not RF presence. */
+bool cardio_state_offer_timed(
+    struct cardio_state *s, const uint8_t uid[8], uint8_t type, uint32_t now)
+{
+    if (type != EAM_IO_CARD_ISO15696 && type != EAM_IO_CARD_FELICA)
+        return false;
+    if (s->reported && (uint32_t) (now - s->last_report) >= 1000)
+        cardio_state_release(s);
+    s->reported = true;
+    s->last_report = now;
+    return cardio_state_offer(s, uid, type);
+}
+
 bool cardio_state_sensor(struct cardio_state *s, uint32_t now, bool *owned)
 {
     *owned = true;

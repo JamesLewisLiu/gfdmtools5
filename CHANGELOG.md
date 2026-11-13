@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-13: Release consumed CardIO tap snapshots when the input pulse ends so IC CARD CHECK can leave OK and accept another card. Retain unread UIDs and legacy file-card eject behavior. Re-arm identical UID reports after a one-second report-free gap for firmware without removal reports, preserve held-report deduplication, and make raw sensors and repeated eject completion consistent. Update hook and EAMIO together; physical V4 regression is pending.
+
 2026-11-06: Separate DM pad/START bank 0 from menu navigation bank 1 so High/Low Tom no longer trigger Menu Left/Right. Preserve action indices and saved bindings. Correct Naive navigation scan codes for HID usages and displayed names on layouts that return keypad scans for dedicated navigation keys. Use NumLock on for distinct Naive keypad digits, or Raw for physical keypad navigation with NumLock off.
 
 2026-11-12: Extend the EA3 XRPC workspace minimum to V4-V6, whose EA3 imports come from libavs-win32.dll rather than V7's separate EA3 library. Preserve larger configured sizes, the original configuration tree and V8 behavior. Native V4-V6 parser tests reproduce failure at 4 KiB and success at 8/64 KiB on the current CORE service list. Card login and song saving remain separate game validation items.

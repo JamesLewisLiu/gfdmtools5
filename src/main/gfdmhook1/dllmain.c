@@ -19,6 +19,7 @@
 #include "gfdmhook1/display.h"
 #include "gfdmhook1/effect.h"
 #include "gfdmhook1/guitar.h"
+#include "gfdmhook1/card-state.h"
 #include "gfdmhook1/drum.h"
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/logging.h"
@@ -76,13 +77,11 @@ static gfdm_eam_init_t gfdm_eam_init;
 static gfdm_eam_keypad_t gfdm_eam_get_keypad_state;
 static gfdm_eam_sensor_t gfdm_eam_get_sensor_state;
 static gfdm_eam_read_card_t gfdm_eam_read_card;
-static bool gfdm_card_present[2];
+static struct gfdm_card_state gfdm_cards[2];
+static int (*gfdm_cardio_sensor)(uint8_t);
 static bool gfdm_card_sensor_seen[2];
-static uint8_t gfdm_card_data[2][8];
-static uint8_t gfdm_card_type[2];
 static bool gfdm_card_read_logged[2];
 static bool gfdm_card_read2_logged[2];
-static int gfdm_card_eject_pending[2];
 static uint16_t gfdm_keypad_seen[2];
 static bool gfdm_card_status_logged[2];
 static int gfdm_card_sensor_logged[2] = {-1, -1};
@@ -282,8 +281,13 @@ static void gfdm_setup_eamio(void)
 
     log_info("GFDM card reader/keypad backend initialized");
     if (gfdm_config.cardio) {
+        gfdm_cardio_sensor = (void *) GetProcAddress(
+            gfdm_eamio_module, "eam_io_cardio_get_sensor_state");
         bool (*start_cardio)(void) = (void *) GetProcAddress(
             gfdm_eamio_module, "eam_io_cardio_start");
+        if (gfdm_cardio_sensor == NULL) {
+            log_warning("CardIO tap lifecycle unavailable; update eamio.dll together with the hook");
+        }
         if (start_cardio == NULL || !start_cardio()) {
             log_warning("CardIO could not start; retaining file-card/keypad backend");
         }
@@ -308,35 +312,43 @@ static void gfdm_cardunit_poll(void)
     int unit_no;
     uint8_t sensor;
     uint8_t result;
+    int tap_sensor;
 
     if (gfdm_eam_get_sensor_state == NULL || gfdm_eam_read_card == NULL) {
         return;
     }
 
     for (unit_no = 0; unit_no < 2; unit_no++) {
-        sensor = gfdm_card_sensor_state(unit_no);
+        tap_sensor = gfdm_cardio_sensor != NULL
+            ? gfdm_cardio_sensor((uint8_t) unit_no) : -1;
+        sensor = tap_sensor >= 0 ? (uint8_t) tap_sensor
+            : gfdm_cards[unit_no].tap ? 0 : gfdm_card_sensor_state(unit_no);
+        gfdm_card_sample(&gfdm_cards[unit_no], sensor != 0);
 
         if (sensor != 0 && !gfdm_card_sensor_seen[unit_no]) {
             result = gfdm_eam_read_card(
-                (uint8_t) unit_no, gfdm_card_data[unit_no], 8);
+                (uint8_t) unit_no, gfdm_cards[unit_no].uid, 8);
             if (result != EAM_IO_CARD_NONE) {
-                gfdm_card_present[unit_no] = true;
-                gfdm_card_type[unit_no] = result;
+                gfdm_cards[unit_no].present = true;
+                gfdm_cards[unit_no].tap = tap_sensor >= 0;
+                gfdm_cards[unit_no].read = false;
+                gfdm_cards[unit_no].type = result;
                 log_info(
                     "GFDM card reader %d inserted (type %u)",
                     unit_no,
                     result);
             } else {
-                gfdm_card_present[unit_no] = false;
-                gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
-                memset(gfdm_card_data[unit_no], 0, 8);
+                gfdm_cards[unit_no].present = false;
+                gfdm_cards[unit_no].type = EAM_IO_CARD_NONE;
+                memset(gfdm_cards[unit_no].uid, 0, 8);
                 log_misc("GFDM card reader %d sensor edge without card", unit_no);
             }
         }
 
         /* EAMIO's sensor is a short insert/tap pulse, not a persistent
            presence switch.  A low level only arms the next rising edge;
-           card removal is driven by cardunit_card_eject(). */
+           file-card removal is driven by cardunit_card_eject(); CardIO
+           clears its consumed cache on the low sample above. */
         gfdm_card_sensor_seen[unit_no] = sensor != 0;
     }
 }
@@ -517,7 +529,7 @@ static void __cdecl gfdm_cardunit_update(void)
 static void __cdecl gfdm_cardunit_card_eject(int unit_no)
 {
     if (unit_no >= 0 && unit_no < 2) {
-        gfdm_card_eject_pending[unit_no] = 1;
+        gfdm_cards[unit_no].pending = 1;
     }
 }
 
@@ -527,7 +539,7 @@ static int __cdecl gfdm_cardunit_card_eject_wait(int unit_no)
         return 0;
     }
 
-    return gfdm_card_eject_pending[unit_no];
+    return gfdm_cards[unit_no].pending;
 }
 
 static int __cdecl gfdm_cardunit_get_errorcount(int unit_no)
@@ -557,7 +569,7 @@ static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
     }
 
     gfdm_cardunit_poll();
-    result = gfdm_card_present[unit_no] ? 2 : 0;
+    result = gfdm_cards[unit_no].present ? 2 : 0;
     if (gfdm_card_sensor_logged[unit_no] != result) {
         log_misc("GFDM cardunit %d sensor -> %d", unit_no, result);
         gfdm_card_sensor_logged[unit_no] = result;
@@ -568,9 +580,7 @@ static int __cdecl gfdm_cardunit_card_sensor(int unit_no)
 
 static int __cdecl gfdm_cardunit_card_sensor_raw(int unit_no)
 {
-    (void) unit_no;
-
-    return 1;
+    return gfdm_cardunit_card_sensor(unit_no) == 2 ? 0x30 : 0;
 }
 
 static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
@@ -579,14 +589,12 @@ static int __cdecl gfdm_cardunit_card_eject_complete(int unit_no)
         return 0;
     }
 
-    if (gfdm_card_eject_pending[unit_no]) {
-        gfdm_card_present[unit_no] = false;
-        gfdm_card_sensor_seen[unit_no] = false;
-        gfdm_card_type[unit_no] = EAM_IO_CARD_NONE;
-        memset(gfdm_card_data[unit_no], 0, 8);
+    if (gfdm_cards[unit_no].pending == 1) {
+        gfdm_card_clear(&gfdm_cards[unit_no]);
+        gfdm_cards[unit_no].pending = 2;
     }
 
-    return gfdm_card_eject_pending[unit_no];
+    return 1;
 }
 
 static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
@@ -596,7 +604,7 @@ static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
     }
 
     gfdm_cardunit_poll();
-    if (!gfdm_card_present[unit_no]) {
+    if (!gfdm_cards[unit_no].present) {
         memset(card, 0, 8);
         if (!gfdm_card_read_logged[unit_no]) {
             log_info("GFDM card reader %d read: no card", unit_no);
@@ -605,7 +613,8 @@ static int __cdecl gfdm_cardunit_card_read(int unit_no, void *card)
         return 1;
     }
 
-    memcpy(card, gfdm_card_data[unit_no], 8);
+    memcpy(card, gfdm_cards[unit_no].uid, 8);
+    gfdm_cards[unit_no].read = true;
     if (!gfdm_card_read_logged[unit_no]) {
         log_info("GFDM card reader %d read: card present", unit_no);
         gfdm_card_read_logged[unit_no] = true;
@@ -622,7 +631,7 @@ static int __cdecl gfdm_cardunit_card_read2(
     }
 
     gfdm_cardunit_poll();
-    if (!gfdm_card_present[unit_no]) {
+    if (!gfdm_cards[unit_no].present) {
         if (card_type != NULL) {
             *card_type = EAM_IO_CARD_NONE;
         }
@@ -634,15 +643,16 @@ static int __cdecl gfdm_cardunit_card_read2(
         return 1;
     }
 
-    memcpy(card, gfdm_card_data[unit_no], 8);
+    memcpy(card, gfdm_cards[unit_no].uid, 8);
+    gfdm_cards[unit_no].read = true;
     if (card_type != NULL) {
-        *card_type = gfdm_card_type[unit_no];
+        *card_type = gfdm_cards[unit_no].type;
     }
     if (!gfdm_card_read2_logged[unit_no]) {
         log_info(
             "GFDM card reader %d read2: card present type %u",
             unit_no,
-            gfdm_card_type[unit_no]);
+            gfdm_cards[unit_no].type);
         gfdm_card_read2_logged[unit_no] = true;
     }
 
@@ -673,7 +683,7 @@ static int __cdecl gfdm_cardunit_card_cardnumber(
 static void __cdecl gfdm_cardunit_card_ready(int unit_no)
 {
     if (unit_no >= 0 && unit_no < 2) {
-        gfdm_card_eject_pending[unit_no] = 0;
+        gfdm_cards[unit_no].pending = 0;
     }
 }
 
@@ -718,11 +728,8 @@ static const char *__cdecl gfdm_cardunit_key_str(int key_code)
 
 static int __cdecl gfdm_cardunit_reset(void)
 {
-    memset(gfdm_card_present, 0, sizeof(gfdm_card_present));
+    memset(gfdm_cards, 0, sizeof(gfdm_cards));
     memset(gfdm_card_sensor_seen, 0, sizeof(gfdm_card_sensor_seen));
-    memset(gfdm_card_data, 0, sizeof(gfdm_card_data));
-    memset(gfdm_card_type, 0, sizeof(gfdm_card_type));
-    memset(gfdm_card_eject_pending, 0, sizeof(gfdm_card_eject_pending));
     memset(gfdm_keypad_seen, 0, sizeof(gfdm_keypad_seen));
     gfdm_card_sensor_logged[0] = -1;
     gfdm_card_sensor_logged[1] = -1;
