@@ -463,3 +463,22 @@ The original Gitadora V4 hook reports status `0x101` for the black roundplug
 and `0x100` for the white roundplug; V4 rejects a boolean “present” response
 (`1`) with `5-1503-0001`. The P3IO emulator still supplies the ROM and signed
 EEPROM bytes, while these status values preserve the game-facing contract.
+
+## Persistent play settings
+
+In config.exe, open GFDM and use Play settings (restart required):
+
+- Freeze settings / song selection timer (`game.freeze_timer=true`) holds the
+  native `neverend` parameter on. The existing Disable Menu Timer binding cannot
+  turn it off while this setting is enabled; Auto Play remains independent.
+- Unlock all installed songs (`game.unlock_music=true`) enables native `all_music`.
+  With this option off, the original song-unlock result is preserved.
+
+Both options default to false and save to the selected version's GF/DM file.
+Restart the game to apply changes. They work without an Internet unlock response
+and do not write unlock progress into cards, server profiles or NVRAM. Song data
+must already be installed. These switches do not supply missing assets or a local
+server, and are not a complete replacement for network-dependent game modes.
+`neverend` is a shared native debug parameter and can also hold other menu or
+matching flows; use normal local play when offline. Complete song-list coverage
+and actual gameplay still require per-version testing.

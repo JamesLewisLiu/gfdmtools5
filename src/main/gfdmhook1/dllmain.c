@@ -1139,6 +1139,11 @@ static char __cdecl gfdm_gd_dip_get_debug_dip_param(int param)
     int index;
 
     native_value = real_gd_dip_get_debug_dip_param(param);
+    /* all_music is queried while building song lists. It has no input toggle;
+       avoid resampling controllers for every song. Settings are immutable. */
+    if (param == 3) {
+        return gfdm_debug_param(&gfdm_debug, param, native_value);
+    }
     if (param != 1 && param != 2) {
         return native_value;
     }
@@ -1719,6 +1724,10 @@ static void gfdm_init(void)
     gfdm_layered_apply_hooks();
 
     gfdm_keyboard = gfdm_config.keyboard;
+    gfdm_debug.freeze_timer = gfdm_config.freeze_timer;
+    gfdm_debug.unlock_music = gfdm_config.unlock_music;
+    log_info("GFDM play settings: freeze_timer=%u unlock_music=%u",
+        gfdm_config.freeze_timer, gfdm_config.unlock_music);
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;

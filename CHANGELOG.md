@@ -1,3 +1,13 @@
+2026-11-15 Add persistent timer freeze and native song unlock settings
+
+- New gfdm-offline-play branch from gfdm/08f5232.
+- GFDM settings page saves game.freeze_timer and game.unlock_music per version/mode;
+  both default off and require a game restart.
+- Reuse native neverend/all_music indices 1/3; preserve Auto Play and the previous
+  all_music result when unlock is off. Song-list reads do not poll input devices.
+- Extend debug/config tests for independent settings, timer binding interactions,
+  preservation and duplicate removal. Actual per-version play remains pending.
+
 # GFDM update history
 
 2026-11-15: Extend private LAN compatibility from V6 to V4/V5/V7/V8 with separately verified PE/export/code profiles for all ten original modules. Preserve each version's native network checks (V4 has no separate APIPA rejection) and real EA3 errors. The preceding V6-only fix was inactive in V4; a reported V4 5-2002-0000 still requires its actual startup log to diagnose. All five original-function isolation suites and relocated patcher tests pass; remote gameplay remains unverified.

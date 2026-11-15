@@ -190,18 +190,21 @@ EXSTYLE WS_EX_CONTROLPARENT
 CAPTION "GFDM"
 FONT 8, "Ms Shell Dlg"
 {
-    GROUPBOX        "GFDM Network", IDC_STATIC, 5, 5, 250, 100
+    GROUPBOX        "GFDM Network", IDC_STATIC, 5, 5, 250, 82
     LTEXT           "e-amusement server", IDC_STATIC, 15, 23, 75, 8, SS_LEFT
     EDITTEXT        IDC_GFDM_SERVER, 95, 20, 145, 14, ES_AUTOHSCROLL
     LTEXT           "Adapter IPv4 (optional)", IDC_STATIC, 15, 48, 75, 8, SS_LEFT
     EDITTEXT        IDC_GFDM_ADAPTER, 95, 45, 145, 14, ES_AUTOHSCROLL
-    LTEXT           "Leave adapter empty to use the Windows default route.", IDC_STATIC, 15, 73, 225, 8, SS_LEFT
-    LTEXT           "", IDC_GFDM_CONFIG_PATH, 15, 85, 225, 18, SS_LEFT
-    GROUPBOX        "Input and Display", IDC_STATIC, 5, 110, 250, 75
-    AUTOCHECKBOX    "Enable built-in keyboard fallback", IDC_GFDM_KEYBOARD, 15, 125, 225, 10
-    AUTOCHECKBOX    "Enable CardIO readers (restart required)", IDC_GFDM_CARDIO, 15, 140, 225, 10
-    LTEXT           "Display (restart required)", IDC_STATIC, 15, 163, 85, 10, SS_LEFT
-    COMBOBOX        IDC_GFDM_DISPLAY_MODE, 105, 160, 140, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Leave adapter empty to use the Windows default route.", IDC_STATIC, 15, 63, 225, 8, SS_LEFT
+    LTEXT           "", IDC_GFDM_CONFIG_PATH, 15, 74, 225, 10, SS_LEFT
+    GROUPBOX        "Input and Display", IDC_STATIC, 5, 90, 250, 62
+    AUTOCHECKBOX    "Enable built-in keyboard fallback", IDC_GFDM_KEYBOARD, 15, 103, 225, 10
+    AUTOCHECKBOX    "Enable CardIO readers (restart required)", IDC_GFDM_CARDIO, 15, 117, 225, 10
+    LTEXT           "Display (restart required)", IDC_STATIC, 15, 136, 85, 10, SS_LEFT
+    COMBOBOX        IDC_GFDM_DISPLAY_MODE, 105, 133, 140, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Play settings (restart required)", IDC_STATIC, 5, 155, 250, 34
+    AUTOCHECKBOX    "Freeze settings / song selection timer", IDC_GFDM_FREEZE_TIMER, 15, 165, 225, 10
+    AUTOCHECKBOX    "Unlock all installed songs", IDC_GFDM_UNLOCK_MUSIC, 15, 177, 225, 10
 }
 
 

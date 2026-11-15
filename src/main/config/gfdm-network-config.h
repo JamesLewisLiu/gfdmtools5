@@ -25,6 +25,8 @@ bool gfdm_network_write_config(
     const char *adapter,
     bool keyboard,
     int display_mode,
-    bool cardio);
+    bool cardio,
+    bool freeze_timer,
+    bool unlock_music);
 
 #endif

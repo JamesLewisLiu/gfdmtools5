@@ -10,6 +10,8 @@
 #define PCBID_KEY "eamuse.pcbid"
 #define EAMID_KEY "eamuse.eamid"
 #define MCODE_KEY "security.mcode"
+#define FREEZE_TIMER_KEY "game.freeze_timer"
+#define UNLOCK_MUSIC_KEY "game.unlock_music"
 #define KEYBOARD_KEY "input.keyboard"
 #define CARDIO_KEY "cardio.enabled"
 #define LAYERED_KEY "layered.enabled"
@@ -31,6 +33,10 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "localhost:80",
         "e-amusement server URL or host:port");
     hooklib_config_adapter_init(config);
+    cconfig_util_set_bool(config, FREEZE_TIMER_KEY, false,
+        "freeze native menu/selection countdowns (restart required)");
+    cconfig_util_set_bool(config, UNLOCK_MUSIC_KEY, false,
+        "enable native all_music for locally installed songs (restart required)");
     cconfig_util_set_bool(config, CARDIO_KEY, false,
         "enable CardIO HID readers (restart required; disabled by default)");
     cconfig_util_set_bool(config, LAYERED_KEY, false,
@@ -124,6 +130,8 @@ void gfdmhook1_config_get(
         security_mcode_parse(default_mcode, &out->mcode);
     }
 
+    cconfig_util_get_bool(config, FREEZE_TIMER_KEY, &out->freeze_timer, false);
+    cconfig_util_get_bool(config, UNLOCK_MUSIC_KEY, &out->unlock_music, false);
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
     cconfig_util_get_bool(config, CARDIO_KEY, &out->cardio, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);

@@ -150,7 +150,9 @@ bool gfdm_network_write_config(
     const char *adapter,
     bool keyboard,
     int display_mode,
-    bool cardio)
+    bool cardio,
+    bool freeze_timer,
+    bool unlock_music)
 {
     char display_value[2], mcode[16];
     char *line = NULL;
@@ -214,6 +216,10 @@ bool gfdm_network_write_config(
          false,
          false},
         {"gfx.fullscreen=", display_value, display_comment, true, false},
+        {"game.freeze_timer=", freeze_timer ? "true" : "false",
+         "# Freeze native menu/selection countdowns; restart required.\n", true, false},
+        {"game.unlock_music=", unlock_music ? "true" : "false",
+         "# Unlock locally installed songs via native all_music; restart required.\n", true, false},
         {"cardio.enabled=", cardio ? "true" : "false",
          "# Optional CardIO HID readers. Restart after changing this option.\n", true, false},
     };

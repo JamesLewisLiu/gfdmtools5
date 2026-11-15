@@ -60,13 +60,15 @@ static void check_text(const char *input, int display_mode)
         rewind(src);
     }
     assert(gfdm_network_write_config(
-        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, display_mode, true));
+        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, display_mode, true, true, true));
     rewind(dst);
     text[fread(text, 1, sizeof(text) - 1, dst)] = '\0';
     assert(strstr(text, "eamuse.server=example:1234\n"));
     assert(strstr(text, "adapter.override_ip=192.0.2.1\n"));
     assert(strstr(text, "input.keyboard=true\n"));
     assert(strstr(text, "cardio.enabled=true"));
+    assert(strstr(text, "game.freeze_timer=true"));
+    assert(strstr(text, "game.unlock_music=true"));
     char expected_setting[32];
     snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d", display_mode);
     assert(strstr(text, expected_setting));
@@ -123,7 +125,7 @@ static char *rewrite(const char *input)
     assert(fwrite(input, 1, strlen(input), src) == strlen(input));
     rewind(src);
     assert(gfdm_network_write_config(src, dst, 4, "gf", "localhost:80",
-        "10.9.0.19", false, 2, false));
+        "10.9.0.19", false, 2, false, false, false));
     long size = ftell(dst);
     assert(size >= 0);
     char *text = calloc((size_t) size + 1, 1);
@@ -150,6 +152,8 @@ static void check_preservation(void)
         "input.keyboard=false\t \r\n"
         "# Keep my reader comment\r\n"
         "cardio.enabled=false\r\n"
+        "game.freeze_timer=false\r\n"
+        "game.unlock_music=false\r\n"
         "gfx.frame_rate_limit=60.0\r\n"
         "gfx.forced_refresh_rate=60\r\n"
         "\r\n"
@@ -167,7 +171,7 @@ static void check_preservation(void)
     assert(duplicate != NULL);
     sprintf(duplicate, "%s\r\n# Keep this duplicate's explanation\r\n"
         "adapter.override_ip=\r\neamuse.server=old\r\n"
-        "input.keyboard=true\r\ngfx.fullscreen=0\r\ncardio.enabled=true\r\n", base);
+        "input.keyboard=true\r\ngfx.fullscreen=0\r\ncardio.enabled=true\r\ngame.freeze_timer=true\r\ngame.unlock_music=true\r\n", base);
     text = rewrite(duplicate);
     char *expected = malloc(strlen(base) + 100);
     assert(expected != NULL);

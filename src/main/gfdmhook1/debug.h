@@ -1,6 +1,7 @@
 #ifndef GFDMHOOK1_DEBUG_H
 #define GFDMHOOK1_DEBUG_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #define GFDM_DEBUG_AUTO (UINT32_C(1) << 30)
@@ -10,6 +11,8 @@
 struct gfdm_debug_state {
     uint32_t pressed;
     uint32_t enabled;
+    bool freeze_timer;
+    bool unlock_music;
 };
 
 /* Callers serialize updates and reads. Buttons toggle persistent DIP levels. */
