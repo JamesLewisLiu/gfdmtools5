@@ -348,6 +348,18 @@ virtual adapters. Set it to the IPv4 address of the adapter used to reach your
 server; only that adapter is exposed to GFDM. Leave it empty when automatic
 selection works.
 
+V6's original DHCP network check rejects a local 192.168/16 address even
+when the server runs on the same computer. The V6 hook corrects this check
+in memory and retains genuine EA3 errors instead of masking them as 2000(0).
+APIPA (169.254/16), missing gateway and missing netmask checks remain active.
+This requires a fresh game start. Both `GFDM V6 LAN: patched` messages,
+for `libshare-pj.dll` and `libeamusement.dll`, confirm the corrections applied.
+Unknown PE/export/code signatures are warned about and left unchanged.
+V4/V5/V7/V8 are unaffected. Original DLL files and IP settings are not modified;
+`adapter.override_ip` continues to select a real local adapter, not the server.
+Isolated native-function and patcher tests do not establish complete gameplay
+acceptance on a remote LAN machine.
+
 The configurator reads device display names from Windows' cached device
 properties. It avoids USB product/manufacturer string requests that can each
 time out for several seconds on some devices. Device paths, controls, bindings,

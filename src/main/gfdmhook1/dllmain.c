@@ -22,6 +22,7 @@
 #include "gfdmhook1/card-state.h"
 #include "gfdmhook1/drum.h"
 #include "gfdmhook1/layered.h"
+#include "gfdmhook1/lan.h"
 #include "gfdmhook1/logging.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
@@ -1208,6 +1209,7 @@ static const struct hook_symbol gfdm_audio_syms[] = {
 
 static void gfdm_apply_system_hooks(void)
 {
+    gfdm_lan_apply_hooks(gfdm_profile->version);
     gfdm_backup_apply_hooks(gfdm_profile->version);
     /* game.dll may be loaded after libsystem.dll, so scan all consumers. */
     hook_table_apply(NULL, "libsystem.dll", gfdm_system_syms,

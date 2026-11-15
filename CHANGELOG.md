@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-15: Allow V6 clients on 192.168/16 LANs in native DHCP mode and preserve original EA3 connection errors instead of replacing them with 2000(0). Apply two PE/export/code-verified in-memory branch corrections before native boot, including late-loaded modules. Retain APIPA, gateway and netmask checks; leave other versions and unknown revisions unchanged. No IP, server, configuration or original DLL file changes. Native function emulation and patch guards are tested; remote-machine gameplay acceptance remains pending.
+
 2026-11-14: Route new GF CardIO taps to P1 with NumLock off or P2 with NumLock on, matching keypad multiplexing. Keep each active card attached to its selected player until native eject; preserve DM and file-card routing. The user confirmed V4 title login and repeated CHECK exit/re-entry with the preceding presence repair; NumLock routing awaits physical acceptance.
 
 2026-11-14: Retain CardIO card presence and UID/type until the game explicitly ejects the card. A finished input pulse or successful UID read no longer cancels V4 title-to-entry card login. Drain additional taps without replacing an active card, preserve repeated CHECK exit/re-entry, and keep its native green OK page until START exits. This supersedes the automatic snapshot release in the previous update; physical V4 regression is pending.
