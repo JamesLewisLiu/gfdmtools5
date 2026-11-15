@@ -1,5 +1,16 @@
 # gfdmhook1
 
+While a V4-V8 GF/DM process is running, the hook holds Windows display and
+system power requests so controller-only play, TEST and autoplay do not let
+the idle timer turn off the monitor or put the computer to sleep. This also
+applies while the game is in the background. The request is released at DLL
+detach; Windows also cleans it up on process termination. No power-plan
+settings or synthetic keyboard/mouse input are used. Windows 7 or later is
+required for this feature; missing/failed APIs are logged without aborting
+the game. Explicit Sleep, lid-close actions and administrator power policies
+remain under Windows control. Successful startup logs
+`GFDM power: display and system idle sleep inhibited while running`.
+
 ## DM input and Naive navigation keys
 
 DM pads and START use native input bank 0; Menu Left/Right use bank 1.

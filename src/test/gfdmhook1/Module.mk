@@ -1,5 +1,9 @@
 testexes += gfdm-profile-test
 
+testexes += gfdm-power-test
+srcdir_gfdm-power-test := src/test/gfdmhook1
+src_gfdm-power-test := power-test.c
+
 testexes += gfdm-lan-test
 srcdir_gfdm-lan-test := src/test/gfdmhook1
 src_gfdm-lan-test := lan-test.c

@@ -36,5 +36,6 @@ src_gfdmhook1 := \
     layered.c \
     logging.c \
     network.c \
+    power.c \
     profile.c \
     storage.c \

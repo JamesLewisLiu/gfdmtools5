@@ -1,3 +1,12 @@
+2026-11-15 Keep the display and system awake during GFDM play
+
+- Hold a process-owned Windows power request from V4-V8 GF/DM initialization
+  through process exit, including controller-only input, TEST and autoplay.
+- Release the kernel object on DLL detach; preserve system power settings and
+  explicit user sleep actions. Log unavailable/failed APIs without stopping play.
+- Test paired requests, partial failure cleanup, idempotence, and real Windows
+  request lifetime across the creating thread's exit.
+
 2026-11-15 Add persistent timer freeze and native song unlock settings
 
 - New gfdm-offline-play branch from gfdm/08f5232.

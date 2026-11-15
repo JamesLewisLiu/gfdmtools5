@@ -26,6 +26,7 @@
 #include "gfdmhook1/logging.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
+#include "gfdmhook1/power.h"
 #include "gfdmhook1/storage.h"
 #include "geninput/input-config.h"
 #include "hook/d3d9.h"
@@ -1694,6 +1695,7 @@ static void gfdm_init(void)
     gfdm_logging_init();
     log_to_writer(gfdm_log_writer, NULL);
     log_info("GFDM V%u hook initialization started", gfdm_profile->version);
+    gfdm_power_init();
     InitializeCriticalSection(&gfdm_input_lock);
 
     cmdline = GetCommandLineA();
@@ -1814,6 +1816,10 @@ BOOL WINAPI DllMain(HMODULE mod, DWORD reason, void *ctx)
         log_to_writer(gfdm_log_writer, NULL);
         gfdm_display_prepare();
         hook_table_apply(NULL, "boot.dll", boot_syms, lengthof(boot_syms));
+    }
+
+    if (reason == DLL_PROCESS_DETACH) {
+        gfdm_power_fini();
     }
 
     return TRUE;
