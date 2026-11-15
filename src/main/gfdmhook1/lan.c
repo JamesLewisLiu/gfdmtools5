@@ -8,35 +8,14 @@
 #include "util/defs.h"
 #include "util/log.h"
 
-/* Official IDA: V6 libshare-pj eam_network_settings_conflict rejects
+/* Official IDA: V4-V8 libshare-pj eam_network_settings_conflict rejects
    192.168/16 in DHCP mode. Skip only that comparison, retaining APIPA,
-   missing gateway and missing netmask checks. libeamusement eam_boot_wait
+   missing gateway and missing netmask checks where the native version has them.
+   V4 has no separate APIPA check. libeamusement eam_boot_wait
    also replaces genuine EA3 errors with 2000(0) on that subnet; keep its
    original error branch instead. Apply before native boot, never as a live
    repair of an already latched error. No address/configuration is fabricated.
    These signatures include the branch destinations and use relocated VAs. */
-static const uint8_t share_code[] = {
-    0x3c, 0xc0, 0x75, 0x09, 0x80, 0x3d, 0xa9, 0x7d, 0x06, 0x10, 0xa8, 0xeb,
-    0x0b, 0x3c, 0xa9, 0x75, 0x09, 0x80, 0x3d, 0xa9, 0x7d, 0x06, 0x10, 0xfe,
-    0x74, 0x0e, 0x83, 0x7c, 0x24, 0x08, 0x00, 0x74, 0x07, 0x83, 0x7c, 0x24,
-    0x0c, 0x00, 0x75, 0x08, 0x5e, 0xb0, 0x01, 0x5b, 0x83, 0xc4, 0x08, 0xc3,
-    0x5e, 0x8a, 0xc3, 0x5b, 0x83, 0xc4, 0x08, 0xc3,
-};
-static const uint8_t eam_code[] = {
-    0x0f, 0xb7, 0x0d, 0x2c, 0x19, 0x01, 0x10, 0x83, 0xc4, 0x0c, 0x81, 0xf9,
-    0xc0, 0xa8, 0x00, 0x00, 0x75, 0x40, 0x8b, 0x15, 0x54, 0x17, 0x01, 0x10,
-    0x6a, 0x02, 0x52, 0x68, 0x50, 0xc3, 0x00, 0x10, 0x68, 0x68, 0xc3, 0x00,
-    0x10, 0xff, 0xd5, 0xc7, 0x05, 0x54, 0x17, 0x01, 0x10, 0x02, 0x00, 0x00,
-    0x00, 0xc7, 0x05, 0x20, 0x19, 0x01, 0x10, 0x01, 0x00, 0x00, 0x00, 0x89,
-    0x5f, 0x08, 0xc7, 0x07, 0x05, 0x00, 0x00, 0x00, 0xc7, 0x47, 0x04, 0xd0,
-    0x07, 0x00, 0x00, 0xbb, 0x30, 0xf8, 0xff, 0xff, 0xeb, 0x4e, 0x8b, 0x44,
-    0x24, 0x10, 0x8b, 0x4c, 0x24, 0x14, 0x8b, 0xd8, 0xf7, 0xdb, 0x3d, 0xdc,
-    0x07, 0x00, 0x00, 0xc7, 0x07, 0x05, 0x00, 0x00, 0x00, 0x89, 0x47, 0x04,
-    0x89, 0x4f, 0x08, 0x74, 0x11, 0x83, 0xf9, 0x7f, 0x74, 0x0c,
-};
-static const uint8_t share_relocs[] = {6, 19};
-static const uint8_t eam_relocs[] = {3, 20, 28, 33, 41, 51};
-
 struct gfdm_lan_patch {
     const char *module;
     const char *symbol;
@@ -45,30 +24,7 @@ struct gfdm_lan_patch {
     size_t size, nrelocs, opcode;
 };
 
-static const struct gfdm_lan_patch lan_patches[] = {
-    {"libshare-pj.dll",
-     "eam_network_settings_conflict",
-     0x4a275061,
-     0x16f000,
-     0x18e20,
-     0x18f10,
-     share_code,
-     share_relocs,
-     sizeof(share_code),
-     sizeof(share_relocs),
-     2},
-    {"libeamusement.dll",
-     "eam_boot_wait",
-     0x4a275056,
-     0x1c000,
-     0x2b70,
-     0x2bdb,
-     eam_code,
-     eam_relocs,
-     sizeof(eam_code),
-     sizeof(eam_relocs),
-     16},
-};
+#include "gfdmhook1/lan-data.h"
 
 static bool
 gfdm_lan_patch_module(HMODULE module, const struct gfdm_lan_patch *patch)
@@ -122,11 +78,11 @@ gfdm_lan_patch_module(HMODULE module, const struct gfdm_lan_patch *patch)
         return false;
     }
     if (!VirtualProtect(code + patch->opcode, 1, protection, &ignored)) {
-        log_warning("GFDM V6 LAN: could not restore code page protection");
+        log_warning("GFDM LAN: could not restore code page protection");
         return false;
     }
     log_info(
-        "GFDM V6 LAN: patched %s!%s for private LAN support",
+        "GFDM LAN: patched %s!%s for private LAN support",
         patch->module,
         patch->symbol);
     return true;
@@ -136,10 +92,12 @@ void gfdm_lan_apply_hooks(unsigned int version)
 {
     static volatile LONG applying;
     static volatile LONG pending;
+    const struct gfdm_lan_patch *lan_patches;
 
-    if (version != 6) {
+    if (version < 4 || version > 8) {
         return;
     }
+    lan_patches = lan_profiles[version - 4];
     /* Never wait recursively under the loader lock. If another callback
        loads a module during this scan, the active caller rescans afterward.
        Serialize page protection changes, including repeated applications. */
@@ -149,12 +107,12 @@ void gfdm_lan_apply_hooks(unsigned int version)
             return;
         }
         InterlockedExchange(&pending, 0);
-        for (size_t i = 0; i < lengthof(lan_patches); i++) {
+        for (size_t i = 0; i < 2; i++) {
             HMODULE module = GetModuleHandleA(lan_patches[i].module);
             if (module != NULL &&
                 !gfdm_lan_patch_module(module, &lan_patches[i])) {
                 log_warning(
-                    "GFDM V6 LAN: unsupported or unpatchable %s; "
+                    "GFDM LAN: unsupported or unpatchable %s; "
                     "native behavior retained where not patched",
                     lan_patches[i].module);
             }

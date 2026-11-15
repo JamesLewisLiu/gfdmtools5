@@ -1,5 +1,7 @@
 # GFDM update history
 
+2026-11-15: Extend private LAN compatibility from V6 to V4/V5/V7/V8 with separately verified PE/export/code profiles for all ten original modules. Preserve each version's native network checks (V4 has no separate APIPA rejection) and real EA3 errors. The preceding V6-only fix was inactive in V4; a reported V4 5-2002-0000 still requires its actual startup log to diagnose. All five original-function isolation suites and relocated patcher tests pass; remote gameplay remains unverified.
+
 2026-11-15: Allow V6 clients on 192.168/16 LANs in native DHCP mode and preserve original EA3 connection errors instead of replacing them with 2000(0). Apply two PE/export/code-verified in-memory branch corrections before native boot, including late-loaded modules. Retain APIPA, gateway and netmask checks; leave other versions and unknown revisions unchanged. No IP, server, configuration or original DLL file changes. Native function emulation and patch guards are tested; remote-machine gameplay acceptance remains pending.
 
 2026-11-14: Route new GF CardIO taps to P1 with NumLock off or P2 with NumLock on, matching keypad multiplexing. Keep each active card attached to its selected player until native eject; preserve DM and file-card routing. The user confirmed V4 title login and repeated CHECK exit/re-entry with the preceding presence repair; NumLock routing awaits physical acceptance.

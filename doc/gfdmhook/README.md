@@ -348,17 +348,25 @@ virtual adapters. Set it to the IPv4 address of the adapter used to reach your
 server; only that adapter is exposed to GFDM. Leave it empty when automatic
 selection works.
 
-V6's original DHCP network check rejects a local 192.168/16 address even
-when the server runs on the same computer. The V6 hook corrects this check
+V4-V8's original DHCP network checks reject a local 192.168/16 address even
+when the server runs on the same computer. The hook corrects this check
 in memory and retains genuine EA3 errors instead of masking them as 2000(0).
-APIPA (169.254/16), missing gateway and missing netmask checks remain active.
-This requires a fresh game start. Both `GFDM V6 LAN: patched` messages,
+Missing gateway and missing netmask checks remain active, as does the APIPA
+(169.254/16) check in V5-V8. V4 originally has no separate APIPA check.
+This requires a fresh game start. Both `GFDM LAN: patched` messages,
 for `libshare-pj.dll` and `libeamusement.dll`, confirm the corrections applied.
 Unknown PE/export/code signatures are warned about and left unchanged.
-V4/V5/V7/V8 are unaffected. Original DLL files and IP settings are not modified;
+Each version has independently verified profiles. Original DLL files and IP settings are not modified;
 `adapter.override_ip` continues to select a real local adapter, not the server.
 Isolated native-function and patcher tests do not establish complete gameplay
 acceptance on a remote LAN machine.
+
+The earlier V6-only LAN update did not apply these corrections to V4/V5/V7/V8.
+If V4 still reports 5-2002-0000 after both corrections are logged, retain its
+complete startup output with `gamestart-v4-gf.bat -Y "v4-network.log"`
+(or the DM launcher). The real EA3 failure is no longer hidden behind 2000(0);
+its cause cannot be determined from the error number alone. Preserve the
+configured server port and check server-side request logs alongside that file.
 
 The configurator reads device display names from Windows' cached device
 properties. It avoids USB product/manufacturer string requests that can each

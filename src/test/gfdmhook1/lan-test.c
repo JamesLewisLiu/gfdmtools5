@@ -17,17 +17,19 @@ static void *test_export(HMODULE module, const char *name);
 #undef GetModuleHandleA
 #undef GetProcAddress
 
+static const struct gfdm_lan_patch *lan_patches;
+static unsigned int current_version;
 static HMODULE modules[2];
 static bool visible[2], wrong_export, real_exports, reenter_scan;
 
 static HMODULE test_module(const char *name)
 {
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
+    for (size_t i = 0; i < 2; i++) {
         if (!strcmp(name, lan_patches[i].module)) {
             if (i == 1 && reenter_scan) {
                 reenter_scan = false;
                 visible[0] = true;
-                gfdm_lan_apply_hooks(6);
+                gfdm_lan_apply_hooks(current_version);
             }
             return visible[i] ? modules[i] : NULL;
         }
@@ -40,7 +42,7 @@ static void *test_export(HMODULE module, const char *name)
 {
     if (real_exports)
         return (void *) GetProcAddress(module, name);
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
+    for (size_t i = 0; i < 2; i++) {
         if (modules[i] == module) {
             assert(!strcmp(name, lan_patches[i].symbol));
             return (uint8_t *) module + lan_patches[i].export_rva +
@@ -174,33 +176,45 @@ static void test_lifecycle(void)
     initialize(1);
     visible[0] = visible[1] = true;
     for (unsigned int v = 0; v <= 9; v++) {
-        if (v != 6)
+        if (v != current_version) {
+            uint8_t *before[2];
+            for (size_t i = 0; i < 2; i++) {
+                before[i] = malloc(lan_patches[i].image_size);
+                assert(before[i] != NULL);
+                memcpy(before[i], modules[i], lan_patches[i].image_size);
+            }
             gfdm_lan_apply_hooks(v);
+            for (size_t i = 0; i < 2; i++) {
+                assert(
+                    !memcmp(before[i], modules[i], lan_patches[i].image_size));
+                free(before[i]);
+            }
+        }
     }
     assert(code(0)[lan_patches[0].opcode] == 0x75);
     assert(code(1)[lan_patches[1].opcode] == 0x75);
     visible[0] = visible[1] = false;
-    gfdm_lan_apply_hooks(6);
+    gfdm_lan_apply_hooks(current_version);
     assert(code(0)[lan_patches[0].opcode] == 0x75);
     assert(code(1)[lan_patches[1].opcode] == 0x75);
     visible[0] = true;
-    gfdm_lan_apply_hooks(6);
+    gfdm_lan_apply_hooks(current_version);
     assert(code(0)[lan_patches[0].opcode] == 0xeb);
     assert(code(1)[lan_patches[1].opcode] == 0x75);
     visible[1] = true;
-    gfdm_lan_apply_hooks(6);
+    gfdm_lan_apply_hooks(current_version);
     assert(code(0)[lan_patches[0].opcode] == 0xeb);
     assert(code(1)[lan_patches[1].opcode] == 0xeb);
     /* A fresh mapping at the same address must be checked again. */
     initialize(0);
-    gfdm_lan_apply_hooks(6);
+    gfdm_lan_apply_hooks(current_version);
     assert(code(0)[lan_patches[0].opcode] == 0xeb);
     initialize(0);
     initialize(1);
     visible[0] = false;
     visible[1] = true;
     reenter_scan = true;
-    gfdm_lan_apply_hooks(6);
+    gfdm_lan_apply_hooks(current_version);
     assert(!reenter_scan);
     assert(code(0)[lan_patches[0].opcode] == 0xeb);
     assert(code(1)[lan_patches[1].opcode] == 0xeb);
@@ -210,7 +224,7 @@ static DWORD WINAPI concurrent_scan(void *event)
 {
     assert(WaitForSingleObject(event, INFINITE) == WAIT_OBJECT_0);
     for (size_t i = 0; i < 500; i++)
-        gfdm_lan_apply_hooks(6);
+        gfdm_lan_apply_hooks(current_version);
     return 0;
 }
 
@@ -222,7 +236,7 @@ static void test_concurrent(void)
     DWORD old;
     MEMORY_BASIC_INFORMATION info;
     assert(event != NULL);
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
+    for (size_t i = 0; i < 2; i++) {
         const struct gfdm_lan_patch *p = &lan_patches[i];
         initialize(i);
         visible[i] = true;
@@ -243,7 +257,7 @@ static void test_concurrent(void)
     for (size_t i = 0; i < lengthof(threads); i++)
         assert(CloseHandle(threads[i]));
     assert(CloseHandle(event));
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
+    for (size_t i = 0; i < 2; i++) {
         assert(!memcmp(expected[i], modules[i], lan_patches[i].image_size));
         assert(VirtualQuery(code(i), &info, sizeof(info)) == sizeof(info));
         assert(info.Protect == PAGE_EXECUTE_READ);
@@ -259,7 +273,7 @@ static void test_native(const char *share, const char *eam)
         (void *) (uintptr_t) 0x10000000u, 0x200000, MEM_RESERVE, PAGE_NOACCESS);
     assert(preferred == (void *) (uintptr_t) 0x10000000u);
     real_exports = true;
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
+    for (size_t i = 0; i < 2; i++) {
         const struct gfdm_lan_patch *p = &lan_patches[i];
         uint8_t expected[128];
         MEMORY_BASIC_INFORMATION before, after;
@@ -279,7 +293,8 @@ static void test_native(const char *share, const char *eam)
         assert(before.Protect == after.Protect);
         printf(
             "PASS relocated native PE32 patch "
-            "signature/protection/idempotence: %s\n",
+            "signature/protection/idempotence V%u: %s\n",
+            current_version,
             p->module);
         assert(FreeLibrary(module));
     }
@@ -289,26 +304,39 @@ static void test_native(const char *share, const char *eam)
 
 int main(int argc, char **argv)
 {
-    assert(argc == 1 || argc == 3);
-    for (size_t i = 0; i < lengthof(lan_patches); i++) {
-        modules[i] = VirtualAlloc(
-            NULL,
-            lan_patches[i].image_size,
-            MEM_RESERVE | MEM_COMMIT,
-            PAGE_READWRITE);
-        assert(modules[i] != NULL);
-        assert((uintptr_t) modules[i] != 0x10000000u);
-        test_guards(i);
-        test_patch(i);
+    assert(argc == 1 || argc == 4);
+    for (current_version = 4; current_version <= 8; current_version++) {
+        lan_patches = lan_profiles[current_version - 4];
+        for (size_t i = 0; i < 2; i++) {
+            modules[i] = VirtualAlloc(
+                NULL,
+                lan_patches[i].image_size,
+                MEM_RESERVE | MEM_COMMIT,
+                PAGE_READWRITE);
+            assert(modules[i] != NULL);
+            assert((uintptr_t) modules[i] != 0x10000000u);
+            test_guards(i);
+            test_patch(i);
+        }
+        test_lifecycle();
+        test_concurrent();
+        for (size_t i = 0; i < 2; i++) {
+            assert(VirtualFree(modules[i], 0, MEM_RELEASE));
+            modules[i] = NULL;
+            visible[i] = false;
+        }
+        printf(
+            "PASS V%u LAN PE guards, relocated signatures, exact writes, "
+            "protection, reentry and concurrency\n",
+            current_version);
     }
-    test_lifecycle();
-    test_concurrent();
-    for (size_t i = 0; i < lengthof(lan_patches); i++)
-        assert(VirtualFree(modules[i], 0, MEM_RELEASE));
-    puts(
-        "PASS V6 LAN PE guards, relocated signatures, exact writes, "
-        "protection, reentry and concurrency");
-    if (argc == 3)
-        test_native(argv[1], argv[2]);
+    if (argc == 4) {
+        char *end;
+        unsigned long selected = strtoul(argv[1], &end, 10);
+        assert(*end == '\0' && selected >= 4 && selected <= 8);
+        current_version = (unsigned int) selected;
+        lan_patches = lan_profiles[current_version - 4];
+        test_native(argv[2], argv[3]);
+    }
     return 0;
 }
