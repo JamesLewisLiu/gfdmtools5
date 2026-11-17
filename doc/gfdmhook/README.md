@@ -234,10 +234,15 @@ imported.
 
 DM notes produce separate queued hits even when Note Off is very early,
 missing or overlaps the next Note On. GF notes can stay held until Note Off;
-Note On with zero velocity also releases a note. Each hit is visible for at
-least 20 ms, with a release phase of at least 2 ms between queued hits. Binding
-capture uses a 20 ms release phase for its 17 ms sampling timer. Very fast
-bursts can accumulate latency while the queue drains; the queue is bounded
+Note On with zero velocity also releases a note. An isolated hit stays visible
+for 20 ms. During runtime a new queued hit can end the preceding pulse early,
+with a release phase of at least 2 ms to keep distinct edges. Binding capture
+retains its full 20 ms high/low phases for its 17 ms sampling timer. Pulse
+timing uses QueryPerformanceCounter, avoiding coarse GetTickCount64 deadlines.
+After a MIDI port starts, the backend requests 1 ms timer resolution to improve
+the existing input worker's Sleep(1) cadence, and releases that request at
+shutdown. Scheduler, driver and game-frame delays still apply; this is not a
+guarantee of 1 ms end-to-end latency. Very fast bursts can still queue; the queue is bounded
 and overflow is logged. These timings require real controller/game validation
 for a particular kit, especially rapid rolls and simultaneous pads.
 

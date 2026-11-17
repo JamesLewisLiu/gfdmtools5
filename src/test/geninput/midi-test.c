@@ -147,6 +147,33 @@ static ULONGLONG WINAPI test_tick(void)
     return test_now;
 }
 
+static bool fail_clock;
+static unsigned timer_requests, timer_releases;
+static MMRESULT WINAPI test_timer_begin(UINT period)
+{
+    assert(period == 1);
+    timer_requests++;
+    return TIMERR_NOERROR;
+}
+
+static MMRESULT WINAPI test_timer_end(UINT period)
+{
+    assert(period == 1 && timer_releases < timer_requests);
+    timer_releases++;
+    return TIMERR_NOERROR;
+}
+static BOOL WINAPI test_frequency(LARGE_INTEGER *frequency)
+{
+    frequency->QuadPart = 10000000;
+    return !fail_clock;
+}
+
+static BOOL WINAPI test_counter(LARGE_INTEGER *counter)
+{
+    counter->QuadPart = test_now * 10000;
+    return TRUE;
+}
+
 #define midiInGetNumDevs test_num_devs
 #define midiInGetDevCapsW test_caps
 #define midiInMessage test_message
@@ -156,8 +183,16 @@ static ULONGLONG WINAPI test_tick(void)
 #define midiInReset test_reset
 #define midiInClose test_close
 #define GetTickCount64 test_tick
+#define QueryPerformanceCounter test_counter
+#define QueryPerformanceFrequency test_frequency
+#define timeBeginPeriod test_timer_begin
+#define timeEndPeriod test_timer_end
 #include "geninput/midi.c"
 #undef GetTickCount64
+#undef QueryPerformanceCounter
+#undef QueryPerformanceFrequency
+#undef timeBeginPeriod
+#undef timeEndPeriod
 #include "config/snap.c"
 #include "config/usages.c"
 #include "geninput/dev-list.c"
@@ -246,6 +281,7 @@ static void test_protocol(void)
 
 static void test_mapping_and_capture(void)
 {
+    unsigned int previous_requests = timer_requests;
     struct mapper *mapper;
     struct mapped_action action;
     struct hid_stub *stub;
@@ -259,8 +295,10 @@ static void test_mapping_and_capture(void)
     midi_drum = true;
     midi_scan();
     assert(opens == 2);
+    assert(timer_requests == previous_requests + 1);
     midi_scan();
     assert(opens == 2);
+    assert(timer_requests == previous_requests + 1);
     stub = hid_mgr_get_named_stub("midi:interface:test-interface-0");
     mapper = mapper_impl_create();
     memset(&action, 0, sizeof(action));
@@ -439,13 +477,65 @@ static void test_failed_close_lifetime(void)
         "teardown");
 }
 
+static void test_low_latency(void)
+{
+    struct midi_state state;
+    unsigned int produced = 0, consumed = 0, maximum = 0;
+    bool previous = false;
+
+    midi_state_reset(&state);
+    for (unsigned now = 0; now < 5000; now++) {
+        if (now % 8 == 0 && produced < 128) {
+            midi_state_message(&state, 0x007F3C99);
+            midi_state_message(&state, 0x00003C89);
+            produced++;
+        }
+        midi_state_poll(&state, now, true, false);
+        bool pressed = midi_state_value(&state, 9 * 128 + 60) != 0;
+        if (pressed && !previous) {
+            unsigned int delay = now - consumed * 8;
+            if (delay > maximum) maximum = delay;
+            consumed++;
+        }
+        previous = pressed;
+    }
+    printf("MIDI synthetic 128-hit/8ms train: %u edges, maximum dispatch delay %u ms\n", consumed, maximum);
+    assert(consumed == 128 && maximum <= 2);
+    /* Slow binding capture must retain its full high/low phases. */
+    midi_state_reset(&state);
+    midi_state_message(&state, 0x007F3C99);
+    midi_state_poll(&state, 0, true, true);
+    midi_state_message(&state, 0x007F3C99);
+    midi_state_poll(&state, 1, true, true);
+    assert(midi_state_value(&state, 9 * 128 + 60) == 1);
+    midi_state_poll(&state, 20, true, true);
+    midi_state_poll(&state, 39, true, true);
+    assert(midi_state_value(&state, 9 * 128 + 60) == 0);
+    midi_state_poll(&state, 40, true, true);
+    assert(midi_state_value(&state, 9 * 128 + 60) == 1);
+    midi_init();
+    test_now = 1234567890123ULL;
+    assert(midi_clock_ms() == test_now);
+    test_now++;
+    assert(midi_clock_ms() == test_now);
+    midi_fini();
+    fail_clock = true;
+    midi_init();
+    assert(midi_clock_ms() == test_now);
+    midi_fini();
+    fail_clock = false;
+    puts("PASS: low-latency retrigger, capture pulse preservation, precise long-uptime clock and fallback");
+}
+
 int main(void)
 {
+    test_low_latency();
     test_protocol();
     test_mapping_and_capture();
     test_failures_and_async();
     test_legacy_identity_and_labels();
     test_failed_close_lifetime();
+    assert(timer_requests > 0 && timer_requests == timer_releases);
     puts("All MIDI input tests passed.");
     return 0;
 }

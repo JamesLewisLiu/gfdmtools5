@@ -38,6 +38,22 @@ static HANDLE midi_stop;
 static HANDLE midi_thread;
 static bool midi_drum;
 static bool midi_capture;
+static uint64_t midi_clock_frequency;
+static bool midi_timer_requested;
+
+static uint64_t midi_clock_ms(void)
+{
+    LARGE_INTEGER counter;
+
+    if (midi_clock_frequency == 0) {
+        return GetTickCount64();
+    }
+    QueryPerformanceCounter(&counter);
+    /* Divide whole seconds first to avoid overflowing a long-running counter. */
+    return (uint64_t) counter.QuadPart / midi_clock_frequency * 1000 +
+        (uint64_t) counter.QuadPart % midi_clock_frequency * 1000 /
+            midi_clock_frequency;
+}
 
 static void midi_device_destroy(struct hid *hid)
 {
@@ -352,6 +368,11 @@ static void midi_scan(void)
             if (result != MMSYSERR_NOERROR) {
                 midi_close_device(device);
             } else {
+                /* GFDM's input worker yields with Sleep(1). Request a finer
+                   process timer only after a MIDI port actually starts. */
+                if (!midi_timer_requested) {
+                    midi_timer_requested = timeBeginPeriod(1) == TIMERR_NOERROR;
+                }
                 log_info("MIDI input ready: %s", device->identity);
             }
         } else {
@@ -389,11 +410,16 @@ static DWORD WINAPI midi_worker(void *context)
 
 void midi_init(void)
 {
+    LARGE_INTEGER frequency;
+
+    midi_clock_frequency = QueryPerformanceFrequency(&frequency) &&
+            frequency.QuadPart > 0 ? (uint64_t) frequency.QuadPart : 0;
     midi_devices = NULL;
     midi_thread = NULL;
     midi_stop = CreateEvent(NULL, TRUE, FALSE, NULL);
     midi_drum = false;
     midi_capture = false;
+    midi_timer_requested = false;
 }
 
 void midi_enable(const char *game_type)
@@ -415,7 +441,7 @@ void midi_enable(const char *game_type)
 void midi_poll(void)
 {
     struct midi_device *device;
-    uint64_t now = GetTickCount64();
+    uint64_t now = midi_clock_ms();
 
     for (device = midi_devices; device != NULL; device = device->next) {
         EnterCriticalSection(&device->lock);
@@ -462,4 +488,8 @@ void midi_fini(void)
     }
     /* HID manager owns the devices and frees them after the worker exits. */
     midi_devices = NULL;
+    if (midi_timer_requested) {
+        timeEndPeriod(1);
+        midi_timer_requested = false;
+    }
 }

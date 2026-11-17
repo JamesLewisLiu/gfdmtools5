@@ -19,6 +19,8 @@
 
 # GFDM update history
 
+2026-11-17: Reduce MIDI timing jitter with QPC pulse deadlines and a balanced 1 ms timer-resolution request after a port starts. Let a new runtime strike end the preceding pulse early while retaining the separate low phase, isolated-hit detection width and binding capture timing. Preserve saved mappings, GF holds, CC/pitch and asynchronous driver lifecycle. Physical V6 timing/judgement comparison remains pending.
+
 2026-11-15: Extend private LAN compatibility from V6 to V4/V5/V7/V8 with separately verified PE/export/code profiles for all ten original modules. Preserve each version's native network checks (V4 has no separate APIPA rejection) and real EA3 errors. The preceding V6-only fix was inactive in V4; a reported V4 5-2002-0000 still requires its actual startup log to diagnose. All five original-function isolation suites and relocated patcher tests pass; remote gameplay remains unverified.
 
 2026-11-15: Allow V6 clients on 192.168/16 LANs in native DHCP mode and preserve original EA3 connection errors instead of replacing them with 2000(0). Apply two PE/export/code-verified in-memory branch corrections before native boot, including late-loaded modules. Retain APIPA, gateway and netmask checks; leave other versions and unknown revisions unchanged. No IP, server, configuration or original DLL file changes. Native function emulation and patch guards are tested; remote-machine gameplay acceptance remains pending.

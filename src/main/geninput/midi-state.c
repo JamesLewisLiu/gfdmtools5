@@ -71,8 +71,12 @@ void midi_state_poll(
     for (i = 0; i < MIDI_NOTES; i++) {
         note = &state->notes[i];
         if (note->pressed) {
-            if (now >= note->deadline &&
-                (drum || capture || !note->held || note->pending != 0)) {
+            if ((!capture && note->pending != 0) ||
+                (now >= note->deadline &&
+                    (drum || capture || !note->held || note->pending != 0))) {
+                /* A new runtime strike can end the previous pulse early.
+                   Keep its low phase so the mapper sees separate edges;
+                   isolated hits retain their full detection width. */
                 note->pressed = false;
                 note->gap = true;
                 /* Capture runs on a 17 ms window timer. Runtime reads use
