@@ -19,6 +19,8 @@
 
 # GFDM update history
 
+2026-11-22: Make normal hook console output concise: keep startup/status summaries and warnings/errors, suppress per-input/frame/object details and native AVS info/debug traffic before output locking/debugger/console writes. Filter hook miscellaneous logs before formatting. Enable full synchronous diagnostics only with -Y, retaining bare -Y log.log and explicit paths, including -D forwarding. Gameplay timing improvement still requires physical comparison.
+
 2026-11-17: Reduce MIDI timing jitter with QPC pulse deadlines and a balanced 1 ms timer-resolution request after a port starts. Let a new runtime strike end the preceding pulse early while retaining the separate low phase, isolated-hit detection width and binding capture timing. Preserve saved mappings, GF holds, CC/pitch and asynchronous driver lifecycle. Physical V6 timing/judgement comparison remains pending.
 
 2026-11-15: Extend private LAN compatibility from V6 to V4/V5/V7/V8 with separately verified PE/export/code profiles for all ten original modules. Preserve each version's native network checks (V4 has no separate APIPA rejection) and real EA3 errors. The preceding V6-only fix was inactive in V4; a reported V4 5-2002-0000 still requires its actual startup log to diagnose. All five original-function isolation suites and relocated patcher tests pass; remote gameplay remains unverified.

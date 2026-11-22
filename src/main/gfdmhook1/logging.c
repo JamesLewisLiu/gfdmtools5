@@ -1,6 +1,7 @@
 #include "gfdmhook1/logging.h"
 #include "util/cmdline.h"
 #include "util/log-file.h"
+#include "util/log.h"
 #include <stdbool.h>
 #include <string.h>
 #include <windows.h>
@@ -9,6 +10,7 @@ static INIT_ONCE logging_once = INIT_ONCE_STATIC_INIT;
 static HANDLE logging_console;
 static HANDLE logging_file = INVALID_HANDLE_VALUE;
 static bool logging_debugger;
+static bool logging_verbose;
 static CRITICAL_SECTION logging_lock;
 
 static BOOL CALLBACK
@@ -31,6 +33,9 @@ logging_setup(INIT_ONCE *once, void *parameter, void **context)
         }
     }
     args_free(argc, argv);
+    logging_verbose = valid && path[0];
+    /* Filter hook/backend M-level events before formatting in util/log.c. */
+    log_set_level(logging_verbose ? LOG_LEVEL_MISC : LOG_LEVEL_INFO);
     logging_debugger = debug && !remote;
     if (!logging_debugger) {
         /* GUI executables need not initially belong to inject's console. */
@@ -75,6 +80,11 @@ static void logging_debug(const char *text, size_t length)
 void gfdm_log_writer(void *context, const char *text, size_t length)
 {
     gfdm_logging_init();
+    /* Raw backend records may bypass util's level filter. Do this before
+       locking or calling OutputDebugString, including with inject -D. */
+    if (!logging_verbose && length >= 2 && text[1] == ':' &&
+        (text[0] == 'M' || text[0] == 'D'))
+        return;
     EnterCriticalSection(&logging_lock);
     /* Keep debugger observers working. With -D, inject forwards this event
        to both destinations, so writing here as well would duplicate it. */
@@ -84,4 +94,25 @@ void gfdm_log_writer(void *context, const char *text, size_t length)
         log_file_append(logging_file, text, length);
     }
     LeaveCriticalSection(&logging_lock);
+}
+
+void gfdm_avs_log_writer_filtered(void *context, const char *text, size_t length)
+{
+    gfdm_logging_init();
+    if (!logging_verbose) {
+        /* Native records may include a timestamp before the severity. Inspect
+           only the bounded prefix; AVS does not guarantee a NUL terminator.
+           Unknown records are preserved so unclassified failures stay visible. */
+        size_t limit = length < 64 ? length : 64;
+        for (size_t i = 0; i + 1 < limit; i++) {
+            if (text[i + 1] == ':' &&
+                (i == 0 || text[i - 1] == ' ' || text[i - 1] == ']')) {
+                if (text[i] == 'I' || text[i] == 'M' || text[i] == 'D')
+                    return;
+                if (text[i] == 'W' || text[i] == 'E' || text[i] == 'F')
+                    break;
+            }
+        }
+    }
+    gfdm_log_writer(context, text, length);
 }

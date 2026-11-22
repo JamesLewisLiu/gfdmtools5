@@ -14,7 +14,7 @@ static DWORD WINAPI emit_thread(void *parameter)
         int n = snprintf(
             line,
             sizeof(line),
-            "I:fixture: worker-%u-%u\n",
+            "M:fixture: worker-%u-%u\n",
             (unsigned) (uintptr_t) parameter,
             i);
         gfdm_log_writer(NULL, line, n);
@@ -24,9 +24,15 @@ static DWORD WINAPI emit_thread(void *parameter)
 
 void fixture_emit(void)
 {
+    log_to_writer(gfdm_log_writer, NULL);
+    log_misc("formatted-detail");
     /* Exercise an AVS-style callback with no trailing NUL. */
     static const char raw[] = {'A', 'V', 'S', '-', 'R', 'A', 'W', '\n'};
     gfdm_log_writer(NULL, raw, sizeof(raw));
+    const char *avs[] = {"I:fixture: native-info\n", "[time] D:fixture: native-debug\n",
+        "W:fixture: native-warning\n", "[time] E:fixture: native-error\n"};
+    for (unsigned i = 0; i < 4; i++)
+        gfdm_avs_log_writer_filtered(NULL, avs[i], strlen(avs[i]));
     HANDLE threads[4];
     for (unsigned i = 0; i < 4; i++) {
         threads[i] =

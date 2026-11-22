@@ -98,13 +98,18 @@ static void check_markers(const char *text)
     exactly_once(text, "AVS-RAW");
     exactly_once(text, "I:fixture: dll-attach");
     exactly_once(text, "I:fixture: application-complete");
+    exactly_once(text, "native-info");
+    exactly_once(text, "native-debug");
+    exactly_once(text, "native-warning");
+    exactly_once(text, "native-error");
+    exactly_once(text, "formatted-detail");
     for (unsigned thread = 0; thread < 4; thread++) {
         for (unsigned i = 0; i < 20; i++) {
             char marker[80];
             /* Include a terminator to distinguish worker-0-1 from worker-0-10.
              */
             snprintf(
-                marker, sizeof(marker), "I:fixture: worker-%u-%u\n", thread, i);
+                marker, sizeof(marker), "M:fixture: worker-%u-%u\n", thread, i);
             exactly_once(text, marker);
         }
     }
@@ -166,7 +171,19 @@ static void console_host(const char *directory)
          * characters. */
         exactly_once(screen, "I:fixture: dll-attach");
         exactly_once(screen, "I:fixture: application-complete");
-        exactly_once(screen, "I:fixture: worker-3-19");
+        exactly_once(screen, "native-warning");
+        exactly_once(screen, "native-error");
+        if (files[i]) {
+            exactly_once(screen, "M:fixture: worker-3-19");
+            exactly_once(screen, "native-info");
+            exactly_once(screen, "native-debug");
+            exactly_once(screen, "formatted-detail");
+        } else {
+            assert(!strstr(screen, "M:fixture: worker-"));
+            assert(!strstr(screen, "native-info"));
+            assert(!strstr(screen, "native-debug"));
+            assert(!strstr(screen, "formatted-detail"));
+        }
         free(screen);
         if (files[i]) {
             char *text = read_text(files[i]);

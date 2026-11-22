@@ -857,7 +857,7 @@ static void gfdm_replace_property_str(
 
 static AVS_LOG_WRITER(gfdm_avs_log_writer, chars, nchars, ctx)
 {
-    gfdm_log_writer(ctx, chars, nchars);
+    gfdm_avs_log_writer_filtered(ctx, chars, nchars);
 }
 
 static int (__cdecl *real_ea3_boot)(struct property_node *config);

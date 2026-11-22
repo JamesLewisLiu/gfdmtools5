@@ -462,7 +462,7 @@ static unsigned int __cdecl layered_open(const char *name)
         return 0;
     }
     fd = layered_real_open(path);
-    log_info("GFDM layered object: fd=%u key=%08x:%04x bytes=%u sha256=%s name=%s",
+    log_misc("GFDM layered object: fd=%u key=%08x:%04x bytes=%u sha256=%s name=%s",
              fd, record->crc32, record->crc16, record->length, object, name);
     return fd;
 }

@@ -1,5 +1,21 @@
 # gfdmhook1
 
+## Console logging
+
+Without `-Y`, the hook prints startup summaries, important status changes,
+warnings and errors. Input/JAMMA changes, effector phases, frame counters and
+individual layered-object opens are diagnostic details and are suppressed.
+Hook/backend miscellaneous messages are filtered before formatting, and raw
+records are filtered before the output lock or debugger/console writes. Native
+AVS info/debug records are suppressed; warnings, errors and unclassified records
+remain visible. This also applies with `-D` unless `-Y` is present.
+
+Use `-Y` for full diagnostic console and file output (`log.log`), or
+`-Y "path/to/game.log"` to select a file. Detailed mode retains synchronous
+output and can affect timing; use normal mode for gameplay. No default log file
+is created. This reduces logging work but does not establish that logging caused
+every frame drop or judgement variation.
+
 While a V4-V8 GF/DM process is running, the hook holds Windows display and
 system power requests so controller-only play, TEST and autoplay do not let
 the idle timer turn off the monitor or put the computer to sleep. This also
