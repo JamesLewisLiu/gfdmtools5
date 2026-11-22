@@ -19,6 +19,8 @@
 
 # GFDM update history
 
+2026-11-23: Add EXE-local data_mods/<mod>/ whole-file overrides for V4-V8 GF/DM, independent of layered.enabled and shared data. Check overrides before object routing, preserve packed/shared fallback, support dynamic file add/change/removal and per-file alphabetical priority, and redirect read-side stat/media path conversion consistently. Keep saves and verified store metadata separate. Five genuine AVS isolated mount/read/reopen/stat/conversion cases pass; gameplay validation remains pending. Texture generation and XML merging are not included.
+
 2026-11-22: Make normal hook console output concise: keep startup/status summaries and warnings/errors, suppress per-input/frame/object details and native AVS info/debug traffic before output locking/debugger/console writes. Filter hook miscellaneous logs before formatting. Enable full synchronous diagnostics only with -Y, retaining bare -Y log.log and explicit paths, including -D forwarding. Gameplay timing improvement still requires physical comparison.
 
 2026-11-17: Reduce MIDI timing jitter with QPC pulse deadlines and a balanced 1 ms timer-resolution request after a port starts. Let a new runtime strike end the preceding pulse early while retaining the separate low phase, isolated-hit detection width and binding capture timing. Preserve saved mappings, GF holds, CC/pitch and asynchronous driver lifecycle. Physical V6 timing/judgement comparison remains pending.

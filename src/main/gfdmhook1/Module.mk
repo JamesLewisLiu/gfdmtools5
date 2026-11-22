@@ -35,6 +35,7 @@ src_gfdmhook1 := \
     lan.c \
     layered.c \
     logging.c \
+    mods.c \
     network.c \
     power.c \
     profile.c \

@@ -9,6 +9,7 @@
 #include <wchar.h>
 
 #include "gfdmhook1/layered.h"
+#include "gfdmhook1/mods.h"
 #include "hook/table.h"
 #include "imports/avs.h"
 #include "util/defs.h"
@@ -366,7 +367,10 @@ static bool layered_load_manifest(void)
    Call the export directly, never another import that might be wrapped. */
 static avs_desc __cdecl layered_open_metadata(const char *path, uint16_t mode, int flags)
 {
-    return layered_avs_open(layered_metadata_path(path), mode, flags);
+    char mod_path[MAX_PATH];
+    if (mode == AVS_FILE_READ && gfdm_mods_resolve(path, mod_path, sizeof(mod_path)))
+        return layered_avs_open(mod_path, mode, flags);
+    return layered_avs_open(layered_enabled ? layered_metadata_path(path) : path, mode, flags);
 }
 
 /* The libpackfs-specific import additionally forbids packed fallback and
@@ -438,10 +442,13 @@ static unsigned int __cdecl layered_open(const char *name)
 {
     const struct layered_record *record;
     const struct layered_entry *entry;
-    char object[65], path[96], normalized[512];
+    char object[65], path[96], normalized[512], mod_path[MAX_PATH];
     unsigned int fd;
 
     if (name == NULL) return 0;
+    if (gfdm_mods_resolve(name, mod_path, sizeof(mod_path)))
+        return layered_real_open(mod_path);
+    if (!layered_enabled) return layered_real_open(name);
     record = layered_get_record(layered_lookup_name(name, normalized));
     if (record == NULL) {
         /* Genuine loose resources retain native semantics. No new name is
@@ -471,6 +478,9 @@ static const struct hook_symbol layered_pkfs_syms[] = {
     {.name = "?pkfs_fs_open@@YAIPBD@Z", .patch = layered_open},
     {.name = "?pkfs_boot@@YAHXZ", .patch = layered_boot},
 };
+static const struct hook_symbol mods_pkfs_syms[] = {
+    {.name = "?pkfs_fs_open@@YAIPBD@Z", .patch = layered_open},
+};
 static const struct hook_symbol layered_avs_syms[] = {
     {.name = "avs_fs_open", .patch = layered_open_avs},
 };
@@ -487,7 +497,15 @@ bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify)
     uint64_t size;
     char *slash;
     DWORD len;
-    if (!enabled) return true;
+    if (!enabled) {
+        if (!gfdm_mods_enabled()) return true;
+        pkfs = GetModuleHandleA("libpackfs.dll");
+        avs = GetModuleHandleA("libavs-win32.dll");
+        if (!pkfs || !avs) return false;
+        layered_real_open = (void *) GetProcAddress(pkfs, "?pkfs_fs_open@@YAIPBD@Z");
+        layered_avs_open = (void *) GetProcAddress(avs, "avs_fs_open");
+        return layered_real_open && layered_avs_open;
+    }
     layered_profile = layered_profile_find(version);
     if (layered_profile == NULL) {
         log_warning("GFDM layered: unsupported version %u", version);
@@ -530,10 +548,15 @@ bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify)
 
 void gfdm_layered_apply_hooks(void)
 {
-    if (!layered_enabled) return;
+    if (!layered_enabled && !gfdm_mods_enabled()) return;
     hook_table_apply(NULL, "libavs-win32.dll",
                      layered_metadata_syms, lengthof(layered_metadata_syms));
-    hook_table_apply(GetModuleHandleA("libpackfs.dll"), "libavs-win32.dll",
-                     layered_avs_syms, lengthof(layered_avs_syms));
-    hook_table_apply(NULL, "libpackfs.dll", layered_pkfs_syms, lengthof(layered_pkfs_syms));
+    if (layered_enabled) {
+        hook_table_apply(GetModuleHandleA("libpackfs.dll"), "libavs-win32.dll",
+                         layered_avs_syms, lengthof(layered_avs_syms));
+        hook_table_apply(NULL, "libpackfs.dll", layered_pkfs_syms, lengthof(layered_pkfs_syms));
+    } else {
+        hook_table_apply(NULL, "libpackfs.dll", mods_pkfs_syms, lengthof(mods_pkfs_syms));
+    }
+    gfdm_mods_apply_hooks();
 }

@@ -1,5 +1,35 @@
 # gfdmhook1
 
+## Dynamic whole-file mods
+
+Create `data_mods` beside the game EXE before starting the game. Each mod has
+its own subdirectory. For the resource `/data/product/d3/model/example.bin`,
+use `data_mods/my_mod/product/d3/model/example.bin`. The directory is anchored
+to the EXE, independent of the working directory and of the shared data root.
+GF and DM in the same version directory share this mod search root.
+
+This overlay works with both `layered.enabled=false` (ordinary game data/PAK)
+and `layered.enabled=true` (the verified shared object store). It does not turn
+on shared-data routing or change its manifest. On each resource open, the first
+matching mod directory in case-insensitive alphabetical order wins. `_cache`
+is excluded. Adding, replacing or removing files/subdirectories is reflected
+on the next open; already-open handles and resources cached by the game keep
+their existing contents. Create the root before launch, or restart after adding
+the root for the first time. With no root, the mod hooks stay inactive.
+
+Only reads and read-side stat/path conversion are redirected. Missing overrides
+use the original packed/loose/shared route. Save paths, shared backing objects,
+pack metadata and finfolist are excluded. Base files are not rewritten. Diagnostic
+per-file messages remain subject to `-Y` logging. No configuration changes or
+additional proxy DLL are required.
+
+This implementation supports complete replacement files, not PNG-to-texture
+generation, IFS/ARC member extraction or `.merged.xml` processing. Supply a
+game-ready BIN/XML/chart/media file. Search layout and dynamic lookup were
+reviewed against [ifs_layeredfs](https://github.com/mon/ifs_layeredfs) upstream
+`a0312f8a23a2a7823bdb6a0f634cb58847874c1b`; this C adapter is independent and
+does not incorporate its converter or injector code.
+
 ## Console logging
 
 Without `-Y`, the hook prints startup summaries, important status changes,

@@ -73,6 +73,16 @@ static BOOL WINAPI observed_crypto(HCRYPTPROV *provider, LPCSTR container,
 #undef fopen
 #undef malloc
 #undef calloc
+static DWORD WINAPI mods_test_executable(HMODULE module, LPSTR path, DWORD size);
+static HMODULE WINAPI mods_test_module(LPCSTR name);
+static FARPROC WINAPI mods_test_proc(HMODULE module, LPCSTR name);
+#define GetModuleFileNameA mods_test_executable
+#define GetModuleHandleA mods_test_module
+#define GetProcAddress mods_test_proc
+#include "gfdmhook1/mods.c"
+#undef GetModuleFileNameA
+#undef GetModuleHandleA
+#undef GetProcAddress
 
 static jmp_buf fatal_jump;
 static bool expect_fatal;
@@ -183,6 +193,7 @@ static void write_fixture(void)
     fixture_profile.index_sha = fixture_index_sha;
     fixture_profile.finfolist_sha = fixture_finfolist_sha;
     layered_profile = &fixture_profile;
+    layered_enabled = true;
     snprintf(fixture_manifest_relative, sizeof(fixture_manifest_relative),
              "_loose/v%u/manifest.bin", fixture_version);
     if (fixture_versioned) {
@@ -585,6 +596,109 @@ static void check_verification_cache(void)
     puts("PASS: persistent cache hits, full override, same-size restored-time corruption, replacement, missing object, corrupt cache, writer exclusion and unwritable cache");
 }
 
+static DWORD WINAPI mods_test_executable(HMODULE module, LPSTR path, DWORD size)
+{
+    (void)module;
+    int n = snprintf(path, size, "%s\\gdv%u.exe", test_root, fixture_version);
+    return n >= 0 && (DWORD)n < size ? (DWORD)n : size;
+}
+static HMODULE WINAPI mods_test_module(LPCSTR name)
+{
+    assert(!strcmp(name, "libavs-win32.dll"));
+    return (HMODULE)(uintptr_t)1;
+}
+static bool mods_fail_mount;
+static int __cdecl mods_test_mount(const char *point, const char *root, const char *type, void *data)
+{
+    assert(!strcmp(point, MODS_MOUNT) && !strcmp(root, mods_root));
+    assert(!strcmp(type, "fs") && data == NULL);
+    return mods_fail_mount ? -1 : 0;
+}
+static int __cdecl mods_test_stat(const char *path, struct avs_stat *stat)
+{
+    (void)stat;
+    assert(strlen(path) < sizeof(opened_name)); strcpy(opened_name, path);
+    return 0;
+}
+static int __cdecl mods_test_convert(char *output,const char *path)
+{
+    assert(strlen(path)<256);strcpy(output,path);return 0;
+}
+static FARPROC WINAPI mods_test_proc(HMODULE module, LPCSTR name)
+{
+    assert(module == (HMODULE)(uintptr_t)1);
+    if (!strcmp(name, "avs_fs_mount")) return (FARPROC)mods_test_mount;
+    if (!strcmp(name, "avs_fs_lstat")) return (FARPROC)mods_test_stat;
+    assert(!strcmp(name, "avs_fs_convert_path")); return (FARPROC)mods_test_convert;
+}
+static void check_mod_overlay(void)
+{
+    char path[MAX_PATH], a[MAX_PATH], b[MAX_PATH], out[MAX_PATH], cwd[MAX_PATH];
+    assert(gfdm_mods_init() && !gfdm_mods_enabled());
+    root_file(path,sizeof(path),"data_mods"); assert(CreateDirectoryA(path,NULL));
+    root_file(path,sizeof(path),"data_mods/z_mod"); assert(CreateDirectoryA(path,NULL));
+    root_file(path,sizeof(path),"data_mods/a_mod"); assert(CreateDirectoryA(path,NULL));
+    root_file(a,sizeof(a),"data_mods/a_mod/file.bin");
+    root_file(b,sizeof(b),"data_mods/z_mod/file.bin");
+    write_bytes(a,"first",5); write_bytes(b,"second",6);
+    assert(GetCurrentDirectoryA(sizeof(cwd),cwd));
+    assert(SetCurrentDirectoryA(test_root));
+    for (fixture_version=4;fixture_version<=8;fixture_version++) {
+        assert(gfdm_mods_init() && gfdm_mods_enabled());
+        assert(!gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+        mods_fail_mount=true; assert(!gfdm_mods_mount());
+        mods_fail_mount=false; assert(gfdm_mods_mount());
+        assert(gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+        assert(!strcmp(out,MODS_MOUNT "/a_mod/file.bin"));
+        assert(gfdm_mods_resolve("DATA\\file.bin",out,sizeof(out)));
+        assert(gfdm_mods_resolve("../data/file.bin",out,sizeof(out)));
+        assert(gfdm_mods_resolve("./data/file.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/data/../file.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/data/_loose/objects/file.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/data/pack/packinfo.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/data/finfolist.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/dev/nvram/file.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/database/file.bin",out,sizeof(out)));
+        assert(!gfdm_mods_resolve("/data/file.bin",out,4));
+        for (unsigned shared=0;shared<2;shared++) {
+            layered_enabled=shared!=0; layered_real_open=fake_native_open;
+            layered_avs_open=fake_avs_open;
+            assert(layered_open("/data/file.bin")==0x76543210);
+            assert(!strcmp(opened_name,MODS_MOUNT "/a_mod/file.bin"));
+            char converted[256];assert(mods_convert(converted,"/data/file.bin")==0);
+            assert(!strcmp(converted,MODS_MOUNT "/a_mod/file.bin"));
+            assert(layered_open_metadata("/data/file.bin",AVS_FILE_READ,420)==0x12345678);
+            assert(!strcmp(opened_name,MODS_MOUNT "/a_mod/file.bin"));
+            assert(layered_open_metadata("/data/file.bin",AVS_FILE_WRITE,420)==0x12345678);
+            assert(!strcmp(opened_name,"/data/file.bin"));
+            assert(mods_lstat("/data/file.bin",NULL)==0);
+            assert(!strcmp(opened_name,MODS_MOUNT "/a_mod/file.bin"));
+        }
+    }
+    assert(DeleteFileA(a));
+    assert(gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+    assert(!strcmp(out,MODS_MOUNT "/z_mod/file.bin"));
+    write_bytes(a,"replacement with changed size",29);
+    assert(gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+    assert(!strcmp(out,MODS_MOUNT "/a_mod/file.bin"));
+    assert(DeleteFileA(a) && DeleteFileA(b));
+    assert(!gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+    layered_enabled=true;layered_get_record=fake_get_record;
+    expected_lookup="/data/file.bin";collision=false;return_mismatch=false;
+    assert(layered_open("/data/file.bin")==0x76543210);
+    assert(!strncmp(opened_name,"/data/_loose/objects/",21));
+    expected_lookup=NULL;
+    layered_enabled=false;
+    assert(layered_open("/data/file.bin")==0x76543210);
+    assert(!strcmp(opened_name,"/data/file.bin"));
+    root_file(path,sizeof(path),"data_mods/a_mod"); assert(RemoveDirectoryA(path));
+    root_file(path,sizeof(path),"data_mods/z_mod"); assert(RemoveDirectoryA(path));
+    root_file(path,sizeof(path),"data_mods"); assert(RemoveDirectoryA(path));
+    assert(gfdm_mods_init() && !gfdm_mods_enabled());
+    assert(SetCurrentDirectoryA(cwd));
+    puts("PASS: V4-V8 data_mods EXE-root selection, independent packed/shared overlays, per-file priority, dynamic add/delete/change, read-only AVS/stat routing and metadata isolation");
+}
+
 int main(int argc, char **argv)
 {
     /* CI-built evidence helper, deliberately absent from game packages.
@@ -626,6 +740,7 @@ int main(int argc, char **argv)
     check_version_metadata();
     check_native_name_normalization();
     check_verification_cache();
+    check_mod_overlay();
     layered_enabled = true; gfdm_layered_apply_hooks(); assert(hook_calls == 3);
     release_loaded();
     assert(DeleteFileA(object_path));

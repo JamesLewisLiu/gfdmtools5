@@ -24,6 +24,7 @@
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/lan.h"
 #include "gfdmhook1/logging.h"
+#include "gfdmhook1/mods.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
 #include "gfdmhook1/power.h"
@@ -878,6 +879,9 @@ static int __cdecl gfdm_ea3_boot(struct property_node *config)
              gfdm_profile->version);
     result = real_ea3_boot(expanded.root);
     gfdm_avs_config_fini(&expanded);
+    if (!gfdm_mods_mount()) {
+        log_fatal("GFDM data_mods mount failed");
+    }
     return result;
 }
 
@@ -1719,6 +1723,7 @@ static void gfdm_init(void)
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
     cconfig_finit(config);
 
+    if (!gfdm_mods_init()) log_fatal("Cannot initialize GFDM data_mods");
     if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered,
                           gfdm_config.layered_full_verify)) {
         log_fatal("GFDM layered data validation failed; refusing to start");
