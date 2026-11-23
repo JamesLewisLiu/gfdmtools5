@@ -12,11 +12,14 @@
 /* Observe only the production translation unit, not fixture setup. Keep the
    ordinary APIs for enabled manifest/cache tests below. */
 static bool probe_disabled;
+static bool probe_native_reads;
+static FARPROC WINAPI observed_proc(HMODULE module,LPCSTR name);
 static unsigned int probe_modules, probe_files, probe_allocations, probe_crypto;
 
 static HMODULE WINAPI observed_module(LPCSTR name)
 {
     if (probe_disabled) { probe_modules++; return NULL; }
+    if(probe_native_reads)return (HMODULE)(uintptr_t)(!strcmp(name,"libpackfs.dll")?1:2);
     return GetModuleHandleA(name);
 }
 
@@ -59,6 +62,7 @@ static BOOL WINAPI observed_crypto(HCRYPTPROV *provider, LPCSTR container,
 }
 
 #define GetModuleHandleA observed_module
+#define GetProcAddress observed_proc
 #define GetFileAttributesA observed_attributes
 #define CreateFileA observed_create
 #define CryptAcquireContextA observed_crypto
@@ -67,6 +71,7 @@ static BOOL WINAPI observed_crypto(HCRYPTPROV *provider, LPCSTR container,
 #define calloc observed_calloc
 #include "gfdmhook1/layered.c"
 #undef GetModuleHandleA
+#undef GetProcAddress
 #undef GetFileAttributesA
 #undef CreateFileA
 #undef CryptAcquireContextA
@@ -335,6 +340,30 @@ static unsigned int __cdecl fake_native_open(const char *path)
     strcpy(opened_name, path);
     native_calls++;
     return 0x76543210;
+}
+static const char native_xml_payload[]="<mdb><base/></mdb>";
+static unsigned native_read_position,native_read_closes;
+static unsigned char __cdecl native_stat(unsigned int fd,void *buffer)
+{
+    assert(fd==0x76543210);uint32_t size=sizeof(native_xml_payload)-1;
+    memcpy((unsigned char*)buffer+28,&size,sizeof(size));native_read_position=0;return 1;
+}
+static int __cdecl native_read(unsigned int fd,void *buffer,int count)
+{
+    assert(fd==0x76543210&&count>0);unsigned left=sizeof(native_xml_payload)-1-native_read_position;
+    unsigned n=left<7?left:7;if(n>(unsigned)count)n=count;
+    memcpy(buffer,native_xml_payload+native_read_position,n);native_read_position+=n;return n;
+}
+static int __cdecl native_close(unsigned int fd){assert(fd==0x76543210);native_read_closes++;return 0;}
+static int __cdecl native_loose_stat(const char *name,void *buffer){(void)name;(void)buffer;return 1;}
+static FARPROC WINAPI observed_proc(HMODULE module,LPCSTR name)
+{
+    if(!probe_native_reads)return GetProcAddress(module,name);
+    if(!strcmp(name,"?pkfs_fs_fstat@@YAEIPAUT_AVS_FS_STAT@@@Z"))return (FARPROC)(void*)native_stat;
+    if(!strcmp(name,"?pkfs_fs_read@@YAHIPAXH@Z"))return (FARPROC)(void*)native_read;
+    if(!strcmp(name,"?pkfs_fs_close@@YAHI@Z"))return (FARPROC)(void*)native_close;
+    if(!strcmp(name,"?pkfs_get_pathtab@@YAPAUpkfs_pathtab@@PBD@Z"))return (FARPROC)(void*)fake_get_record;
+    assert(!strcmp(name,"avs_fs_lstat"));return (FARPROC)(void*)native_loose_stat;
 }
 
 static void check_native_routing(void)
@@ -627,9 +656,9 @@ static int __cdecl mods_test_convert(char *output,const char *path)
 static FARPROC WINAPI mods_test_proc(HMODULE module, LPCSTR name)
 {
     assert(module == (HMODULE)(uintptr_t)1);
-    if (!strcmp(name, "avs_fs_mount")) return (FARPROC)mods_test_mount;
-    if (!strcmp(name, "avs_fs_lstat")) return (FARPROC)mods_test_stat;
-    assert(!strcmp(name, "avs_fs_convert_path")); return (FARPROC)mods_test_convert;
+    if (!strcmp(name, "avs_fs_mount")) return (FARPROC)(void *)mods_test_mount;
+    if (!strcmp(name, "avs_fs_lstat")) return (FARPROC)(void *)mods_test_stat;
+    assert(!strcmp(name, "avs_fs_convert_path")); return (FARPROC)(void *)mods_test_convert;
 }
 static void check_mod_overlay(void)
 {
@@ -665,6 +694,21 @@ static void check_mod_overlay(void)
             layered_avs_open=fake_avs_open;
             assert(layered_open("/data/file.bin")==0x76543210);
             assert(!strcmp(opened_name,MODS_MOUNT "/a_mod/file.bin"));
+            char xml_name[64],fragment[MAX_PATH],virtual_name[80];
+            snprintf(xml_name,sizeof(xml_name),"native-%u-%u",fixture_version,shared);
+            snprintf(virtual_name,sizeof(virtual_name),"/data/%s.xml",xml_name);
+            snprintf(fragment,sizeof(fragment),"%s/a_mod/%s.merged.xml",mods_root,xml_name);
+            const char patch[]="<mdb><extra/></mdb>";write_bytes(fragment,patch,sizeof(patch)-1);
+            expected_lookup=virtual_name;layered_get_record=fake_get_record;
+            probe_native_reads=true;unsigned closes=native_read_closes;
+            assert(gfdm_mods_resolve(virtual_name,out,sizeof(out)));
+            assert(native_read_closes==closes+1);
+            if(shared)assert(!strncmp(opened_name,"/data/_loose/objects/",21));
+            else assert(!strcmp(opened_name,virtual_name));
+            char disk[MAX_PATH];snprintf(disk,sizeof(disk),"%s%s",mods_root,out+strlen(MODS_MOUNT));
+            FILE *generated=fopen(disk,"rb");assert(generated);char merged[256]={0};assert(fread(merged,1,sizeof(merged)-1,generated)>0);fclose(generated);
+            assert(strstr(merged,"<base")&&strstr(merged,"<extra"));
+            assert(DeleteFileA(fragment));probe_native_reads=false;expected_lookup=NULL;
             char converted[256];assert(mods_convert(converted,"/data/file.bin")==0);
             assert(!strcmp(converted,MODS_MOUNT "/a_mod/file.bin"));
             assert(layered_open_metadata("/data/file.bin",AVS_FILE_READ,420)==0x12345678);
@@ -693,6 +737,16 @@ static void check_mod_overlay(void)
     assert(!strcmp(opened_name,"/data/file.bin"));
     root_file(path,sizeof(path),"data_mods/a_mod"); assert(RemoveDirectoryA(path));
     root_file(path,sizeof(path),"data_mods/z_mod"); assert(RemoveDirectoryA(path));
+    char search[MAX_PATH];snprintf(search,sizeof(search),"%s/_cache/generated/*",mods_root);
+    WIN32_FIND_DATAA item;HANDLE find=FindFirstFileA(search,&item);assert(find!=INVALID_HANDLE_VALUE);
+    do {
+        if(item.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY)continue;
+        assert(strspn(item.cFileName,"0123456789abcdef")==64);
+        assert(!strcmp(item.cFileName+64,".xml")||!strcmp(item.cFileName+64,".xml.sha256"));
+        snprintf(path,sizeof(path),"%s/_cache/generated/%s",mods_root,item.cFileName);assert(DeleteFileA(path));
+    } while(FindNextFileA(find,&item));FindClose(find);
+    root_file(path,sizeof(path),"data_mods/_cache/generated");assert(RemoveDirectoryA(path));
+    root_file(path,sizeof(path),"data_mods/_cache");assert(RemoveDirectoryA(path));
     root_file(path,sizeof(path),"data_mods"); assert(RemoveDirectoryA(path));
     assert(gfdm_mods_init() && !gfdm_mods_enabled());
     assert(SetCurrentDirectoryA(cwd));

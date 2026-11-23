@@ -10,6 +10,7 @@ ldflags_gfdmhook1 := \
     -lws2_32 \
 
 libs_gfdmhook1 := \
+    gfdm-mod-codec \
     cconfig \
     geninput \
     hook \

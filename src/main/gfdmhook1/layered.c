@@ -438,16 +438,14 @@ static const char *layered_lookup_name(const char *name, char normalized[512])
     return normalized;
 }
 
-static unsigned int __cdecl layered_open(const char *name)
+static unsigned int __cdecl layered_base_open(const char *name)
 {
     const struct layered_record *record;
     const struct layered_entry *entry;
-    char object[65], path[96], normalized[512], mod_path[MAX_PATH];
+    char object[65], path[96], normalized[512];
     unsigned int fd;
 
     if (name == NULL) return 0;
-    if (gfdm_mods_resolve(name, mod_path, sizeof(mod_path)))
-        return layered_real_open(mod_path);
     if (!layered_enabled) return layered_real_open(name);
     record = layered_get_record(layered_lookup_name(name, normalized));
     if (record == NULL) {
@@ -474,6 +472,46 @@ static unsigned int __cdecl layered_open(const char *name)
     return fd;
 }
 
+static unsigned int __cdecl layered_open(const char *name)
+{
+    char mod_path[MAX_PATH];
+    if(gfdm_mods_resolve(name,mod_path,sizeof(mod_path)))return layered_real_open(mod_path);
+    return layered_base_open(name);
+}
+
+static int layered_read_base(const char *name,unsigned char **output,size_t *size)
+{
+    HMODULE pkfs=GetModuleHandleA("libpackfs.dll");
+    unsigned char (__cdecl *stat)(unsigned int,void *)=(void *)GetProcAddress(pkfs,"?pkfs_fs_fstat@@YAEIPAUT_AVS_FS_STAT@@@Z");
+    int (__cdecl *read)(unsigned int,void *,int)=(void *)GetProcAddress(pkfs,"?pkfs_fs_read@@YAHIPAXH@Z");
+    int (__cdecl *close)(unsigned int)=(void *)GetProcAddress(pkfs,"?pkfs_fs_close@@YAHI@Z");
+    const struct layered_record *(__cdecl *get)(const char *)=(void *)GetProcAddress(pkfs,"?pkfs_get_pathtab@@YAPAUpkfs_pathtab@@PBD@Z");
+    if(!stat||!read||!close)return -1;
+    char normalized[512];
+    const char *lookup=layered_profile ? layered_lookup_name(name,normalized) : name;
+    if(get && !get(lookup)) {
+        int (__cdecl *loose_stat)(const char *,void *)=(void *)GetProcAddress(GetModuleHandleA("libavs-win32.dll"),"avs_fs_lstat");
+        unsigned char info[256]={0};
+        if(loose_stat && loose_stat(name,info)<=0)return 0;
+    }
+    unsigned int fd=layered_base_open(name);
+    if(!fd)return -1;
+    unsigned char info[256]={0};uint32_t length=0;
+    if(!stat(fd,info)){close(fd);return -1;}
+    /* Upstream ifs_layeredfs asserts filesize offset 28 for every old AVS
+       layout; do not assume the rest of the native stat structure matches. */
+    memcpy(&length,info+28,sizeof(length));
+    if(length>128*1024*1024){close(fd);return -1;}
+    unsigned char *bytes=malloc(length?length:1);if(!bytes){close(fd);return -1;}
+    uint32_t position=0;
+    while(position<length) {
+        int got=read(fd,bytes+position,(int)(length-position));
+        if(got<=0||(uint32_t)got>length-position){free(bytes);close(fd);return -1;}
+        position+=(uint32_t)got;
+    }
+    close(fd);*output=bytes;*size=length;return 1;
+}
+
 static const struct hook_symbol layered_pkfs_syms[] = {
     {.name = "?pkfs_fs_open@@YAIPBD@Z", .patch = layered_open},
     {.name = "?pkfs_boot@@YAHXZ", .patch = layered_boot},
@@ -490,6 +528,7 @@ static const struct hook_symbol layered_metadata_syms[] = {
 
 bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify)
 {
+    gfdm_mods_set_base_reader(layered_read_base);
     layered_full_verify = full_verify;
     HMODULE pkfs, avs;
     char executable[MAX_PATH], module_path[MAX_PATH], digest[65];
@@ -499,6 +538,8 @@ bool gfdm_layered_init(unsigned int version, bool enabled, bool full_verify)
     DWORD len;
     if (!enabled) {
         if (!gfdm_mods_enabled()) return true;
+        layered_profile = layered_profile_find(version);
+        if(!layered_profile)return false;
         pkfs = GetModuleHandleA("libpackfs.dll");
         avs = GetModuleHandleA("libavs-win32.dll");
         if (!pkfs || !avs) return false;

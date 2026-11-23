@@ -8,6 +8,7 @@ include src/main/config/Module.mk
 include src/main/eamio/Module.mk
 include src/main/geninput/Module.mk
 include src/main/gfdmhook1/Module.mk
+include src/main/gfdmhook1/mod-codec.mk
 include src/main/hook/Module.mk
 include src/main/hooklib/Module.mk
 include src/main/iidxhook-util/Module.mk
@@ -33,6 +34,7 @@ $(zipdir)/gfdm-v%.zip: \
 		build/bin/indep-32/inject.exe \
 		dist/gfdm/config-gf.bat \
 		dist/gfdm/config-dm.bat \
+		dist/gfdm/IFS-MOD-LICENSES.txt \
 		dist/gfdm/gamestart-v%-gf.bat \
 		dist/gfdm/gamestart-v%-dm.bat \
 		dist/gfdm/gfdm-v%-gf.conf \

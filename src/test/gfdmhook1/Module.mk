@@ -52,6 +52,15 @@ testexes += gfdm-layered-test
 srcdir_gfdm-layered-test := src/test/gfdmhook1
 src_gfdm-layered-test := layered-test.c
 ldflags_gfdm-layered-test := -ladvapi32
+libs_gfdm-layered-test := gfdm-mod-codec
+
+testexes += gfdm-mods-test
+srcdir_gfdm-mods-test := src/test/gfdmhook1
+cppsrc_gfdm-mods-test := mods-test.cpp
+libs_gfdm-mods-test := gfdm-mod-codec
+ldflags_gfdm-mods-test := -ladvapi32
+cppflags_gfdm-mods-test := -I src/main/gfdmhook1/ifs/3rd_party/fmt/include -DNOMINMAX -DFMT_HEADER_ONLY
+cxxflags_gfdm-mods-test := -std=gnu++23 -O2 -Wall
 
 testexes += gfdm-display-test
 srcdir_gfdm-display-test := src/test/gfdmhook1

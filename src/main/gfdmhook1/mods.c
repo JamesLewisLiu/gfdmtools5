@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "gfdmhook1/mods.h"
+#include "gfdmhook1/mod-codec.h"
 #include "hook/table.h"
 #include "imports/avs.h"
 #include "util/log.h"
@@ -15,6 +16,11 @@ static bool mods_enabled, mods_mounted;
 static int (__cdecl *mods_real_mount)(const char *, const char *, const char *, void *);
 static int (__cdecl *mods_real_lstat)(const char *, struct avs_stat *);
 static int (__cdecl *mods_real_convert)(char *, const char *);
+static int (*mods_base_reader)(const char *, unsigned char **, size_t *);
+static __thread bool mods_processing;
+
+void gfdm_mods_set_base_reader(int (*reader)(const char *, unsigned char **, size_t *))
+{ mods_base_reader=reader; }
 
 static bool mods_relative(const char *name, char relative[MAX_PATH])
 {
@@ -77,7 +83,7 @@ bool gfdm_mods_mount(void)
     return mods_mounted;
 }
 
-bool gfdm_mods_resolve(const char *name, char *output, size_t capacity)
+static bool mods_resolve_file(const char *name, char *output, size_t capacity)
 {
     char relative[MAX_PATH], search[MAX_PATH], candidate[MAX_PATH];
     char selected[MAX_PATH] = "";
@@ -103,6 +109,73 @@ bool gfdm_mods_resolve(const char *name, char *output, size_t capacity)
     if (!selected[0]) return false;
     int n = snprintf(output, capacity, MODS_MOUNT "/%s/%s", selected, relative);
     return n >= 0 && (size_t)n < capacity;
+}
+
+static int mods_read_base(void *context, unsigned char **data, size_t *size)
+{ return mods_base_reader ? mods_base_reader(context,data,size) : -1; }
+
+struct mods_xml_reader { const unsigned char *data; size_t size, offset; };
+static int mods_xml_read(uint32_t context, void *buffer, uint32_t count)
+{
+    struct mods_xml_reader *r=(void *)(uintptr_t)context;
+    size_t available=r->size-r->offset;if(available>count)available=count;
+    memcpy(buffer,r->data+r->offset,available);r->offset+=available;return (int)available;
+}
+static int mods_xml_text(const unsigned char *input,size_t size,unsigned char **output,size_t *length)
+{
+    HMODULE avs=GetModuleHandleA("libavs-win32.dll");
+    uint32_t (*query)(avs_reader_t,uint32_t,int,int)=(void *)GetProcAddress(avs,"property_read_query_memsize");
+    struct property *(*create)(int,void *,uint32_t)=(void *)GetProcAddress(avs,"property_create");
+    int (*insert)(struct property *,struct property_node *,avs_reader_t,uint32_t)=(void *)GetProcAddress(avs,"property_insert_read");
+    int (*query_out)(struct property *)=(void *)GetProcAddress(avs,"property_query_size");
+    int (*write)(struct property *,void *,int)=(void *)GetProcAddress(avs,"property_mem_write");
+    int (*set_flag)(struct property *,int,int)=(void *)GetProcAddress(avs,"property_set_flag");
+    void (*destroy)(struct property *)=(void *)GetProcAddress(avs,"property_destroy");
+    if(!query||!create||!insert||!query_out||!write||!destroy)return 0;
+    struct mods_xml_reader r={input,size,0};
+    uint32_t capacity=query(mods_xml_read,(uint32_t)(uintptr_t)&r,0,0);
+    if((int32_t)capacity<=0||capacity>128*1024*1024)return 0;
+    void *memory=calloc(1,capacity);if(!memory)return 0;
+    struct property *p=create(0x17,memory,capacity);
+    unsigned char *text=NULL;int count=0;
+    r.offset=0;
+    if(p&&insert(p,NULL,mods_xml_read,(uint32_t)(uintptr_t)&r)>0) {
+        if(set_flag)set_flag(p,0,PROPERTY_FLAG_BINARY);
+        count=query_out(p);
+        if(count>0&&count<128*1024*1024) {
+            text=malloc((size_t)count+1);
+            if(text) {count=write(p,text,count);if(count>0)text[count]=0;}
+        }
+    }
+    if(p)destroy(p);free(memory);
+    if(!text||count<=0){free(text);return 0;}
+    *output=text;*length=(size_t)count;return 1;
+}
+static void mods_codec_log(int level,const char *message)
+{
+    if(level<=1)log_warning("GFDM data_mods converter: %s",message);
+    else log_misc("GFDM data_mods converter: %s",message);
+}
+
+bool gfdm_mods_resolve(const char *name,char *output,size_t capacity)
+{
+    char relative[MAX_PATH],generated[MAX_PATH];
+    if(!mods_enabled||!mods_mounted||mods_processing||!mods_relative(name,relative))return false;
+    struct gfdm_mod_backend backend={(void *)name,mods_read_base,mods_xml_text,free,mods_codec_log};
+    mods_processing=true;
+    bool converted=gfdm_mod_convert(mods_root,relative,&backend,generated,sizeof(generated));
+    mods_processing=false;
+    if(converted) {
+        size_t root_length=strlen(mods_root);
+        if(!_strnicmp(generated,mods_root,root_length)&&(generated[root_length]=='/'||generated[root_length]=='\\')) {
+            int n=snprintf(output,capacity,MODS_MOUNT "%s",generated+root_length);
+            if(n>=0&&(size_t)n<capacity)
+                for(char *p=output;*p;p++)if(*p=='\\')*p='/';
+            return n>=0&&(size_t)n<capacity;
+        }
+        return false;
+    }
+    return mods_resolve_file(name,output,capacity);
 }
 
 static int __cdecl mods_lstat(const char *name, struct avs_stat *stat)

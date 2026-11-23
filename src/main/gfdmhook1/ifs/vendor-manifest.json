@@ -1,0 +1,214 @@
+{
+  "LICENSE": {
+    "upstream_sha256": "4d04eca6295a98ff235a0a5d487648176bd7320c11441a45c7687851c4633ad7",
+    "sha256": "3534b4f653a7307ba4502d40c673ef2117af51c8565af66abcfaec38e461a1c1"
+  },
+  "3rd_party\\fmt\\LICENSE": {
+    "upstream_sha256": "a65fcc5a1095fc33cc37e4fff69366e49d7e92f613558a2b95ed1b70e33758b4",
+    "sha256": "a65fcc5a1095fc33cc37e4fff69366e49d7e92f613558a2b95ed1b70e33758b4"
+  },
+  "3rd_party\\fmt\\include\\fmt\\args.h": {
+    "upstream_sha256": "ce9705a22f68469891cba708b3c4ae459edb3f41c8a83f891e93013d485190f8",
+    "sha256": "ce9705a22f68469891cba708b3c4ae459edb3f41c8a83f891e93013d485190f8"
+  },
+  "3rd_party\\fmt\\include\\fmt\\base.h": {
+    "upstream_sha256": "888315df369b34360880a89998ce24191e7c1b2b0606666ec8fddb31f0cae2fb",
+    "sha256": "888315df369b34360880a89998ce24191e7c1b2b0606666ec8fddb31f0cae2fb"
+  },
+  "3rd_party\\fmt\\include\\fmt\\chrono.h": {
+    "upstream_sha256": "a2e569b0f671e89e7691cdd8653d4f695da25174d9c203a2434ce62ed34a2b40",
+    "sha256": "7b02e718723be765bd0306fe485701ab93686cae6e83cdc851871abfb413f64d"
+  },
+  "3rd_party\\fmt\\include\\fmt\\color.h": {
+    "upstream_sha256": "80db3364b9f5b8247f4012d05d1353be1d0aed7c1b5bd65bdcd2817d50b64e7c",
+    "sha256": "80db3364b9f5b8247f4012d05d1353be1d0aed7c1b5bd65bdcd2817d50b64e7c"
+  },
+  "3rd_party\\fmt\\include\\fmt\\compile.h": {
+    "upstream_sha256": "91b48c183ab0d2e0f433bee1b690036d478f0ae1d6fa79259c24d3eed5fbc011",
+    "sha256": "91b48c183ab0d2e0f433bee1b690036d478f0ae1d6fa79259c24d3eed5fbc011"
+  },
+  "3rd_party\\fmt\\include\\fmt\\core.h": {
+    "upstream_sha256": "eb71f8be534cb6e0806dd583b8487d4160e5338c59ff3d76986ca08f16ce3e30",
+    "sha256": "eb71f8be534cb6e0806dd583b8487d4160e5338c59ff3d76986ca08f16ce3e30"
+  },
+  "3rd_party\\fmt\\include\\fmt\\fmt-c.h": {
+    "upstream_sha256": "4f5dff96d81d9c0f861125b34ae03e55e4f392866384da0fb4670876377cf9a1",
+    "sha256": "4f5dff96d81d9c0f861125b34ae03e55e4f392866384da0fb4670876377cf9a1"
+  },
+  "3rd_party\\fmt\\include\\fmt\\format-inl.h": {
+    "upstream_sha256": "1940025f2299de8df375fb16dd8963fb5ab7eeb447271dc33274d63f0d593414",
+    "sha256": "1940025f2299de8df375fb16dd8963fb5ab7eeb447271dc33274d63f0d593414"
+  },
+  "3rd_party\\fmt\\include\\fmt\\format.h": {
+    "upstream_sha256": "89eaa8184572fad407f9117aafae929403c0a96137e261e58c15daf1e09babbc",
+    "sha256": "89eaa8184572fad407f9117aafae929403c0a96137e261e58c15daf1e09babbc"
+  },
+  "3rd_party\\fmt\\include\\fmt\\os.h": {
+    "upstream_sha256": "b43e2f2e3683bcc930d8011199b811ecb6c4480d876ad453e15f6a58ec7ccc80",
+    "sha256": "b43e2f2e3683bcc930d8011199b811ecb6c4480d876ad453e15f6a58ec7ccc80"
+  },
+  "3rd_party\\fmt\\include\\fmt\\ostream.h": {
+    "upstream_sha256": "663ab18a9c1cf8e7687d61ceb1acdcecd8c6484621855453fe83bc467c1b44c5",
+    "sha256": "663ab18a9c1cf8e7687d61ceb1acdcecd8c6484621855453fe83bc467c1b44c5"
+  },
+  "3rd_party\\fmt\\include\\fmt\\printf.h": {
+    "upstream_sha256": "9c3421258aff344e27b36fe9f894b361d1865875aa781e4b392e60b2f1ebecc1",
+    "sha256": "9c3421258aff344e27b36fe9f894b361d1865875aa781e4b392e60b2f1ebecc1"
+  },
+  "3rd_party\\fmt\\include\\fmt\\ranges.h": {
+    "upstream_sha256": "0a9297b2feb4443413807ff5bc03e82b4671c150fdfadc869b009ff90b6015a1",
+    "sha256": "0a9297b2feb4443413807ff5bc03e82b4671c150fdfadc869b009ff90b6015a1"
+  },
+  "3rd_party\\fmt\\include\\fmt\\std.h": {
+    "upstream_sha256": "0aadd4893c93961a619d3bedbb8ac399dbbd5be18498df6933ea8eae88117d03",
+    "sha256": "0aadd4893c93961a619d3bedbb8ac399dbbd5be18498df6933ea8eae88117d03"
+  },
+  "3rd_party\\fmt\\include\\fmt\\xchar.h": {
+    "upstream_sha256": "1d68c1ed984d18ea267f02583e91e8297be8d23ccd3659fc5c3145bc1cbf2f25",
+    "sha256": "1d68c1ed984d18ea267f02583e91e8297be8d23ccd3659fc5c3145bc1cbf2f25"
+  },
+  "3rd_party\\libsquish\\LICENSE.txt": {
+    "upstream_sha256": "a6b8c383bf3ab28460d6507484d605dd722e03971606f0cd3032a3af682b63a5",
+    "sha256": "fdad828063421a81ab40f30af440580eb5a4522392a0db686c07fb3ebbb152fc"
+  },
+  "3rd_party\\libsquish\\alpha.cpp": {
+    "upstream_sha256": "a1012457e7dacb77052e2cad2a246671ac4652521b91d7176dd3a34c4755c1d8",
+    "sha256": "a1012457e7dacb77052e2cad2a246671ac4652521b91d7176dd3a34c4755c1d8"
+  },
+  "3rd_party\\libsquish\\alpha.h": {
+    "upstream_sha256": "2efe0fffdb8cb73f1192a3ebd9029841277b37ecd4efd7dd6f5fe61e59b82a69",
+    "sha256": "2efe0fffdb8cb73f1192a3ebd9029841277b37ecd4efd7dd6f5fe61e59b82a69"
+  },
+  "3rd_party\\libsquish\\clusterfit.cpp": {
+    "upstream_sha256": "ba455b1ce308c61b69d3b977298a1a9c1f61898ae921a80ee359d8358dd8eb64",
+    "sha256": "ba455b1ce308c61b69d3b977298a1a9c1f61898ae921a80ee359d8358dd8eb64"
+  },
+  "3rd_party\\libsquish\\clusterfit.h": {
+    "upstream_sha256": "83cb26eef038302953ba67d09c5e2ddf06ac128afb95a35f6ddbb21ebadab7da",
+    "sha256": "83cb26eef038302953ba67d09c5e2ddf06ac128afb95a35f6ddbb21ebadab7da"
+  },
+  "3rd_party\\libsquish\\colourblock.cpp": {
+    "upstream_sha256": "aa933312e7c64de394a78b0ea56391f988ac228c6ccf2cb23d0ea46fa7d0b204",
+    "sha256": "aa933312e7c64de394a78b0ea56391f988ac228c6ccf2cb23d0ea46fa7d0b204"
+  },
+  "3rd_party\\libsquish\\colourblock.h": {
+    "upstream_sha256": "79cedb3174d45bd46f8b1bdb55e277ce4fcc83098d5d7831a11062678ce5c3bd",
+    "sha256": "79cedb3174d45bd46f8b1bdb55e277ce4fcc83098d5d7831a11062678ce5c3bd"
+  },
+  "3rd_party\\libsquish\\colourfit.cpp": {
+    "upstream_sha256": "765afce96cc3f75c41a8004a5af8e0cc9f7ae911b0565c0cb9418e72e847e143",
+    "sha256": "765afce96cc3f75c41a8004a5af8e0cc9f7ae911b0565c0cb9418e72e847e143"
+  },
+  "3rd_party\\libsquish\\colourfit.h": {
+    "upstream_sha256": "02b9021e0b3697309e836dbe1503e933993d54c61e6709020183d221124d93fb",
+    "sha256": "02b9021e0b3697309e836dbe1503e933993d54c61e6709020183d221124d93fb"
+  },
+  "3rd_party\\libsquish\\colourset.cpp": {
+    "upstream_sha256": "43d170a88f658d6b7be319fccf676df7bf4e9480143c37dbfa67c6f42681ea65",
+    "sha256": "43d170a88f658d6b7be319fccf676df7bf4e9480143c37dbfa67c6f42681ea65"
+  },
+  "3rd_party\\libsquish\\colourset.h": {
+    "upstream_sha256": "a396444f85060a31abb29fac5501b6881f413de8bf1d193ed2a298e8bf64bb9d",
+    "sha256": "a396444f85060a31abb29fac5501b6881f413de8bf1d193ed2a298e8bf64bb9d"
+  },
+  "3rd_party\\libsquish\\config.h": {
+    "upstream_sha256": "cecbea2bab24ccc8508081c39446b7b880d8f7af5fdbd1a75a859a6791a90ef5",
+    "sha256": "cecbea2bab24ccc8508081c39446b7b880d8f7af5fdbd1a75a859a6791a90ef5"
+  },
+  "3rd_party\\libsquish\\maths.cpp": {
+    "upstream_sha256": "30be11f09a97185e20bc5fe6f57fd2bc9e7eb37dd06b2d55ae27bd7c7db21248",
+    "sha256": "30be11f09a97185e20bc5fe6f57fd2bc9e7eb37dd06b2d55ae27bd7c7db21248"
+  },
+  "3rd_party\\libsquish\\maths.h": {
+    "upstream_sha256": "77edf23f0585e88ebc88122213430dca147dae915b2efa8ed7e52d7a2a3e2b00",
+    "sha256": "77edf23f0585e88ebc88122213430dca147dae915b2efa8ed7e52d7a2a3e2b00"
+  },
+  "3rd_party\\libsquish\\note.layeredfs.txt": {
+    "upstream_sha256": "4d6371651185a41eac1439f3bee0a0a375b000862829969a14ff34b7b562ca96",
+    "sha256": "eb97f8a3aa773bc2ad94abf49af0755d6a6d2cc9780056453fdfa6789e15cfe0"
+  },
+  "3rd_party\\libsquish\\rangefit.cpp": {
+    "upstream_sha256": "b60ac47cfe48e46fcef0968743e2c37166f126f0a1e3c54252817ee17036b44d",
+    "sha256": "b60ac47cfe48e46fcef0968743e2c37166f126f0a1e3c54252817ee17036b44d"
+  },
+  "3rd_party\\libsquish\\rangefit.h": {
+    "upstream_sha256": "4c5b1274b895d2732a9c9de7ac9654cf467e0cf3dfe1d750be80b4fc2d681514",
+    "sha256": "4c5b1274b895d2732a9c9de7ac9654cf467e0cf3dfe1d750be80b4fc2d681514"
+  },
+  "3rd_party\\libsquish\\simd.h": {
+    "upstream_sha256": "bbdff232199862687548109718a42540dc1600b3ab971b8029e461b18c2ca002",
+    "sha256": "bbdff232199862687548109718a42540dc1600b3ab971b8029e461b18c2ca002"
+  },
+  "3rd_party\\libsquish\\simd_float.h": {
+    "upstream_sha256": "00680b5357422821686f9d472952fa725a1d6ceaa0bcf9c36d5180b56a89184e",
+    "sha256": "7c91cd1b6baa3c80ffec761a8918aa77c9973ba0a635a1b477fab90f67ed0118"
+  },
+  "3rd_party\\libsquish\\simd_sse.h": {
+    "upstream_sha256": "3761dbd996f1cc34dec37049169c1d3385993f84d75bce8ff945ab94aa0ed5d7",
+    "sha256": "3761dbd996f1cc34dec37049169c1d3385993f84d75bce8ff945ab94aa0ed5d7"
+  },
+  "3rd_party\\libsquish\\simd_ve.h": {
+    "upstream_sha256": "6378da37561f24ce60e7ddccb0cfa579f55641c5da9c0ac30606291295e9a8ab",
+    "sha256": "6378da37561f24ce60e7ddccb0cfa579f55641c5da9c0ac30606291295e9a8ab"
+  },
+  "3rd_party\\libsquish\\singlecolourfit.cpp": {
+    "upstream_sha256": "175cde4031c830d387f0512b50fc4566b37e942bd81fef4c10620a9994a2ad8f",
+    "sha256": "175cde4031c830d387f0512b50fc4566b37e942bd81fef4c10620a9994a2ad8f"
+  },
+  "3rd_party\\libsquish\\singlecolourfit.h": {
+    "upstream_sha256": "0514ae016d2e7b84ffbd843fb968f82732e907abe661f653fdab614d999413fa",
+    "sha256": "0514ae016d2e7b84ffbd843fb968f82732e907abe661f653fdab614d999413fa"
+  },
+  "3rd_party\\libsquish\\singlecolourlookup.inl": {
+    "upstream_sha256": "0bf99c99e6c39e1b665277f55b9dab73d4b79f32189c2d14d853d34619d9ca84",
+    "sha256": "0bf99c99e6c39e1b665277f55b9dab73d4b79f32189c2d14d853d34619d9ca84"
+  },
+  "3rd_party\\libsquish\\squish.cpp": {
+    "upstream_sha256": "6d2314bc55277ab5231bee5d53229fabd6cb42afb9ae80e3757d63c79e988349",
+    "sha256": "6d2314bc55277ab5231bee5d53229fabd6cb42afb9ae80e3757d63c79e988349"
+  },
+  "3rd_party\\libsquish\\squish.h": {
+    "upstream_sha256": "3d2ef14de2463f8d13ba2290708c9e79b8762d575d18f1b68fb1bbd11d5f4fe9",
+    "sha256": "3d2ef14de2463f8d13ba2290708c9e79b8762d575d18f1b68fb1bbd11d5f4fe9"
+  },
+  "3rd_party\\lodepng.cpp": {
+    "upstream_sha256": "959c0a63c80d2e30462268c8a4e43acd03cbff3593eac6c536921ae5e64e75f8",
+    "sha256": "959c0a63c80d2e30462268c8a4e43acd03cbff3593eac6c536921ae5e64e75f8"
+  },
+  "3rd_party\\lodepng.h": {
+    "upstream_sha256": "64bcc275e56b6eec05e99ebc924d828817544b2bd2926f23cb45212edb00d4fa",
+    "sha256": "64bcc275e56b6eec05e99ebc924d828817544b2bd2926f23cb45212edb00d4fa"
+  },
+  "3rd_party\\md5.h": {
+    "upstream_sha256": "a55b2b70b183dbf5f94562d841576797a7fb2a285f78bbd81012bdb5127fcffa",
+    "sha256": "a55b2b70b183dbf5f94562d841576797a7fb2a285f78bbd81012bdb5127fcffa"
+  },
+  "3rd_party\\rapidxml.hpp": {
+    "upstream_sha256": "d3916e6e0f54afbfb79abbf8239e6314c1feefc68e932290ff57e26df4c57516",
+    "sha256": "d3916e6e0f54afbfb79abbf8239e6314c1feefc68e932290ff57e26df4c57516"
+  },
+  "3rd_party\\rapidxml_print.hpp": {
+    "upstream_sha256": "af8dca96d6ff680e247b68465d3043e5da9bab72040ac447fb4f71a517dd5cbf",
+    "sha256": "af8dca96d6ff680e247b68465d3043e5da9bab72040ac447fb4f71a517dd5cbf"
+  },
+  "config.hpp": {
+    "upstream_sha256": "186c0eb0fd3079c49501371234a7ea386a8c59a8b403ee2dc3e3dd4b5e7e4bf3",
+    "sha256": "186c0eb0fd3079c49501371234a7ea386a8c59a8b403ee2dc3e3dd4b5e7e4bf3"
+  },
+  "log.hpp": {
+    "upstream_sha256": "5d56f32d5236ecae7c0bf0af06859e8554a30d04157464a5e85851998ac1e642",
+    "sha256": "5d56f32d5236ecae7c0bf0af06859e8554a30d04157464a5e85851998ac1e642"
+  },
+  "texbin.cpp": {
+    "upstream_sha256": "7dd46110fdcbddc86ec5942de4df936ab183878c8336fc83378615815760e051",
+    "sha256": "0cad7a360be89c18986a45a239ede8f376b91a892fd750970fe2a2d586223071"
+  },
+  "texbin.hpp": {
+    "upstream_sha256": "ec6c4e280f9ccbb2928317151abd6efb25f08f5aa8d2a9e110a1ae85e56014ab",
+    "sha256": "ec6c4e280f9ccbb2928317151abd6efb25f08f5aa8d2a9e110a1ae85e56014ab"
+  },
+  "utils.hpp": {
+    "upstream_sha256": "b4d143842fe11bb5a0ab690cac2beb757431ef3740840d3fd511bc213be15d20",
+    "sha256": "b4d143842fe11bb5a0ab690cac2beb757431ef3740840d3fd511bc213be15d20"
+  }
+}

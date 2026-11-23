@@ -1,6 +1,6 @@
 # gfdmhook1
 
-## Dynamic whole-file mods
+## Dynamic file, PNG and XML mods
 
 Create `data_mods` beside the game EXE before starting the game. Each mod has
 its own subdirectory. For the resource `/data/product/d3/model/example.bin`,
@@ -23,12 +23,35 @@ pack metadata and finfolist are excluded. Base files are not rewritten. Diagnost
 per-file messages remain subject to `-Y` logging. No configuration changes or
 additional proxy DLL are required.
 
-This implementation supports complete replacement files, not PNG-to-texture
-generation, IFS/ARC member extraction or `.merged.xml` processing. Supply a
-game-ready BIN/XML/chart/media file. Search layout and dynamic lookup were
-reviewed against [ifs_layeredfs](https://github.com/mon/ifs_layeredfs) upstream
-`a0312f8a23a2a7823bdb6a0f634cb58847874c1b`; this C adapter is independent and
-does not incorporate its converter or injector code.
+Complete files can replace game-ready BIN/XML/chart/media resources. PNG
+replacements are automatically packed into GFDM texture BINs using the texbin
+codec from [ifs_layeredfs](https://github.com/mon/ifs_layeredfs), pinned at
+`a0312f8a23a2a7823bdb6a0f634cb58847874c1b`. For
+`/data/product/d3/model/example.bin`, put an image at
+`data_mods/my_mod/product/d3/model/example/IMAGE_NAME.png` or under its `tex/`
+subdirectory. Use the internal texture or atlas-rectangle name. Earlier mod
+folders win per image; within one mod the flat PNG wins over `tex/`. If a whole
+BIN replacement also exists, it becomes the base for PNG patches. The codec
+preserves unrelated images and handles atlas rectangles. IFS/ARC member
+extraction/repacking is not included; this uses the classic GFDM BIN format.
+
+For `/data/product/example.xml`, use
+`data_mods/my_mod/product/example.merged.xml`. Keep the same root element as the
+base. Children are appended in mod-folder order, matching upstream merge
+behavior; existing nodes are not replaced or deduplicated. A whole XML override
+becomes the merge base if present. Native binary XML is decoded with that
+version's AVS before merging. Text encoding and AVS type attributes must remain
+appropriate for the original file.
+
+Generated files live in EXE-local `data_mods/_cache/generated/`. Mod additions,
+changes and removals invalidate the affected result on the next open; the first
+conversion can take time. Unchanged results are reused, including across
+launches, with source/build keys and content checksums. Already-loaded game
+resources still need a reload. Invalid patches warn once per input revision and
+fall back to the whole-file override or native data. Original files are never
+rewritten. Old generated cache files can be removed while the game is closed.
+Keep `IFS-MOD-LICENSES.txt` with redistributed binaries; the third-party codec
+retains its own licenses. No additional DLL or command-line switch is required.
 
 ## Console logging
 

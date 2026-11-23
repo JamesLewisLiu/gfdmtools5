@@ -238,6 +238,7 @@ $$(objdir_$1_$2_$3)/%.o: $$(srcdir_$3)/%.c \
 $$(objdir_$1_$2_$3)/%.o: $$(srcdir_$3)/%.cpp \
 		| $$(depdir_$1_$2_$3) $$(objdir_$1_$2_$3)
 	$(V)echo \(.cpp\) ... $$@
+	$(V)mkdir -p $$(dir $$@) $$(dir $$(depdir_$1_$2_$3)/$$*.d)
 	$(V)$$(toolchain_$1)g++ $$(cxxflags_$3) $$(cppflags_$3) \
 		-MMD -MF $$(depdir_$1_$2_$3)/$$*.d -MT $$@ -MP \
 		-DAVS_VERSION=$2 -c -o $$@ $$<

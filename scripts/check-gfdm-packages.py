@@ -16,12 +16,15 @@ def check(directory):
             assert all('/' not in name and '\\' not in name for name in names), names
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
-                        "CLVSD.ax"}
+                        "CLVSD.ax", "IFS-MOD-LICENSES.txt"}
             for mode in ("gf", "dm"):
                 expected.update({f"gamestart-v{version}-{mode}.bat",
                                  f"{prefix}-{mode}.conf"})
             assert len(names) == len(set(names)) and set(names) == expected, names
             assert not any(name.lower().endswith(".xml") for name in names), names
+            notices = package.read("IFS-MOD-LICENSES.txt").decode()
+            assert all(name in notices for name in ("ifs_layeredfs", "Apache License",
+                       "LodePNG", "libsquish", "fmt", "RapidXML"))
             binary = package.read("gfdmhook1.dll")
             assert binary[:2] == b"MZ"
             decoder = package.read("CLVSD.ax")

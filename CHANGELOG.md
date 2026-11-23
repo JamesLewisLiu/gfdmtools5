@@ -19,6 +19,8 @@
 
 # GFDM update history
 
+2026-11-23: Extend EXE-local data_mods with ifs_layeredfs GFDM texbin PNG packing and ordered .merged.xml appends, including native V4-V8 binary XML decoding. Keep whole-file priority, ordinary/shared data independence and original resources intact. Cache generated files locally with build/input keys and checksums, refresh on mod changes, and fall back on invalid input. Link the converter into the existing x86 hook and include third-party notices in all packages. Pixel/priority/cache/concurrency tests and five genuine AVS binary XML cases pass; real game rendering and user mod packs remain to be tested.
+
 2026-11-23: Add EXE-local data_mods/<mod>/ whole-file overrides for V4-V8 GF/DM, independent of layered.enabled and shared data. Check overrides before object routing, preserve packed/shared fallback, support dynamic file add/change/removal and per-file alphabetical priority, and redirect read-side stat/media path conversion consistently. Keep saves and verified store metadata separate. Five genuine AVS isolated mount/read/reopen/stat/conversion cases pass; gameplay validation remains pending. Texture generation and XML merging are not included.
 
 2026-11-22: Make normal hook console output concise: keep startup/status summaries and warnings/errors, suppress per-input/frame/object details and native AVS info/debug traffic before output locking/debugger/console writes. Filter hook miscellaneous logs before formatting. Enable full synchronous diagnostics only with -Y, retaining bare -Y log.log and explicit paths, including -D forwarding. Gameplay timing improvement still requires physical comparison.
