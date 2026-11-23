@@ -1,4 +1,5 @@
 #undef NDEBUG
+#define LOG_SUPPRESS
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -140,6 +141,40 @@ void property_destroy(struct property *prop)
     destroyed++;
 }
 
+#include "gfdmhook1/ea3-boot.h"
+static void unexpected_fatal(const char *module, const char *format, ...)
+{ (void)module; (void)format; assert(!"unexpected fatal"); }
+log_formatter_t log_impl_fatal = unexpected_fatal;
+static int boot_calls, mount_calls, boot_result;
+static int __cdecl native_boot(struct property_node *root)
+{
+    assert(root == &copy && root != &original && destroyed == 0 && freed == 0);
+    uint32_t size; memcpy(&size, devices[2].value, 4);
+    assert(size == (original_xrpc > 65536 ? original_xrpc : 65536));
+    boot_calls++; return boot_result;
+}
+static bool mount_mods(void)
+{
+    assert(boot_calls == 1 && destroyed == 1 && freed == allocated);
+    mount_calls++; return true;
+}
+static void check_boot_wrapper(void)
+{
+    ea3_mode = true; failure = 0;
+    const uint32_t sizes[] = {0, 4096, 65536, 131072};
+    for (unsigned int version=4; version<=8; version++)
+        for (unsigned int mode=0; mode<2; mode++)
+            for (unsigned int i=0; i<4; i++) {
+                original_xrpc=sizes[i];
+                allocated=freed=destroyed=creates=boot_calls=mount_calls=0;
+                boot_result=mode ? -123 : 37;
+                assert(gfdm_ea3_boot_expanded(version,&original,native_boot,mount_mods)==boot_result);
+                assert(boot_calls==1 && mount_calls==(version<=7 ? 1 : 0));
+                assert(allocated==freed && destroyed==1 && original_xrpc==sizes[i]);
+                assert(!strcmp(original.value,"unrelated original config data"));
+            }
+    puts("PASS: V4-V8 GF/DM EA3 boot expansion, native return values, original tree and V8 mount timing preserved");
+}
 int main(void)
 {
     const char *nvram = "I:/a long isolated V4 directory/bin-diagnostic/DEV/GF/CONF/NVRAM";
@@ -191,6 +226,7 @@ int main(void)
         assert(allocated == freed);
         assert(config.root == NULL && config.property == NULL && config.buffer == NULL);
     }
+    check_boot_wrapper();
     puts("PASS: independent V4 AVS/V7 EA3 config, deep clone, exact save paths, XRPC minimum/larger values, original preservation and failure cleanup");
     return 0;
 }

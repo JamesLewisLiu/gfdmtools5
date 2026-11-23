@@ -10,6 +10,7 @@
 #include "bemanitools/eamio.h"
 #include "cconfig/cconfig-hook.h"
 #include "gfdmhook1/avs-config.h"
+#include "gfdmhook1/ea3-boot.h"
 #include "gfdmhook1/backup.h"
 #include "gfdmhook1/bios.h"
 #include "gfdmhook1/coin.h"
@@ -864,25 +865,8 @@ static AVS_LOG_WRITER(gfdm_avs_log_writer, chars, nchars, ctx)
 static int (__cdecl *real_ea3_boot)(struct property_node *config);
 static int __cdecl gfdm_ea3_boot(struct property_node *config)
 {
-    struct gfdm_avs_config expanded = {0};
-    int result;
-
-    if (gfdm_profile->version > 7) return real_ea3_boot(config);
-    /* V4-V7 default to a 4 KiB XRPC workspace. CORE's service list fits on
-       the wire but exceeds that size when expanded into AVS property nodes.
-       EA3 imports this configuration synchronously; retain larger values. */
-    if (!gfdm_ea3_config_prepare(&expanded, config)) {
-        log_fatal("Cannot prepare V%u EA3 XRPC buffer configuration",
-                  gfdm_profile->version);
-    }
-    log_info("GFDM V%u EA3 XRPC workspace: minimum 65536 bytes",
-             gfdm_profile->version);
-    result = real_ea3_boot(expanded.root);
-    gfdm_avs_config_fini(&expanded);
-    if (!gfdm_mods_mount()) {
-        log_fatal("GFDM data_mods mount failed");
-    }
-    return result;
+    return gfdm_ea3_boot_expanded(gfdm_profile->version, config,
+        real_ea3_boot, gfdm_mods_mount);
 }
 
 static const struct hook_symbol gfdm_ea3_syms[] = {
