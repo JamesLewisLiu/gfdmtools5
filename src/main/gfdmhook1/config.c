@@ -13,6 +13,7 @@
 #define FREEZE_TIMER_KEY "game.freeze_timer"
 #define UNLOCK_MUSIC_KEY "game.unlock_music"
 #define KEYBOARD_KEY "input.keyboard"
+#define MODS_KEY "mods.enabled"
 #define CARDIO_KEY "cardio.enabled"
 #define LAYERED_KEY "layered.enabled"
 #define LAYERED_FULL_VERIFY_KEY "layered.full_verify"
@@ -37,8 +38,10 @@ void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
         "freeze native menu/selection countdowns (restart required)");
     cconfig_util_set_bool(config, UNLOCK_MUSIC_KEY, false,
         "enable native all_music for locally installed songs (restart required)");
+    cconfig_util_set_bool(config, MODS_KEY, true,
+        "enable EXE-local data_mods files, PNG texture packing and XML merging");
     cconfig_util_set_bool(config, CARDIO_KEY, false,
-        "enable CardIO HID readers (restart required; disabled by default)");
+        "enable CardIO HID readers (disabled by default)");
     cconfig_util_set_bool(config, LAYERED_KEY, false,
         "V4-V8: require verified unpacked objects and forbid packed fallback");
     cconfig_util_set_bool(config, LAYERED_FULL_VERIFY_KEY, false,
@@ -133,6 +136,7 @@ void gfdmhook1_config_get(
     cconfig_util_get_bool(config, FREEZE_TIMER_KEY, &out->freeze_timer, false);
     cconfig_util_get_bool(config, UNLOCK_MUSIC_KEY, &out->unlock_music, false);
     cconfig_util_get_bool(config, KEYBOARD_KEY, &out->keyboard, false);
+    cconfig_util_get_bool(config, MODS_KEY, &out->mods, true);
     cconfig_util_get_bool(config, CARDIO_KEY, &out->cardio, false);
     cconfig_util_get_bool(config, LAYERED_KEY, &out->layered, false);
     cconfig_util_get_bool(config, LAYERED_FULL_VERIFY_KEY, &out->layered_full_verify, false);

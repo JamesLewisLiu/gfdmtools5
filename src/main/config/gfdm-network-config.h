@@ -27,6 +27,9 @@ bool gfdm_network_write_config(
     int display_mode,
     bool cardio,
     bool freeze_timer,
-    bool unlock_music);
+    bool unlock_music,
+    bool layered,
+    bool full_verify,
+    bool mods);
 
 #endif

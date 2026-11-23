@@ -663,7 +663,7 @@ static FARPROC WINAPI mods_test_proc(HMODULE module, LPCSTR name)
 static void check_mod_overlay(void)
 {
     char path[MAX_PATH], a[MAX_PATH], b[MAX_PATH], out[MAX_PATH], cwd[MAX_PATH];
-    assert(gfdm_mods_init() && !gfdm_mods_enabled());
+    assert(gfdm_mods_init(true) && !gfdm_mods_enabled());
     root_file(path,sizeof(path),"data_mods"); assert(CreateDirectoryA(path,NULL));
     root_file(path,sizeof(path),"data_mods/z_mod"); assert(CreateDirectoryA(path,NULL));
     root_file(path,sizeof(path),"data_mods/a_mod"); assert(CreateDirectoryA(path,NULL));
@@ -673,7 +673,9 @@ static void check_mod_overlay(void)
     assert(GetCurrentDirectoryA(sizeof(cwd),cwd));
     assert(SetCurrentDirectoryA(test_root));
     for (fixture_version=4;fixture_version<=8;fixture_version++) {
-        assert(gfdm_mods_init() && gfdm_mods_enabled());
+        assert(gfdm_mods_init(false) && !gfdm_mods_enabled());
+        assert(gfdm_mods_mount() && !gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
+        assert(gfdm_mods_init(true) && gfdm_mods_enabled());
         assert(!gfdm_mods_resolve("/data/file.bin",out,sizeof(out)));
         mods_fail_mount=true; assert(!gfdm_mods_mount());
         mods_fail_mount=false; assert(gfdm_mods_mount());
@@ -748,7 +750,7 @@ static void check_mod_overlay(void)
     root_file(path,sizeof(path),"data_mods/_cache/generated");assert(RemoveDirectoryA(path));
     root_file(path,sizeof(path),"data_mods/_cache");assert(RemoveDirectoryA(path));
     root_file(path,sizeof(path),"data_mods"); assert(RemoveDirectoryA(path));
-    assert(gfdm_mods_init() && !gfdm_mods_enabled());
+    assert(gfdm_mods_init(true) && !gfdm_mods_enabled());
     assert(SetCurrentDirectoryA(cwd));
     puts("PASS: V4-V8 data_mods EXE-root selection, independent packed/shared overlays, per-file priority, dynamic add/delete/change, read-only AVS/stat routing and metadata isolation");
 }

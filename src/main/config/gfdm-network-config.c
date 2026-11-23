@@ -152,7 +152,10 @@ bool gfdm_network_write_config(
     int display_mode,
     bool cardio,
     bool freeze_timer,
-    bool unlock_music)
+    bool unlock_music,
+    bool layered,
+    bool full_verify,
+    bool mods)
 {
     char display_value[2], mcode[16];
     char *line = NULL;
@@ -221,7 +224,14 @@ bool gfdm_network_write_config(
         {"game.unlock_music=", unlock_music ? "true" : "false",
          "# Unlock locally installed songs via native all_music; restart required.\n", true, false},
         {"cardio.enabled=", cardio ? "true" : "false",
-         "# Optional CardIO HID readers. Restart after changing this option.\n", true, false},
+         "# Optional CardIO HID readers.\n", true, false},
+        {"layered.enabled=", layered ? "true" : "false",
+         "# Verified shared data; keep false for original PAK files.\n", true, false},
+        {"layered.full_verify=", full_verify ? "true" : "false",
+         "# Rehash all shared objects at startup instead of using verification cache.\n", true, false},
+        {"mods.enabled=", mods ? "true" : "false",
+         "# EXE-local data_mods: complete files, PNG textures and XML merges.\n"
+         "# Independent of shared data; enabled by default.\n", true, false},
     };
 
     while (src != NULL &&

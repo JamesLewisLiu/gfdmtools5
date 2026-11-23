@@ -52,8 +52,11 @@ static bool mods_relative(const char *name, char relative[MAX_PATH])
     return true;
 }
 
-bool gfdm_mods_init(void)
+bool gfdm_mods_init(bool enabled)
 {
+    mods_enabled = false;
+    mods_mounted = false;
+    if (!enabled) return true;
     char exe[MAX_PATH];
     DWORD n = GetModuleFileNameA(NULL, exe, sizeof(exe));
     if (!n || n >= sizeof(exe)) return false;

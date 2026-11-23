@@ -2,6 +2,15 @@
 
 ## Dynamic file, PNG and XML mods
 
+The GFDM configuration page has separate controls for `mods.enabled` (on by
+default), `layered.enabled` (off by default) and `layered.full_verify` (off by
+default). Saving with mods enabled creates EXE-local `data_mods` if missing.
+Disabling mods bypasses mod discovery, mounting and conversion even if the
+folder exists. Shared-data selection and verification remain independent.
+Missing keys preserve the defaults, so existing installs keep working. Restart
+the game after saving configuration changes; the page shows one common reminder
+for all settings, including CardIO. Existing configuration comments are preserved.
+
 Create `data_mods` beside the game EXE before starting the game. Each mod has
 its own subdirectory. For the resource `/data/product/d3/model/example.bin`,
 use `data_mods/my_mod/product/d3/model/example.bin`. The directory is anchored

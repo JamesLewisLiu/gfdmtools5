@@ -54,6 +54,7 @@ def check(directory):
                 assert config["cardio.enabled"] == "false", (version, mode)
                 assert config["layered.enabled"] == "false", (version, mode)
                 assert config["layered.full_verify"] == "false", (version, mode)
+                assert config["mods.enabled"] == "true", (version, mode)
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",

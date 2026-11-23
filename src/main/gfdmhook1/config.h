@@ -19,6 +19,7 @@ struct gfdmhook1_config {
     bool freeze_timer;
     bool unlock_music;
     bool cardio;
+    bool mods;
     bool layered;
     bool layered_full_verify;
     int display_mode;
