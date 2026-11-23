@@ -78,12 +78,14 @@ static BOOL WINAPI observed_crypto(HCRYPTPROV *provider, LPCSTR container,
 #undef fopen
 #undef malloc
 #undef calloc
+#if GFDM_MOD
 static DWORD WINAPI mods_test_executable(HMODULE module, LPSTR path, DWORD size);
 static HMODULE WINAPI mods_test_module(LPCSTR name);
 static FARPROC WINAPI mods_test_proc(HMODULE module, LPCSTR name);
 #define GetModuleFileNameA mods_test_executable
 #define GetModuleHandleA mods_test_module
 #define GetProcAddress mods_test_proc
+#endif
 #include "gfdmhook1/mods.c"
 #undef GetModuleFileNameA
 #undef GetModuleHandleA
@@ -625,6 +627,7 @@ static void check_verification_cache(void)
     puts("PASS: persistent cache hits, full override, same-size restored-time corruption, replacement, missing object, corrupt cache, writer exclusion and unwritable cache");
 }
 
+#if GFDM_MOD
 static DWORD WINAPI mods_test_executable(HMODULE module, LPSTR path, DWORD size)
 {
     (void)module;
@@ -755,6 +758,16 @@ static void check_mod_overlay(void)
     puts("PASS: V4-V8 data_mods EXE-root selection, independent packed/shared overlays, per-file priority, dynamic add/delete/change, read-only AVS/stat routing and metadata isolation");
 }
 
+#else
+static void check_mod_overlay(void)
+{
+    char output[32]="unchanged";
+    assert(gfdm_mods_init(true) && !gfdm_mods_enabled());
+    assert(gfdm_mods_mount() && !gfdm_mods_resolve("/data/test.bin",output,sizeof(output)));
+    assert(!strcmp(output,"unchanged"));
+    puts("PASS normal build: mod requests ignored; shared-data tests retained");
+}
+#endif
 int main(int argc, char **argv)
 {
     /* CI-built evidence helper, deliberately absent from game packages.

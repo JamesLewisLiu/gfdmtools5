@@ -8,7 +8,9 @@ include src/main/config/Module.mk
 include src/main/eamio/Module.mk
 include src/main/geninput/Module.mk
 include src/main/gfdmhook1/Module.mk
+ifeq ($(GFDM_MOD),1)
 include src/main/gfdmhook1/mod-codec.mk
+endif
 include src/main/hook/Module.mk
 include src/main/hooklib/Module.mk
 include src/main/iidxhook-util/Module.mk
@@ -26,15 +28,14 @@ zipdir := $(BUILDDIR)/zip
 $(zipdir)/:
 	$(V)mkdir -p $@
 
-$(zipdir)/gfdm-v%.zip: \
-	build/bin/avs2_1002-32/gfdmhook1.dll \
-		build/bin/indep-32/config.exe \
-		build/bin/indep-32/eamio.dll \
-		build/bin/indep-32/geninput.dll \
-		build/bin/indep-32/inject.exe \
+$(zipdir)/gfdm-v%.zip: $(if $(filter 1,$(GFDM_MOD)),dist/gfdm/IFS-MOD-LICENSES.txt) \
+	$(BUILDDIR)/bin/avs2_1002-32/gfdmhook1.dll \
+		$(BUILDDIR)/bin/indep-32/config.exe \
+		$(BUILDDIR)/bin/indep-32/eamio.dll \
+		$(BUILDDIR)/bin/indep-32/geninput.dll \
+		$(BUILDDIR)/bin/indep-32/inject.exe \
 		dist/gfdm/config-gf.bat \
 		dist/gfdm/config-dm.bat \
-		dist/gfdm/IFS-MOD-LICENSES.txt \
 		dist/gfdm/gamestart-v%-gf.bat \
 		dist/gfdm/gamestart-v%-dm.bat \
 		dist/gfdm/gfdm-v%-gf.conf \
@@ -43,7 +44,14 @@ $(zipdir)/gfdm-v%.zip: \
 		| $(zipdir)/
 	$(V)echo ... $@
 	$(V)rm -f $@
+ifeq ($(GFDM_MOD),0)
+	$(V)mkdir -p $(BUILDDIR)/package-conf
+	$(V)sed '/^mods.enabled=/d; /^# EXE-local data_mods:/d; /^# Independent of shared data/d' dist/gfdm/gfdm-v$*-gf.conf > $(BUILDDIR)/package-conf/gfdm-v$*-gf.conf
+	$(V)sed '/^mods.enabled=/d; /^# EXE-local data_mods:/d; /^# Independent of shared data/d' dist/gfdm/gfdm-v$*-dm.conf > $(BUILDDIR)/package-conf/gfdm-v$*-dm.conf
+	$(V)zip -j $@ $(filter-out dist/gfdm/%.conf,$^) $(BUILDDIR)/package-conf/gfdm-v$*-*.conf
+else
 	$(V)zip -j $@ $^
+endif
 
 gfdm_packages := $(foreach v,4 5 6 7 8,$(zipdir)/gfdm-v$(v).zip)
 gfdm_tests := $(testexes:%=$(bindir)/indep-32/%.exe)
@@ -51,3 +59,8 @@ gfdm_tests := $(testexes:%=$(bindir)/indep-32/%.exe)
 packages: $(gfdm_packages)
 tests: $(gfdm_tests)
 all: packages tests
+
+.PHONY: variants
+variants:
+	$(MAKE) GFDM_MOD=0 BUILDDIR=build/normal all
+	$(MAKE) GFDM_MOD=1 BUILDDIR=build/mod all

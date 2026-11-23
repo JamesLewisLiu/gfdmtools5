@@ -1,3 +1,15 @@
+# Build variants
+
+`make` builds both independent x86 variants. `make GFDM_MOD=0 all` builds only
+normal; `make GFDM_MOD=1 all` builds only MOD. Objects and outputs are isolated
+under build/normal and build/mod, each containing five flat version ZIPs.
+Actions publishes separate normal/MOD package and test artifacts. Both variants
+retain verified shared data and full verification. The normal hook does not
+link the mod codec or access data_mods; its UI has no mod controls. The MOD hook
+retains complete-file overrides, PNG packing and XML merging. Install the hook
+and config.exe from the same variant; existing configuration/saves can be kept.
+Changing to normal does not require deleting your mod folder.
+
 # gfdmhook1
 
 ## Dynamic file, PNG and XML mods
@@ -560,19 +572,6 @@ EEPROM bytes, while these status values preserve the game-facing contract.
 
 ## Persistent play settings
 
-In config.exe, open GFDM and use Play settings (restart required):
-
-- Freeze settings / song selection timer (`game.freeze_timer=true`) holds the
-  native `neverend` parameter on. The existing Disable Menu Timer binding cannot
-  turn it off while this setting is enabled; Auto Play remains independent.
-- Unlock all installed songs (`game.unlock_music=true`) enables native `all_music`.
-  With this option off, the original song-unlock result is preserved.
-
-Both options default to false and save to the selected version's GF/DM file.
-Restart the game to apply changes. They work without an Internet unlock response
-and do not write unlock progress into cards, server profiles or NVRAM. Song data
-must already be installed. These switches do not supply missing assets or a local
-server, and are not a complete replacement for network-dependent game modes.
-`neverend` is a shared native debug parameter and can also hold other menu or
-matching flows; use normal local play when offline. Complete song-list coverage
-and actual gameplay still require per-version testing.
+The persistent timer freeze and song-unlock settings have been removed. Legacy
+`game.freeze_timer` and `game.unlock_music` entries are ignored. Existing bound
+debug Auto Play/Neverend inputs retain their previous behavior.

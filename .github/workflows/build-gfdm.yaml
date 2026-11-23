@@ -1,4 +1,4 @@
-name: Build GFDM V4-V8 (x86)
+name: Build GFDM V4-V8 normal and MOD (x86)
 
 on:
   push:
@@ -10,6 +10,13 @@ permissions:
 
 jobs:
   build:
+    strategy:
+      matrix:
+        include:
+          - flavor: normal
+            mods: 0
+          - flavor: mod
+            mods: 1
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -18,37 +25,41 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-mingw-w64-i686 g++-mingw-w64-i686 binutils-mingw-w64-i686 make zip python3
       - name: Build packages and tests
-        run: make -j1
+        run: make -j1 GFDM_MOD=${{ matrix.mods }} BUILDDIR=build/${{ matrix.flavor }} all
       - name: Test V4 layered exporter
         run: python3 -m unittest discover -s scripts/tests
-      - name: Validate all five packages
-        run: python3 scripts/check-gfdm-packages.py build/zip
+      - name: Validate five packages for this flavor
+        run: python3 scripts/check-gfdm-packages.py build/${{ matrix.flavor }}/zip ${{ matrix.flavor }}
       - uses: actions/upload-artifact@v4
         with:
-          name: gfdm-v4-to-v8-x86-${{ github.sha }}
-          path: build/zip/gfdm-v*.zip
+          name: gfdm-v4-to-v8-${{ matrix.flavor }}-x86-${{ github.sha }}
+          path: build/${{ matrix.flavor }}/zip/gfdm-v*.zip
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
-          name: gfdm-tests-x86-${{ github.sha }}
+          name: gfdm-tests-${{ matrix.flavor }}-x86-${{ github.sha }}
           path: |
-            build/bin/indep-32/*-test.exe
-            build/bin/indep-32/gfdm-log-game.exe
-            build/bin/indep-32/gfdm-log-hook.dll
-            build/bin/indep-32/inject.exe
+            build/${{ matrix.flavor }}/bin/indep-32/*-test.exe
+            build/${{ matrix.flavor }}/bin/indep-32/gfdm-log-game.exe
+            build/${{ matrix.flavor }}/bin/indep-32/gfdm-log-hook.dll
+            build/${{ matrix.flavor }}/bin/indep-32/inject.exe
           if-no-files-found: error
   test:
     needs: build
+    strategy:
+      matrix:
+        flavor: [normal, mod]
     runs-on: windows-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: gfdm-tests-x86-${{ github.sha }}
+          name: gfdm-tests-${{ matrix.flavor }}-x86-${{ github.sha }}
           path: tests
-      - name: Run all eighteen x86 tests
+      - name: Run all x86 tests for this flavor
         shell: pwsh
         run: |
           $tests = @('gfdm-cardio', 'geninput-naive', 'geninput-midi', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-layered', 'gfdm-mods', 'gfdm-avs-config', 'gfdm-display', 'gfdm-logging', 'gfdm-guitar', 'gfdm-lan', 'gfdm-power')
+          if ('${{ matrix.flavor }}' -eq 'normal') { $tests = @($tests | Where-Object { $_ -ne 'gfdm-mods' }) }
           foreach ($test in $tests) {
             & "./tests/$test-test.exe"
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

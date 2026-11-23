@@ -1,3 +1,5 @@
+#include "gfdmhook1/mods.h"
+#if GFDM_MOD
 /* Independent whole-file overlay. Search layout/priority reviewed against
    mon/ifs_layeredfs a0312f8; shared-data manifests are a separate concern. */
 #include <windows.h>
@@ -201,3 +203,14 @@ void gfdm_mods_apply_hooks(void)
     };
     if (mods_enabled) hook_table_apply(NULL, "libavs-win32.dll", symbols, 2);
 }
+
+#else
+bool gfdm_mods_init(bool enabled) { (void)enabled; return true; }
+bool gfdm_mods_enabled(void) { return false; }
+bool gfdm_mods_mount(void) { return true; }
+bool gfdm_mods_resolve(const char *name, char *output, size_t size)
+{ (void)name; (void)output; (void)size; return false; }
+void gfdm_mods_apply_hooks(void) {}
+void gfdm_mods_set_base_reader(int (*reader)(const char *, unsigned char **, size_t *))
+{ (void)reader; }
+#endif

@@ -5,7 +5,9 @@
 #
 
 V               ?= @
-BUILDDIR        ?= build
+GFDM_MOD        ?= 0
+BUILDDIR        ?= $(if $(filter 1,$(GFDM_MOD)),build/mod,build/normal)
+.DEFAULT_GOAL := variants
 
 #
 # Internal variables
@@ -25,7 +27,7 @@ bindir                := $(BUILDDIR)/bin
 toolchain_32          := i686-w64-mingw32-
 
 gitrev                := $(shell git rev-parse HEAD)
-cppflags              := -I src -I src/main -I src/test -DGITREV=$(gitrev)
+cppflags              := -I src -I src/main -I src/test -DGITREV=$(gitrev) -DGFDM_MOD=$(GFDM_MOD)
 cflags                := -O2 -pipe -ffunction-sections -fdata-sections \
                           -Wall -std=c99 -DPSAPI_VERSION=1
 cflags_release        := -Werror

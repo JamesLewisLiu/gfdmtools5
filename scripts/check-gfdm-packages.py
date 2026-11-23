@@ -5,7 +5,8 @@ import sys
 import zipfile
 
 
-def check(directory):
+def check(directory, flavor="mod"):
+    assert flavor in ("normal", "mod")
     shared_binaries = {}
     for version, letter, spec in [(4, "G", "A"), (5, "H", "A"),
                                   (6, "I", "A"), (7, "J", "B"), (8, "K", "B")]:
@@ -16,15 +17,18 @@ def check(directory):
             assert all('/' not in name and '\\' not in name for name in names), names
             expected = {"gfdmhook1.dll", "config.exe", "eamio.dll", "geninput.dll",
                         "inject.exe", "config-gf.bat", "config-dm.bat",
-                        "CLVSD.ax", "IFS-MOD-LICENSES.txt"}
+                        "CLVSD.ax"}
+            if flavor == "mod":
+                expected.add("IFS-MOD-LICENSES.txt")
             for mode in ("gf", "dm"):
                 expected.update({f"gamestart-v{version}-{mode}.bat",
                                  f"{prefix}-{mode}.conf"})
             assert len(names) == len(set(names)) and set(names) == expected, names
             assert not any(name.lower().endswith(".xml") for name in names), names
-            notices = package.read("IFS-MOD-LICENSES.txt").decode()
-            assert all(name in notices for name in ("ifs_layeredfs", "Apache License",
-                       "LodePNG", "libsquish", "fmt", "RapidXML"))
+            if flavor == "mod":
+                notices = package.read("IFS-MOD-LICENSES.txt").decode()
+                assert all(name in notices for name in ("ifs_layeredfs", "Apache License",
+                           "LodePNG", "libsquish", "fmt", "RapidXML"))
             binary = package.read("gfdmhook1.dll")
             assert binary[:2] == b"MZ"
             decoder = package.read("CLVSD.ax")
@@ -54,7 +58,8 @@ def check(directory):
                 assert config["cardio.enabled"] == "false", (version, mode)
                 assert config["layered.enabled"] == "false", (version, mode)
                 assert config["layered.full_verify"] == "false", (version, mode)
-                assert config["mods.enabled"] == "true", (version, mode)
+                assert (config.get("mods.enabled") == "true") == (flavor == "mod")
+                assert "game.freeze_timer" not in config and "game.unlock_music" not in config
                 assert len(config["eamuse.pcbid"]) == 20
                 launch = package.read(f"gamestart-v{version}-{mode}.bat").decode()
                 for token in (f"gdv{version}.exe -{switch}",
@@ -72,4 +77,4 @@ def check(directory):
 
 
 if __name__ == "__main__":
-    check(pathlib.Path(sys.argv[1]))
+    check(pathlib.Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "mod")

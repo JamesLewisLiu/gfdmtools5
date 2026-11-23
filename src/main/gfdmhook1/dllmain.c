@@ -1723,6 +1723,7 @@ static void gfdm_init(void)
     gfdmhook1_config_get(&gfdm_config, config, default_mcode);
     cconfig_finit(config);
 
+    log_info("GFDM build variant: %s", GFDM_MOD ? "MOD" : "normal (shared data supported)");
     if (!gfdm_mods_init(gfdm_config.mods)) log_fatal("Cannot initialize GFDM data_mods");
     if (!gfdm_layered_init(gfdm_profile->version, gfdm_config.layered,
                           gfdm_config.layered_full_verify)) {
@@ -1731,10 +1732,6 @@ static void gfdm_init(void)
     gfdm_layered_apply_hooks();
 
     gfdm_keyboard = gfdm_config.keyboard;
-    gfdm_debug.freeze_timer = gfdm_config.freeze_timer;
-    gfdm_debug.unlock_music = gfdm_config.unlock_music;
-    log_info("GFDM play settings: freeze_timer=%u unlock_music=%u",
-        gfdm_config.freeze_timer, gfdm_config.unlock_music);
     gfdm_mcode = gfdm_config.mcode;
     gfdm_pcbid = gfdm_config.pcbid;
     gfdm_eamid = gfdm_config.eamid;

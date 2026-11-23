@@ -151,8 +151,6 @@ bool gfdm_network_write_config(
     bool keyboard,
     int display_mode,
     bool cardio,
-    bool freeze_timer,
-    bool unlock_music,
     bool layered,
     bool full_verify,
     bool mods)
@@ -219,19 +217,17 @@ bool gfdm_network_write_config(
          false,
          false},
         {"gfx.fullscreen=", display_value, display_comment, true, false},
-        {"game.freeze_timer=", freeze_timer ? "true" : "false",
-         "# Freeze native menu/selection countdowns; restart required.\n", true, false},
-        {"game.unlock_music=", unlock_music ? "true" : "false",
-         "# Unlock locally installed songs via native all_music; restart required.\n", true, false},
         {"cardio.enabled=", cardio ? "true" : "false",
          "# Optional CardIO HID readers.\n", true, false},
         {"layered.enabled=", layered ? "true" : "false",
          "# Verified shared data; keep false for original PAK files.\n", true, false},
         {"layered.full_verify=", full_verify ? "true" : "false",
          "# Rehash all shared objects at startup instead of using verification cache.\n", true, false},
-        {"mods.enabled=", mods ? "true" : "false",
+#if GFDM_MOD
+        {"mods.enabled=", (GFDM_MOD && mods) ? "true" : "false",
          "# EXE-local data_mods: complete files, PNG textures and XML merges.\n"
          "# Independent of shared data; enabled by default.\n", true, false},
+#endif
     };
 
     while (src != NULL &&

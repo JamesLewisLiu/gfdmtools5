@@ -60,16 +60,14 @@ static void check_text(const char *input, int display_mode)
         rewind(src);
     }
     assert(gfdm_network_write_config(
-        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, display_mode, true, true, true, true, false, false));
+        src, dst, 7, "gf", "example:1234", "192.0.2.1", true, display_mode, true, true, false, false));
     rewind(dst);
     text[fread(text, 1, sizeof(text) - 1, dst)] = '\0';
     assert(strstr(text, "eamuse.server=example:1234\n"));
     assert(strstr(text, "adapter.override_ip=192.0.2.1\n"));
     assert(strstr(text, "input.keyboard=true\n"));
     assert(strstr(text, "cardio.enabled=true"));
-    assert(strstr(text, "game.freeze_timer=true"));
-    assert(strstr(text, "game.unlock_music=true"));
-    assert(strstr(text, "mods.enabled=false"));
+    if (GFDM_MOD) assert(strstr(text, "mods.enabled=false"));
     char expected_setting[32];
     snprintf(expected_setting, sizeof(expected_setting), "gfx.fullscreen=%d", display_mode);
     assert(strstr(text, expected_setting));
@@ -126,7 +124,7 @@ static char *rewrite(const char *input)
     assert(fwrite(input, 1, strlen(input), src) == strlen(input));
     rewind(src);
     assert(gfdm_network_write_config(src, dst, 4, "gf", "localhost:80",
-        "10.9.0.19", false, 2, false, false, false, true, false, true));
+        "10.9.0.19", false, 2, false, true, false, GFDM_MOD != 0));
     long size = ftell(dst);
     assert(size >= 0);
     char *text = calloc((size_t) size + 1, 1);
@@ -161,7 +159,12 @@ static void check_preservation(void)
         "# Isolated V4 object-store test\r\n"
         "layered.enabled=true\r\n"
         "layered.full_verify=false\r\n"
-        "mods.enabled=true\r\n"
+        "mods.enabled="
+#if GFDM_MOD
+        "true\r\n"
+#else
+        "false\r\n"
+#endif
         "# gfx.fullscreen: true for fullscreen, false for a fixed-size window; restart required.\r\n"
         "gfx.fullscreen=2";
     char *text = rewrite(base);
@@ -173,7 +176,7 @@ static void check_preservation(void)
     assert(duplicate != NULL);
     sprintf(duplicate, "%s\r\n# Keep this duplicate's explanation\r\n"
         "adapter.override_ip=\r\neamuse.server=old\r\n"
-        "input.keyboard=true\r\ngfx.fullscreen=0\r\ncardio.enabled=true\r\ngame.freeze_timer=true\r\ngame.unlock_music=true\r\n", base);
+        "input.keyboard=true\r\ngfx.fullscreen=0\r\ncardio.enabled=true\r\n", base);
     text = rewrite(duplicate);
     char *expected = malloc(strlen(base) + 100);
     assert(expected != NULL);
@@ -221,15 +224,15 @@ int main(void)
             rewind(src);
             assert(gfdm_network_write_config(src, dst, version,
                 bits & 1 ? "gf" : "dm", "localhost:80", "", false, 1,
-                false, false, false, bits & 1, bits & 2, bits & 4));
+                false, bits & 1, bits & 2, bits & 4));
             rewind(dst);
             char text[4096], expected[64];
             text[fread(text, 1, sizeof(text)-1, dst)] = 0;
             assert(strstr(text, "# Keep my data settings\n"));
             const char *keys[] = {"layered.enabled", "layered.full_verify", "mods.enabled"};
-            for (unsigned int n=0; n<3; n++) {
+            for (unsigned int n=0; n<(GFDM_MOD ? 3u : 2u); n++) {
                 snprintf(expected, sizeof(expected), "%s=%s\n", keys[n],
-                    bits & (1u << n) ? "true" : "false");
+                    (bits & (1u << n)) && (n != 2 || GFDM_MOD) ? "true" : "false");
                 const char *found = strstr(text, expected);
                 assert(found && !strstr(found+1, keys[n]));
             }

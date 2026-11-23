@@ -10,7 +10,6 @@ ldflags_gfdmhook1 := \
     -lws2_32 \
 
 libs_gfdmhook1 := \
-    gfdm-mod-codec \
     cconfig \
     geninput \
     hook \
@@ -41,3 +40,7 @@ src_gfdmhook1 := \
     power.c \
     profile.c \
     storage.c \
+
+ifeq ($(GFDM_MOD),1)
+libs_gfdmhook1 += gfdm-mod-codec
+endif

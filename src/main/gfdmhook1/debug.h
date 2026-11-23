@@ -11,8 +11,6 @@
 struct gfdm_debug_state {
     uint32_t pressed;
     uint32_t enabled;
-    bool freeze_timer;
-    bool unlock_music;
 };
 
 /* Callers serialize updates and reads. Buttons toggle persistent DIP levels. */

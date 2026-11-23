@@ -184,10 +184,14 @@ FONT 8, "Ms Shell Dlg"
 }
 
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-IDD_TAB_GFDM_NETWORK DIALOG 0, 0, 260, 286
+IDD_TAB_GFDM_NETWORK DIALOG 0, 0, 260, 247
 STYLE DS_3DLOOK | DS_SHELLFONT | WS_VISIBLE | WS_CHILDWINDOW
 EXSTYLE WS_EX_CONTROLPARENT
+#if GFDM_MOD
+CAPTION "GFDM MOD"
+#else
 CAPTION "GFDM"
+#endif
 FONT 8, "Ms Shell Dlg"
 {
     GROUPBOX        "GFDM Network", IDC_STATIC, 5, 5, 250, 82
@@ -202,15 +206,16 @@ FONT 8, "Ms Shell Dlg"
     AUTOCHECKBOX    "Enable CardIO readers", IDC_GFDM_CARDIO, 15, 117, 225, 10
     LTEXT           "Display", IDC_STATIC, 15, 136, 85, 10, SS_LEFT
     COMBOBOX        IDC_GFDM_DISPLAY_MODE, 105, 133, 140, 80, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Play settings", IDC_STATIC, 5, 155, 250, 34
-    AUTOCHECKBOX    "Freeze settings / song selection timer", IDC_GFDM_FREEZE_TIMER, 15, 165, 225, 10
-    AUTOCHECKBOX    "Unlock all installed songs", IDC_GFDM_UNLOCK_MUSIC, 15, 177, 225, 10
-    GROUPBOX        "Data and Mods", IDC_STATIC, 5, 194, 250, 72
-    AUTOCHECKBOX    "Enable data_mods (files, PNG textures and XML merges)", IDC_GFDM_MODS, 15, 206, 235, 10
-    LTEXT           "Uses data_mods beside the EXE, with or without shared data.", IDC_STATIC, 15, 219, 235, 10, SS_LEFT
-    AUTOCHECKBOX    "Use verified shared data (not for original PAK files)", IDC_GFDM_LAYERED, 15, 234, 235, 10
-    AUTOCHECKBOX    "Rehash all shared objects at startup (slower)", IDC_GFDM_FULL_VERIFY, 15, 249, 235, 10
-    LTEXT           "Restart the game after saving configuration changes.", IDC_STATIC, 15, 274, 235, 10, SS_LEFT
+    GROUPBOX        "Data and Mods", IDC_STATIC, 5, 155, 250, 72
+#if GFDM_MOD
+    AUTOCHECKBOX    "Enable data_mods (files, PNG textures and XML merges)", IDC_GFDM_MODS, 15, 167, 235, 10
+    LTEXT           "Uses data_mods beside the EXE, with or without shared data.", IDC_STATIC, 15, 180, 235, 10, SS_LEFT
+#else
+    LTEXT           "Normal build: data_mods requires the separate MOD build.", IDC_STATIC, 15, 167, 235, 22, SS_LEFT
+#endif
+    AUTOCHECKBOX    "Use verified shared data (not for original PAK files)", IDC_GFDM_LAYERED, 15, 195, 235, 10
+    AUTOCHECKBOX    "Rehash all shared objects at startup (slower)", IDC_GFDM_FULL_VERIFY, 15, 210, 235, 10
+    LTEXT           "Restart the game after saving configuration changes.", IDC_STATIC, 15, 235, 235, 10, SS_LEFT
 }
 
 
