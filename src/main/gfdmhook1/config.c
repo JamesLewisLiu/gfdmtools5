@@ -24,6 +24,23 @@ static const struct net_addr default_server = {
     .hostname = {.host = NET_LOCALHOST_NAME, .port = 80},
 };
 
+static void gfdm_config_get_id(struct cconfig *config, const char *key,
+                               struct security_id *out)
+{
+    const struct cconfig_entry *entry = cconfig_get(config, key);
+    struct security_id id;
+
+    if (entry != NULL) {
+        if (strlen(entry->value) == sizeof(id) * 2 &&
+            security_id_parse(entry->value, &id)) {
+            *out = id;
+            return;
+        }
+        log_warning("Invalid %s: expected exactly 20 hexadecimal digits", key);
+    }
+    *out = security_id_default;
+}
+
 void gfdmhook1_config_init(struct cconfig *config, const char *default_mcode)
 {
     cconfig_util_set_str(
@@ -93,8 +110,6 @@ void gfdmhook1_config_get(
     memset(out, 0, sizeof(*out));
     out->server = default_server;
     memset(&out->adapter, 0, sizeof(out->adapter));
-    out->pcbid = security_id_default;
-    out->eamid = security_id_default;
     out->keyboard = false;
     out->frame_rate_limit = 60.0f;
     out->forced_refresh_rate = 60;
@@ -108,19 +123,8 @@ void gfdmhook1_config_get(
 
     hooklib_config_adapter_get(&out->adapter, config);
 
-    cconfig_util_get_data(
-        config, PCBID_KEY, (uint8_t *) &out->pcbid, sizeof(out->pcbid),
-        (const uint8_t *) &security_id_default);
-    cconfig_util_get_data(
-        config, EAMID_KEY, (uint8_t *) &out->eamid, sizeof(out->eamid),
-        (const uint8_t *) &security_id_default);
-
-    if (!security_id_verify(&out->pcbid)) {
-        out->pcbid = security_id_default;
-    }
-    if (!security_id_verify(&out->eamid)) {
-        out->eamid = security_id_default;
-    }
+    gfdm_config_get_id(config, PCBID_KEY, &out->pcbid);
+    gfdm_config_get_id(config, EAMID_KEY, &out->eamid);
 
     if (!cconfig_util_get_str(
             config, MCODE_KEY, mcode, sizeof(mcode), default_mcode) ||

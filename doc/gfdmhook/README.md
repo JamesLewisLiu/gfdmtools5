@@ -440,6 +440,9 @@ The default `0101020304050607086F` displays as `0101-0203-0405-0607-086F`.
 This also replaces V4's native fixed `0140` prefix and ROM-byte permutation.
 `eamuse.eamid` independently supplies the white roundplug ROM and its EEPROM
 signature; `eamuse.pcbid` also supplies the black roundplug ROM and signature.
+Each setting accepts exactly 20 hexadecimal digits, case-insensitively. The
+hook uses the configured bytes as supplied. A value of the wrong length or a
+value containing non-hexadecimal characters uses the built-in default ID.
 The injected V4 boot path initializes EA3 from the system identity, rather
 than taking the network PCBID from the built-in boot configuration's legacy identity node.
 HARDWARE ID is derived separately from the selected network adapter's MAC.

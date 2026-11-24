@@ -45,8 +45,8 @@ src_gfdm-backup-test := backup-test.c
 testexes += gfdm-config-test
 srcdir_gfdm-config-test := src/test/gfdmhook1
 src_gfdm-config-test := config-test.c
-libs_gfdm-config-test := hook
-ldflags_gfdm-config-test := -lsetupapi
+libs_gfdm-config-test := cconfig hook hooklib security util
+ldflags_gfdm-config-test := -liphlpapi -lsetupapi -lws2_32
 
 testexes += gfdm-layered-test
 srcdir_gfdm-layered-test := src/test/gfdmhook1

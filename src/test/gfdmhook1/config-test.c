@@ -8,6 +8,49 @@
 #include "config/gfdm-network-config.c"
 #include "config/schema.c"
 #include "config/hid-metadata.c"
+#include "gfdmhook1/config.c"
+
+static void check_configured_ids(void)
+{
+    static const struct security_id pcbid = {
+        .header = 0xca, .id = {0xfe, 0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66}, .checksum = 0xa7,
+    };
+    static const struct security_id eamid = {
+        .header = 0x01, .id = {1, 2, 3, 4, 5, 6, 7, 8}, .checksum = 0x00,
+    };
+    static const char *const malformed[] = {
+        "", "CAFE00112233445566A", "CAFE00112233445566A70",
+        "CAFE00112233445566A700", "CAFE00112233445566AZ",
+    };
+    const char *model = "GCK32JBA";
+    struct cconfig *config = cconfig_init();
+    struct gfdmhook1_config result;
+
+    gfdmhook1_config_init(config, model);
+    gfdmhook1_config_get(&result, config, model);
+    assert(memcmp(&result.pcbid, &security_id_default, sizeof(pcbid)) == 0);
+    assert(memcmp(&result.eamid, &security_id_default, sizeof(eamid)) == 0);
+
+    cconfig_set2(config, "eamuse.pcbid", "cafe00112233445566a7");
+    cconfig_set2(config, "eamuse.eamid", "01010203040506070800");
+    gfdmhook1_config_get(&result, config, model);
+    assert(memcmp(&result.pcbid, &pcbid, sizeof(pcbid)) == 0);
+    assert(memcmp(&result.eamid, &eamid, sizeof(eamid)) == 0);
+
+    for (size_t i = 0; i < sizeof(malformed) / sizeof(malformed[0]); i++) {
+        cconfig_set2(config, "eamuse.pcbid", malformed[i]);
+        gfdmhook1_config_get(&result, config, model);
+        assert(memcmp(&result.pcbid, &security_id_default, sizeof(pcbid)) == 0);
+        assert(memcmp(&result.eamid, &eamid, sizeof(eamid)) == 0);
+    }
+    cconfig_set2(config, "eamuse.pcbid", "CAFE00112233445566A7");
+    cconfig_set2(config, "eamuse.eamid", "BAD");
+    gfdmhook1_config_get(&result, config, model);
+    assert(memcmp(&result.pcbid, &pcbid, sizeof(pcbid)) == 0);
+    assert(memcmp(&result.eamid, &security_id_default, sizeof(eamid)) == 0);
+    cconfig_finit(config);
+    puts("PASS: both GFDM IDs preserve all 20 configured hexadecimal digits");
+}
 
 static void check_metadata_lifetime(void)
 {
@@ -214,6 +257,7 @@ static void check_preservation(void)
 
 int main(void)
 {
+    check_configured_ids();
     for (unsigned int version = 4; version <= 8; version++) {
         for (unsigned int bits = 0; bits < 8; bits++) {
             FILE *src = tmpfile(), *dst = tmpfile();
