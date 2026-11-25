@@ -58,7 +58,7 @@ jobs:
       - name: Run all x86 tests for this flavor
         shell: pwsh
         run: |
-          $tests = @('gfdm-cardio', 'geninput-naive', 'geninput-midi', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-layered', 'gfdm-mods', 'gfdm-avs-config', 'gfdm-display', 'gfdm-logging', 'gfdm-guitar', 'gfdm-lan', 'gfdm-power')
+          $tests = @('gfdm-cardio', 'geninput-naive', 'geninput-midi', 'gfdm-profile', 'gfdm-storage', 'gfdm-coin', 'gfdm-debug', 'gfdm-effect', 'gfdm-backup', 'gfdm-config', 'gfdm-layered', 'gfdm-mods', 'gfdm-avs-config', 'gfdm-display', 'gfdm-logging', 'gfdm-guitar', 'gfdm-lan', 'gfdm-mplay', 'gfdm-power')
           if ('${{ matrix.flavor }}' -eq 'normal') { $tests = @($tests | Where-Object { $_ -ne 'gfdm-mods' }) }
           foreach ($test in $tests) {
             & "./tests/$test-test.exe"

@@ -8,6 +8,10 @@ testexes += gfdm-lan-test
 srcdir_gfdm-lan-test := src/test/gfdmhook1
 src_gfdm-lan-test := lan-test.c
 
+testexes += gfdm-mplay-test
+srcdir_gfdm-mplay-test := src/test/gfdmhook1
+src_gfdm-mplay-test := mplay-test.c
+
 testexes += gfdm-cardio-test
 srcdir_gfdm-cardio-test := src/test/gfdmhook1
 src_gfdm-cardio-test := cardio-test.c

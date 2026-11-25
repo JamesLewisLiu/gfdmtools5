@@ -25,6 +25,7 @@
 #include "gfdmhook1/layered.h"
 #include "gfdmhook1/lan.h"
 #include "gfdmhook1/logging.h"
+#include "gfdmhook1/mplay.h"
 #include "gfdmhook1/mods.h"
 #include "gfdmhook1/network.h"
 #include "gfdmhook1/profile.h"
@@ -1769,6 +1770,7 @@ static void __cdecl gfdm_boot_main(HWND hwnd)
 {
     gfdm_init();
     gfdm_display_init(hwnd, gfdm_config.display_mode, gfdm_config.forced_refresh_rate);
+    gfdm_mplay_apply_hooks(gfdm_profile->version);
     real_boot_main(hwnd);
 }
 
